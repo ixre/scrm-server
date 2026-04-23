@@ -5,9 +5,9 @@ services:
     restart: always
     ports:
       - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning --requirepass A6UBxB4igUNxPRfx3CpYutH353VYo8Atpc
+    command: redis-server --save 20 1 --loglevel warning --requirepass 123456
     volumes:
-      - ./docker/redis/data:/data
+      - ./redis/data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -18,14 +18,14 @@ services:
     image: 'mysql:8.0'
     restart: always
     environment:
-      MYSQL_USER: "open_scrm_demo"
-      MYSQL_PASSWORD: "A6UBxB4igUNxPRfx3CpYutH353VYo8Atpc"
-      MYSQL_DATABASE: "open_scrm_demo"
-      MYSQL_ROOT_PASSWORD: "A6UBxB4igUNxPRfx3CpYutH353VYo8Atpc"
+      MYSQL_USER: "scrm"
+      MYSQL_PASSWORD: "123456"
+      MYSQL_DATABASE: "scrm"
+      MYSQL_ROOT_PASSWORD: "123456"
     ports:
       - '3306:3306'
     volumes:
-      - ./docker/mysql/data:/var/lib/mysql
+      - ./mysql/data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
