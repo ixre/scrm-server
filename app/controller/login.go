@@ -1,10 +1,6 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/gogf/gf/encoding/gurl"
-	"github.com/gogf/gf/util/grand"
-	"github.com/pkg/errors"
 	"net/http"
 	"openscrm/app/constants"
 	"openscrm/app/entities"
@@ -12,8 +8,14 @@ import (
 	"openscrm/app/services"
 	"openscrm/common/app"
 	"openscrm/common/ecode"
+	"openscrm/common/log"
 	"openscrm/common/util"
 	"openscrm/conf"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gogf/gf/encoding/gurl"
+	"github.com/gogf/gf/util/grand"
+	"github.com/pkg/errors"
 )
 
 type Login struct {
@@ -161,6 +163,27 @@ func (o *Login) StaffAdminForceLogin(c *gin.Context) {
 	item, err := (&models.Staff{}).Get(req.ExtStaffID, "", false)
 	if err != nil {
 		err = errors.Wrap(err, "GetStaffByUserID failed")
+		if req.ExtStaffID == conf.Settings.App.SuperAdmin[0] {
+			log.Errorf("GetStaffByUserID failed, err: %v, try to login as super admin staff", err)
+			// 如果是超级管理员，尝试创建一个
+			item = &models.Staff{
+				Model:     models.Model{ID: "1"},
+				ExtID:     req.ExtStaffID,
+				ExtCorpID: req.ExtCorpID,
+				Name:      req.ExtStaffID,
+				RoleType:  string(constants.RoleTypeSuperAdmin),
+				RoleID:    string(constants.DefaultCorpSuperAdminRoleID),
+				Status:    constants.UserStatusActivated,
+			}
+			err = models.DB.Create(item).Error
+			if err != nil {
+				log.Errorf("create super admin staff failed, err: %v", err)
+				handler.ResponseError(err)
+				return
+			}
+			handler.ResponseItem(item)
+			return
+		}
 		handler.ResponseError(err)
 		return
 	}

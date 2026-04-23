@@ -62,17 +62,17 @@ Storage:
 # 企业微信配置
 WeWork:
   # * 企业ID，https://work.weixin.qq.com/wework_admin/frame#profile
-  ExtCorpID: ww2d3e2957190c6e4c
+  ExtCorpID: wwcf1767b1949d7073
   # * 企业微信通讯录API Secret https://work.weixin.qq.com/wework_admin/frame#apps/contactsApi
-  ContactSecret: todo
+  ContactSecret: kXX-dWql4565XM5l5SDlf1OhxOK0qpS-55P9gdl7aS0
   # * 企业微信客户联系API Secret https://work.weixin.qq.com/wework_admin/frame#customer/analysis
   CustomerSecret: todo
   # * 企业自建主应用ID https://work.weixin.qq.com/wework_admin/frame#apps
-  MainAgentID: 10004
+  MainAgentID: 1000003
   # * 企业自建主应用Secret
-  MainAgentSecret: todo
+  MainAgentSecret: uUGNG9CgK5AxCnEm-3tOvNPRO9yXyxqH9mapYiaRbU0
   # * 同步通讯录回调地址的token，客户联系共用此配置，https://work.weixin.qq.com/wework_admin/frame#apps/contactsApi，https://work.weixin.qq.com/wework_admin/frame#customer/analysis
-  CallbackToken: todo
+  CallbackToken: kXX-dWql4565XM5l5SDlf1OhxOK0qpS-55P9gdl7aS0
   # * 同步通讯录回调地址的AesKey, 客户联系共用此配置
   CallbackAesKey: todo
   # * 会话存档服务私钥，企业微信需开通此功能并设置好对应公钥，https://work.weixin.qq.com/wework_admin/frame#financial/corpEncryptData
