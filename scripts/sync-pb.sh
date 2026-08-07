@@ -6,7 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PB_DIR="$ROOT/api/pb"
-GATEWAY_PB_DIR="$ROOT/../gateway/api/pb"
+GATEWAY_PB_DIR="$ROOT/../scrm-app/gateway/api/pb"
 
 if ! command -v protoc >/dev/null || ! command -v protoc-gen-go >/dev/null || ! command -v protoc-gen-go-grpc >/dev/null; then
   echo "缺少 protoc / protoc-gen-go / protoc-gen-go-grpc" >&2

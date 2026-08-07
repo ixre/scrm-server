@@ -52,6 +52,12 @@ func SetupDB() {
 	SetupCustomerInfoDisplayRule()
 }
 
+// SetupSchema 只建立数据库连接并自动迁移表结构（AutoMigrate），
+// 不做种子数据初始化，供迁移工具（cmd/migrate）使用，避免依赖 redis/id_generator。
+func SetupSchema() {
+	DB = initDB(conf.Settings.DB)
+}
+
 // AutoMigrate 用于根据结构体定义自动迁移表结构,只新增字段
 func AutoMigrate(db *gorm.DB) error {
 	if !conf.Settings.App.AutoMigration {
