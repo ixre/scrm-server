@@ -6,42 +6,35 @@
 
 ```
 scrm/
-├── core/         闭源 gRPC 业务核心（独立本地仓库，本仓库）
-├── gateway/      开放 HTTP 网关（独立本地仓库）
-├── scrm-server/  openscrm 上游后端（fork，独立仓库，含 origin + upstream）
-└── scrm-app/     前端 + 会话存档服务（独立仓库）
+├── scrm-server/  唯一闭源 gRPC 业务核心（本仓库，module `core`）
+└── scrm-app/     开放侧（前端 dashboard/sidebar + 开放网关 gateway + 会话存档 msg-server）
 ```
+
+> 历史：本仓库由 openscrm fork（scrm-server）与闭源核心（core）合并而来。openscrm 的 HTTP 层已被 gateway 的路径映射取代，原 HTTP 源码已压缩备份于 `~/git/_archive/`（`scrm-server-openscrm-*.tar.gz`）并删除，不再随本仓库维护。`upstream`（openscrm 官方）remote 已移除。
 
 ## 各仓库说明
 
-### core/ —— 闭源 gRPC 核心（本仓库）
+### scrm-server/ —— 闭源 gRPC 核心（本仓库）
 - **定位**：承载真实业务逻辑，源码私有，仅核心团队可访问。
 - **对外**：只暴露 `.proto` 契约 + 生成的 pb 客户端代码（相当于私有 registry 的 SDK），不暴露实现。
-- **技术**：Go + gRPC，监听 `:9002`。已迁移 openscrm 的 `app`/`common`/`pkg`/`conf` 地基，模块路径 `openscrm/` → `core/`。
+- **技术**：Go + gRPC，监听 `:9002`。迁移自 openscrm 的 `app`/`common`/`pkg`/`conf` 地基，模块路径 `openscrm/` → `core/`。
 - **已接入业务域**：customer、staff（类型化 Get/Query）+ 其余全部业务域（经通用 JSON 透传 BusinessService）。
 
 ### BusinessService —— 通用 JSON 透传
 openscrm 有数十个业务域、上百个异构方法签名（io.ReadCloser、bytes.Buffer、多字符串参数等），为每个域建模类型化 proto 不现实。因此除 customer/staff 的类型化契约外，增加一个通用 `BusinessService.Invoke(BusinessRequest) → BusinessResponse`：
 - `BusinessRequest{service, action, corp_id, staff_id, params}`，`params` 为该动作入参 JSON。
-- core 内的 `internal/dispatch` 按 `(service, action)` 分发到真实 service，结果序列化回 JSON。
+- 本仓库内的 `internal/dispatch` 按 `(service, action)` 分发到真实 service，结果序列化回 JSON。
 - 覆盖 39 个业务域、130+ 个动作（CRUD/Query/Get/Update/Delete/统计/导出等），已注册清单见 `internal/dispatch/*.go` 的 `init()`。
 - 内部/回调/Sync/批量拉取/二进制上传（bytes.Buffer、io.ReadCloser）方法不对外暴露，属核心内部。
 - 若某域需要强类型契约，仍可按 customer/staff 模板叠加类型化 proto，BusinessService 保持兼容。
 
-### gateway/ —— 开放 HTTP 网关
-- **定位**：对前端暴露 HTTP API，鉴权在 HTTP 层完成，业务转发给闭源 core。源码对前端/后端团队开放，不含业务实现。
-- **技术**：Go + gin，监听 `:9001`，通过 gRPC client 调 core（`:9002`）。
-- **已接入端点**：customer、staff 的列表/详情。
-- 关键目录：`internal/controller/`、`internal/middleware/auth.go`（JWT，密钥取 `GATEWAY_JWT_SECRET`）、`internal/router/`、`api/pb/`（从 core 同步的契约）、`hack/gentoken/`。
-
-### scrm-server/ —— 后端源仓库（openscrm fork）
-- 上游 openscrm 的 API server（Go 单体），当前核心业务的地基来源。
-- `origin` = 你们的主仓库，`upstream` = openscrm 官方（用于同步更新）。
-- core 已把其中 `app`/`common`/`pkg`/`conf` 迁入并改造为 gRPC 核心，本仓库保留作为上游跟踪源。
-
-### scrm-app/ —— 前端与会话存档
-- `dashboard/` — React 管理后台；`sidebar/` — React 侧边栏；`msg-server/` — Go 会话存档服务（含企微专属 SDK，敏感）。
-- 三者目前装在同一个仓库里，若需按权限隔离，应拆成独立仓库（msg-server 尤其涉敏感 SDK）。
+### scrm-app/ —— 开放侧（前端 + 网关 + 会话存档）
+- `dashboard/` — React 管理后台；`sidebar/` — React 侧边栏。
+- `gateway/` — 开放 HTTP 网关：对前端暴露 HTTP API，鉴权在 HTTP 层完成，业务转发给闭源核心（gRPC `:9002`）。源码开放，不含业务实现。
+  - 类型化端点（customer/staff 列表/详情）+ **路径映射层**（`internal/controller/pathmap*`）：把原 openscrm 全部业务端点逐条翻译成对核心的 `(service, action)` 调用，前端 dashboard 沿用原始路径即可零改动访问。
+  - 通用 JSON 透传兜底 `/api/v1/biz/:service/:action`。
+  - 未纳入路径映射的端点（登录/OAuth、文件流导出、multipart 上传、各域 Sync、内部动作）由网关其他机制承接，见 `scrm-app/gateway/README.md`。
+- `msg-server/` — Go 会话存档服务（含企微专属 SDK，敏感），独立部署。
 
 ## 调用链路
 
@@ -49,36 +42,36 @@ openscrm 有数十个业务域、上百个异构方法签名（io.ReadCloser、b
 前端(dashboard/sidebar)
    │  HTTP (JSON)
    ▼
-gateway(开放，:9001，JWT 鉴权)
+gateway(开放，:9001，JWT 鉴权)   ← scrm-app/gateway
    │  gRPC（身份经 metadata 透传）
    ▼
-core(闭源，:9002，真实业务)
+scrm-server(闭源，:9002，真实业务)   ← 本仓库
    │  HTTP（仅 msg_arch/会话存档域）
    ▼
 msg-server(独立会话存档服务，企微专属 .so，Linux-only)
 ```
 
-> **msg-server 是独立部署的外部依赖**（`scrm-app/msg-server`，OpenSCRM 会话存档服务），不是 core 的一部分，也不是 gateway 的一部分。
-> core 仅 `msg_arch` 域（`customer/chat-sessions`、`session-msgs`、`session-msg/action/search`）经 HTTP 反向调用它，地址取 `conf.Settings.Server.MsgArchSrvHost:MsgArchHttpPort`（见 `app/services/msg_arch.go`）。该调用关系是 openscrm 原有拓扑，迁入 core 时原样保留。
-> 其它业务域不依赖 msg-server；gateway 对 msg-server 完全透明，只认 core 的 `msg_arch` 动作。**不启动 msg-server 时，仅会话存档相关端点报错，其余不受影响。**
+> **msg-server 是独立部署的外部依赖**（`scrm-app/msg-server`，OpenSCRM 会话存档服务），不是本仓库的一部分，也不是 gateway 的一部分。
+> 本仓库仅 `msg_arch` 域（`customer/chat-sessions`、`session-msgs`、`session-msg/action/search`）经 HTTP 反向调用它，地址取 `conf.Settings.Server.MsgArchSrvHost:MsgArchHttpPort`（见 `app/services/msg_arch.go`）。该调用关系是 openscrm 原有拓扑，迁入时原样保留。
+> 其它业务域不依赖 msg-server；gateway 对 msg-server 完全透明，只认本仓库的 `msg_arch` 动作。**不启动 msg-server 时，仅会话存档相关端点报错，其余不受影响。**
 
 ## 安全边界
-- 鉴权在 gateway 的 HTTP 层；core 只应监听内网、仅允许 gateway 可达，不得对外直接暴露，否则可绕过鉴权。
+- 鉴权在 gateway 的 HTTP 层；本仓库只应监听内网、仅允许 gateway 可达，不得对外直接暴露，否则可绕过鉴权。
 - 闭源靠"仓库权限 + 契约/SDK 分发"，防的是协作同事看源码，防不了运维/反编译。
 - `conf/config.yaml` 含密钥，已 gitignore 不入库。
 
 ## 快速开始（开发）
-1. 分别启动 core 与 gateway（需 MySQL + Redis 就绪，core 配置 `conf/config.yaml`）。
-2. `cd core && ./scripts/sync-pb.sh` 同步契约。
-3. `cd gateway && go run ./hack/gentoken` 生成 JWT，调用 HTTP 接口。
+1. 分别启动本仓库（闭源核心）与 gateway（需 MySQL + Redis 就绪，配置 `conf/config.yaml`）。
+2. `cd scrm-server && ./scripts/sync-pb.sh` 同步契约到 `scrm-app/gateway/api/pb`。
+3. `cd scrm-app/gateway && go run ./hack/gentoken` 生成 JWT，调用 HTTP 接口。
 
 ---
 
-# core（闭源核心）—— 内部结构与维护
+# scrm-server（闭源核心）—— 内部结构与维护
 
 ## 结构
 ```
-core/
+scrm-server/
 ├── api/pb/business.proto     # 通用 JSON 透传契约（覆盖其余全部业务域）
 ├── api/pb/customer.proto      # 契约唯一事实来源（闭源）
 ├── api/pb/staff.proto         # 契约唯一事实来源（闭源）
@@ -98,15 +91,15 @@ core/
 
 ## 契约生成（唯一事实来源）
 ```bash
-./scripts/sync-pb.sh   # 重新生成 customer/staff 的 pb，并同步到 gateway/api/pb
+./scripts/sync-pb.sh   # 重新生成 customer/staff 的 pb，并同步到 scrm-app/gateway/api/pb
 ```
-改 `.proto` 后跑一次，再在 core 与 gateway 分别 `go build ./...` 验证。
+改 `.proto` 后跑一次，再在本仓库与 gateway 分别 `go build ./...` 验证。
 
 ## 数据库迁移
 - **新增字段/表**：改 Model 定义，`AutoMigration: true` 时每次启动自动补（幂等，只增不改删）。
 - **改已有列定义**（类型/长度/索引等，AutoMigrate 做不到）：在 `migrations/` 加 `.sql` 文件，然后执行：
   ```bash
-  go run ./cmd/migrate   # 在 core 目录下；自动建库连接 + AutoMigrate + 应用手工 SQL
+  go run ./cmd/migrate   # 在本仓库目录下；自动建库连接 + AutoMigrate + 应用手工 SQL
   ```
   以文件名为版本号记录进 `schema_migrations`，幂等；本命令只建库连接+迁移，不初始化种子数据、不依赖 redis。
 
@@ -116,10 +109,12 @@ go run .   # 需 MySQL + Redis 就绪，config.yaml 配好
 ```
 
 ## 与 gateway 的关系
-- gateway 是开放端，通过 gRPC 调本服务，**不接触** `app/models`、`common`、`pkg` 实现。
+- gateway 是开放端（`scrm-app/gateway`），通过 gRPC 调本服务，**不接触** `app/models`、`common`、`pkg` 实现。
 - 每次契约变更：改 proto → 重新生成 → 同步 `.pb.go` 到 gateway → 两端各重新编译。
 
 ## 迁移说明
-- 已把 openscrm 的 `app`(models/services/constants/entities/requests/responses)、`common`、`pkg`、`conf` 整体迁入本仓库，模块路径 `openscrm/` → `core/`，编译通过。
+- 本仓库由 openscrm fork 与独立闭源仓库 core 合并而成：openscrm 的 110 提交 + core 的 5 提交历史完整保留于 git log；内容采用 core 那版（module `core`）。
+- openscrm 的 `app`(models/services/constants/entities/requests/responses)、`common`、`pkg`、`conf` 已整体迁入，模块路径 `openscrm/` → `core/`，编译通过。
+- openscrm 的 HTTP 层（`routers/`、HTTP `main.go`、`test/`、`docker/`、`LICENSE` 等）已被 gateway 路径映射取代，原源码压缩备份于 `~/git/_archive/` 并删除。
 - 业务仍继承 openscrm 的全局单例结构（`conf.Settings`、共享 gorm DB）。customer/staff 暴露类型化 Get/Query；其余业务经 `internal/dispatch` 的通用 JSON 透传分发暴露。新增业务动作：在 `internal/dispatch/<域>.go` 的 `init()` 里 `Reg.Register("域","动作",handler)` 即可。
 - 试点 main 未启动 consumers/tasks/delay_queue（依赖企微回调），生产需按 openscrm `main.go` 完整初始化。
