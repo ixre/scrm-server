@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package core;
+
+option go_package = "core/api/pb;pb";
+
+// 客户业务对象（闭源核心对外暴露的契约，仅此一份，是事实来源）
+message Customer {
+  string ext_id = 1;   // 企微客户外部 id
+  string name = 2;     // 客户姓名
+  string corp_id = 3;  // 所属企业
+  string avatar = 4;   // 头像
+  int64 created_at = 5;
+}
+
+message GetCustomerRequest {
+  string ext_id = 1;
+  string corp_id = 2; // 由网关鉴权后从身份注入，业务层使用
+}
+
+message QueryCustomerRequest {
+  string corp_id = 1;
+  int64 page = 2;
+  int64 page_size = 3;
+  string keyword = 4; // 姓名模糊搜索
+}
+
+message QueryCustomerResponse {
+  repeated Customer items = 1;
+  int64 total = 2;
+}
+
+// 闭源核心的客户服务。网关通过 gRPC 调用，不接触实现。
+service CustomerService {
+  rpc Get(GetCustomerRequest) returns (Customer);
+  rpc Query(QueryCustomerRequest) returns (QueryCustomerResponse);
+}

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package business.v1;
+
+option go_package = "core/api/pb;pb";
+
+// BusinessRequest 通用 JSON 透传请求。
+// 为了在一个 pass 内覆盖 openscrm 数十个业务域、避免逐个建模数百个 DTO，
+// 采用 JSON 透传：service/action 定位到闭源 core 内的真实 service 方法，
+// params 是该动作入参的 JSON（具体结构由 service/action 决定）。
+message BusinessRequest {
+  string service = 1;   // 业务域名，如 customer / group_chat / role
+  string action = 2;    // 动作名，如 Query / Get / Create / Update / Delete
+  string corp_id = 3;   // 企业微信 corp_id（网关鉴权注入）
+  string staff_id = 4;  // 员工 id（网关鉴权注入）
+  bytes params = 5;     // 动作入参 JSON
+}
+
+// BusinessResponse 通用 JSON 透传响应。data 为结果 JSON；失败时 code!=0 且带 msg。
+message BusinessResponse {
+  bytes data = 1;
+  int32 code = 2;
+  string msg = 3;
+}
+
+// BusinessService 把任意业务域动作安全转发给闭源 core 执行，实现全在 core 内。
+service BusinessService {
+  rpc Invoke(BusinessRequest) returns (BusinessResponse);
+}
