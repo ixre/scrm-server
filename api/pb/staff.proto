@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package core;
+
+option go_package = "core/api/pb;pb";
+
+// 员工（企业成员）契约对象
+message Staff {
+  string ext_id = 1;      // 外部员工 ID
+  string name = 2;        // 员工名
+  string ext_corp_id = 3; // 所属企业
+  string avatar_url = 4;  // 头像
+  string mobile = 5;      // 手机号
+  string role_type = 6;   // 角色类型 admin/departmentAdmin/staff/superAdmin
+  int32  status = 7;      // 激活状态
+}
+
+message GetStaffRequest {
+  string ext_id = 1;
+  string corp_id = 2; // 网关鉴权后注入身份
+}
+
+message QueryStaffRequest {
+  string corp_id = 1;
+  int64  page = 2;
+  int64  page_size = 3;
+  string name = 4; // 员工名模糊搜索
+}
+
+message QueryStaffResponse {
+  repeated Staff items = 1;
+  int64 total = 2;
+}
+
+service StaffService {
+  rpc Get(GetStaffRequest) returns (Staff);
+  rpc Query(QueryStaffRequest) returns (QueryStaffResponse);
+}

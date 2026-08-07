@@ -38,6 +38,7 @@ func main() {
 
 	s := grpc.NewServer()
 	pb.RegisterCustomerServiceServer(s, grpcserver.NewCustomerServer())
+	pb.RegisterStaffServiceServer(s, grpcserver.NewStaffServer())
 
 	log.Printf("[core] closed-source gRPC server (real business) listening on :9002")
 	if err := s.Serve(lis); err != nil {
