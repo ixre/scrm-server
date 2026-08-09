@@ -12,8 +12,8 @@ type Tag struct {
 	Name       string `gorm:"type:char(255);uniqueIndex:idx_group_name_tag_name;comment:标签名称" json:"name"`
 	GroupName  string `gorm:"type:char(255);uniqueIndex:idx_group_name_tag_name;comment:标签组名称" json:"group_name"`
 	CreateTime int    `gorm:"type:int;comment:创建时间" json:"create_time"`
-	Order      uint32 `gorm:"type:int unsigned;index;comment:标签排序值，值大的在前" json:"order"`
-	Type       int    `gorm:"type:tinyint;comment:所打标签类型, 1-企业设置, 2-用户自定义" json:"type"`
+	Order      uint32 `gorm:"type:bigint;index;comment:标签排序值，值大的在前" json:"order"`
+	Type       int    `gorm:"type:smallint;comment:所打标签类型, 1-企业设置, 2-用户自定义" json:"type"`
 	Timestamp
 }
 
@@ -63,7 +63,7 @@ func (t Tag) Update(tag Tag) error {
 }
 
 func (t Tag) GetCurMaxOrder(tx *gorm.DB, id string) (order int64, err error) {
-	err = tx.Model(&Tag{}).Where("ext_group_id = ?", id).Select("max(distinct `order`)").Group("ext_group_id").Scan(&order).Error
+	err = tx.Model(&Tag{}).Where("ext_group_id = ?", id).Select("max(distinct \"order\")").Group("ext_group_id").Scan(&order).Error
 	return
 }
 

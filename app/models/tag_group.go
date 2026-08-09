@@ -16,7 +16,7 @@ type TagGroup struct {
 	Name           string                    `gorm:"index;comment:组名字" json:"name"`
 	CreateTime     int                       `gorm:"type:int(16);comment:" json:"create_time"`
 	Order          uint32                    `gorm:"type:int(32);index;comment:order值大的排序靠前" json:"order"`
-	DepartmentList constants.Int64ArrayField `gorm:"type:json;comment:该标签组可用部门列表,默认0全部可用;" json:"department_list"`
+	DepartmentList constants.Int64ArrayField `gorm:"type:jsonb;comment:该标签组可用部门列表,默认0全部可用;" json:"department_list"`
 	Tags           []Tag                     `gorm:"foreignKey:ExtGroupID;references:ExtID" json:"tags"`
 	Timestamp
 }

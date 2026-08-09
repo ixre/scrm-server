@@ -1,13 +1,14 @@
 package models
 
 import (
+	"core/app/constants"
+	"core/common/app"
 	"encoding/json"
+	"time"
+
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/constants"
-	"core/common/app"
-	"time"
 )
 
 type ChatMsgContent struct {
@@ -33,15 +34,15 @@ type ChatMsg struct {
 	//消息发送方id。同一企业内容为userid，非相同企业为external_userid。消息如果是机器人发出，也为external_userid。String类型
 	From string `gorm:"type:char(64);comment:消息发送方id。同一企业内容为userid，非相同企业为external_userid。消息如果是机器人发出，也为external_userid" json:"from"`
 	//消息接收方列表，可能是多个，同一个企业内容为userid，非相同企业为external_userid。数组，内容为string类型
-	ToList constants.StringArrayField `gorm:"type:json;comment:消息接收方列表" json:"tolist"`
+	ToList constants.StringArrayField `gorm:"type:jsonb;comment:消息接收方列表" json:"tolist"`
 	//群聊消息的群id。如果是单聊则为空。String类型
 	RoomID string `gorm:"type:char(128);comment:群聊消息的群id。如果是单聊则为空" json:"roomid"`
 	//消息发送时间戳，utc时间，ms单位。
-	MsgTime int64 `gorm:"type:bigint(64);comment:消息发送时间戳，utc时间，ms单位。" json:"msgtime"`
+	MsgTime int64 `gorm:"type:bigint;comment:消息发送时间戳，utc时间，ms单位。" json:"msgtime"`
 	//文本消息为：text。String类型
 	MsgType string `gorm:"type:varchar(64);comment:文本消息为：text" json:"msgtype"`
-	// 聊天的文本内容
-	ContentText string `gorm:"class:FULLTEXT,option:WITH PARSER ngram;comment:聊天的文本内容" json:"content_text"`
+	// 聊天的文本内容（中文全文检索由 migrations 中的 zhparser + GIN 索引提供）
+	ContentText string `gorm:"type:text;comment:聊天的文本内容" json:"content_text"`
 	//消息的seq值，标识消息的序号。再次拉取需要带上上次回包中最大的seq。Uint64类型，范围0-pow(2,64)-1
 	Seq uint64 `gorm:"type:bigint;comment:消息的seq值，标识消息的序号。再次拉取需要带上上次回包中最大的seq。Uint64类型，范围0-pow(2,64)-1" json:"seq"`
 	// 发送-接收双方ID hash得到
@@ -173,15 +174,15 @@ type ChatSessions struct {
 	//消息发送方id。同一企业内容为userid，非相同企业为external_userid。消息如果是机器人发出，也为external_userid。String类型
 	From string `gorm:"type:char(64)" json:"from"`
 	//消息接收方列表，可能是多个，同一个企业内容为userid，非相同企业为external_userid。数组，内容为string类型
-	ToList constants.StringArrayField `gorm:"type:json" json:"tolist"`
+	ToList constants.StringArrayField `gorm:"type:jsonb" json:"tolist"`
 	//群聊消息的群id。如果是单聊则为空。String类型
 	RoomID string `gorm:"type:char(128)" json:"roomid"`
 	//消息发送时间戳，utc时间，ms单位。
-	MsgTime int64 `gorm:"type:bigint(64)" json:"msgtime"`
+	MsgTime int64 `gorm:"type:bigint" json:"msgtime"`
 	//文本消息为：text。String类型
 	MsgType string `gorm:"type:varchar(64)" json:"msgtype"`
-	// 聊天的文本内容
-	ContentText string `gorm:"class:FULLTEXT,option:WITH PARSER ngram" json:"content_text"`
+	// 聊天的文本内容（中文全文检索由 migrations 中的 zhparser + GIN 索引提供）
+	ContentText string `gorm:"type:text" json:"content_text"`
 	//消息的seq值，标识消息的序号。再次拉取需要带上上次回包中最大的seq。Uint64类型，范围0-pow(2,64)-1
 	Seq uint64 `gorm:"type:bigint" json:"seq"`
 	// 发送-接收双方ID hash得到
@@ -206,8 +207,8 @@ func (o ChatMsg) QueryMsg(
 		Joins("left join staff s on s.ext_id = chat_msg.ext_creator_id")
 
 	if len(msg.ToList) > 0 && msg.From != "" {
-		db = db.Where("json_contains(to_list, json_array(?)) and `from` = ? ", msg.ToList[0], msg.From).
-			Or("json_contains(to_list, json_array(?)) and `from` = ? ", msg.From, msg.ToList[0])
+		db = db.Where("to_list @> jsonb_build_array(?) and \"from\" = ? ", msg.ToList[0], msg.From).
+			Or("to_list @> jsonb_build_array(?) and \"from\" = ? ", msg.From, msg.ToList[0])
 	}
 	if msg.MsgType != "" {
 		db = db.Where("msg_type = ?", msg.MsgType)
@@ -216,7 +217,7 @@ func (o ChatMsg) QueryMsg(
 		db = db.Where("msg_time between ? and ?", sendAtStart.Unix()*1000, sendAtEnd.Unix()*1000)
 	}
 	if msg.ContentText != "" {
-		db = db.Where("match (content_text) against (?)", msg.ContentText)
+		db = db.Where("to_tsvector('chinese', content_text) @@ plainto_tsquery('chinese', ?)", msg.ContentText)
 	}
 
 	var total int64
@@ -235,8 +236,8 @@ func (o ChatMsg) QueryMsg(
 	var msgs []ChatMessage
 	// ChatMessage 会话中的消息列表条目
 	err = db.Preload("ChatMsgContent").Select("chat_msg.*, " +
-		" IF(c.avatar is not null, c.avatar, s.avatar_url) as sender_avatar," +
-		" IF(c.name is not null, c.name, s.name)           as sender_name").
+		" COALESCE(c.avatar, s.avatar_url) as sender_avatar," +
+		" COALESCE(c.name, s.name)           as sender_name").
 		Find(&msgs).Error
 	if err != nil {
 		err = errors.Wrap(err, "Find chat msg failed")
@@ -350,7 +351,7 @@ func (o ChatMsg) QuerySessions(
 
 	countSessionsSQL := "select count(1) as total from (" +
 		" select *, rank() over (partition by session_id order by id desc) as r" +
-		" from chat_msg where ext_corp_id = ? and (`from` = ? or json_contains(to_list, json_array(?)))" +
+		" from chat_msg where ext_corp_id = ? and (\"from\" = ? or to_list @> jsonb_build_array(?))" +
 		" and session_type = ?  " +
 		" ) t where t.r = 1"
 
@@ -362,9 +363,9 @@ func (o ChatMsg) QuerySessions(
 
 	querySessionsSQL := "select * from (" +
 		" select *, rank() over (partition by session_id order by id desc) as r" +
-		" from chat_msg where ext_corp_id = ? and (`from` = ? or json_contains(to_list, json_array(?)))" +
+		" from chat_msg where ext_corp_id = ? and (\"from\" = ? or to_list @> jsonb_build_array(?))" +
 		" and session_type = ?" +
-		" ) t where t.r = 1 order by id desc limit ?, ?"
+		" ) t where t.r = 1 order by id desc limit ? offset ?"
 
 	pager.SetDefault()
 	err = DB.Raw(querySessionsSQL, extCorpID, extStaffID, extStaffID, sessionType, pager.GetOffset(), pager.GetLimit()).Find(&chatSessions).Error

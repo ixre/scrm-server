@@ -1,32 +1,31 @@
-# core 开发基础环境：MySQL + Redis
+# core 开发基础环境：PostgreSQL（含 zhparser 中文分词）+ Redis
 #
 # 对齐 conf/config.yaml 的本地默认值（DB.User/Password/Name、Redis.Host/Password），
 # 启动后直接 `go run .` 即可连上。
 #
 # 用法：
+#   先构建含 zhparser 的 PG 镜像（仅首次或改 Dockerfile 后）：
+#     docker build -t scrm-pg-zhparser:16 -f docs/postgres-zhparser.Dockerfile docs/
 #   docker compose -f docker-compose-dev.yaml up -d     # 启动
 #   docker compose -f docker-compose-dev.yaml down      # 停止（保留数据）
 #   docker compose -f docker-compose-dev.yaml down -v   # 停止并清空数据卷
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: scrm-dev-mysql
+  postgres:
+    image: scrm-pg-zhparser:16
+    container_name: scrm-dev-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123456
-      MYSQL_DATABASE: scrm
-      MYSQL_USER: scrm
-      MYSQL_PASSWORD: "123456"
+      POSTGRES_PASSWORD: root123456
+      POSTGRES_DB: scrm
+      POSTGRES_USER: root
       TZ: Asia/Shanghai
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
+      PGTZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - scrm-mysql-data:/var/lib/mysql
+      - scrm-pg-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123456"]
+      test: ["CMD", "pg_isready", "-h", "localhost", "-U", "root", "-d", "scrm"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -47,5 +46,5 @@ services:
       retries: 10
 
 volumes:
-  scrm-mysql-data:
+  scrm-pg-data:
   scrm-redis-data:

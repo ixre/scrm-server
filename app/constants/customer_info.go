@@ -26,5 +26,5 @@ func (o *CustomerRemarkField) Scan(input interface{}) error {
 }
 
 func (o CustomerRemarkField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }

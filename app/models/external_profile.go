@@ -15,7 +15,7 @@ func (o *ExternalProfile) Scan(input interface{}) error {
 }
 
 func (o ExternalProfile) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 // ExternalProfile 使gorm支持 ExternalProfile 转为json读取

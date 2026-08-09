@@ -1,16 +1,17 @@
 package models
 
 import (
-	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/app/requests"
 	"core/common/app"
 	"core/common/id_generator"
 	"core/conf"
 	"time"
+
+	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // CustomerStaffRelationHistory
@@ -126,7 +127,7 @@ func (o CustomerStaffRelationHistory) QueryStaffDeleteCustomer(
 			" staff.avatar_url as ext_staff_avatar ")
 
 	if req.ExtDepartmentID != 0 {
-		db = db.Where("  json_contains(staff.dept_ids, json_array(?) )", req.ExtDepartmentID)
+		db = db.Where("staff.dept_ids @> jsonb_build_array(?)", req.ExtDepartmentID)
 	}
 
 	if len(req.ExtStaffIDs) > 0 {

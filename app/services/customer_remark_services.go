@@ -1,12 +1,13 @@
 package services
 
 import (
-	"github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
 	"core/app/models"
 	"core/app/requests"
+	"core/common/dbutil"
 	"core/common/ecode"
 	"core/common/id_generator"
+
+	"github.com/pkg/errors"
 )
 
 type CustomerRemarkService struct {
@@ -59,8 +60,7 @@ func (cs CustomerRemarkService) Create(req *requests.AddCustomerRemarkReq, extCo
 	}
 	remark.Options = options
 	err = cs.remarkRepo.Create(remark)
-	mysqlErr := &mysql.MySQLError{}
-	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+	if dbutil.IsUniqueViolation(err) {
 		err = ecode.DuplicateRemarkNameError
 		return
 	}
@@ -99,8 +99,7 @@ func (cs CustomerRemarkService) UpdateRemarkOption(req *requests.UpdateRemarkOpt
 	}
 	err := cs.optionRepo.Update(textOption)
 	if err != nil {
-		mysqlErr := &mysql.MySQLError{}
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		if dbutil.IsUniqueViolation(err) {
 			return ecode.DuplicateRemarkNameError
 		}
 		return err

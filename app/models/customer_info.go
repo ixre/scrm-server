@@ -11,7 +11,7 @@ type CustomerInfo struct {
 	ExtCorpModel
 	ExtCustomerID string                        `gorm:"type:char(64);uniqueIndex:idx_ext_staff_id_ext_customer_id;comment:微信客户ID" json:"ext_customer_id"`
 	ExtStaffID    string                        `gorm:"type:char(64);uniqueIndex:idx_ext_staff_id_ext_customer_id;comment:微信员工ID" json:"ext_staff_id"`
-	Age           int                           `gorm:"type:tinyint(3);comment:年龄" json:"age"`
+	Age           int                           `gorm:"type:smallint;comment:年龄" json:"age"`
 	Description   string                        `gorm:"type:text;comment:描述" json:"description"`
 	Email         string                        `gorm:"type:varchar(64);comment:邮箱" json:"email"`
 	PhoneNumber   string                        `gorm:"type:char(64);comment:电话" json:"phone_number"`
@@ -19,7 +19,7 @@ type CustomerInfo struct {
 	Address       string                        `gorm:"type:varchar(128);comment:地址" json:"address"`
 	Birthday      string                        `gorm:"type:char(10);comment:生日" json:"birthday"`
 	Weibo         string                        `gorm:"type:varchar(128);comment:微博" json:"weibo" `
-	RemarkField   constants.CustomerRemarkField `gorm:"type:json;comment:自定义字段的值"  json:"remark_values"`
+	RemarkField   constants.CustomerRemarkField `gorm:"type:jsonb;comment:自定义字段的值"  json:"remark_values"`
 	Timestamp
 }
 

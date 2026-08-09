@@ -1,13 +1,6 @@
 package models
 
 import (
-	"fmt"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	redis2 "github.com/redis/go-redis/v9"
-	"golang.org/x/net/context"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/app/requests"
 	"core/common/app"
@@ -15,8 +8,16 @@ import (
 	"core/common/redis"
 	"core/common/util"
 	"core/conf"
+	"fmt"
 	"os"
 	"time"
+
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	redis2 "github.com/redis/go-redis/v9"
+	"golang.org/x/net/context"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Staff struct {
@@ -40,9 +41,9 @@ type Staff struct {
 	// 邮箱，第三方仅通讯录应用可获取
 	Email string `gorm:"type:varchar(128)" json:"email"`
 	// 性别
-	Gender constants.UserGender `gorm:"type:tinyint;comment:0表示未定义，1表示男性，2表示女性" json:"gender"`
+	Gender constants.UserGender `gorm:"type:smallint;comment:0表示未定义，1表示男性，2表示女性" json:"gender"`
 	// 激活状态
-	Status constants.UserStatus `gorm:"type:tinyint;comment:激活状态: 1=已激活，2=已禁用，4=未激活，5=退出企业。已激活代表已激活企业微信或已关注微工作台（原企业号）。未激活代表既未激活企业微信又未关注微工作台（原企业号）。" json:"status"`
+	Status constants.UserStatus `gorm:"type:smallint;comment:激活状态: 1=已激活，2=已禁用，4=未激活，5=退出企业。已激活代表已激活企业微信或已关注微工作台（原企业号）。未激活代表既未激活企业微信又未关注微工作台（原企业号）。" json:"status"`
 	// 手机号码
 	Mobile string `gorm:"index;type:varchar(11);comment:手机号;" json:"mobile"`
 	// 员工个人二维码；第三方仅通讯录应用可获取
@@ -50,7 +51,7 @@ type Staff struct {
 	// Telephone 座机；第三方仅通讯录应用可获取
 	Telephone string `gorm:"type:char(11);comment:电话" json:"telephone"`
 	// IsEnabled 成员的启用状态 0-禁用 1-启用
-	Enable int `gorm:"type:tinyint unsigned" json:"enable"`
+	Enable int `gorm:"type:smallint" json:"enable"`
 	// sha1 hash
 	Signature string `gorm:"type:char(128);comment:微信返回的内容签名" json:"signature"`
 	// 职务信息
@@ -62,14 +63,14 @@ type Staff struct {
 	// 客户数量
 	CustomerCount int `json:"external_user_count"`
 	//所属部门ids
-	DeptIds     constants.Int64ArrayField `gorm:"type:json" json:"dept_ids"`
+	DeptIds     constants.Int64ArrayField `gorm:"type:jsonb" json:"dept_ids"`
 	Departments []Department              `gorm:"many2many:StaffDepartment;" json:"departments"`
 	// 欢迎语id
 	WelcomeMsgID *string `gorm:"type:bigint;index" json:"welcome_msg_id"`
 	// 是否授权 1-是 2-否
-	IsAuthorized constants.Boolean `gorm:"type:tinyint unsigned" json:"is_authorized"`
+	IsAuthorized constants.Boolean `gorm:"type:smallint" json:"is_authorized"`
 	// 开启会话存档 1-是 2-否
-	EnableMsgArch constants.Boolean `gorm:"type:tinyint unsigned;default:2" json:"enable_msg_arch"`
+	EnableMsgArch constants.Boolean `gorm:"type:smallint;default:2" json:"enable_msg_arch"`
 	Timestamp
 }
 
@@ -114,7 +115,7 @@ type MainDepartment struct {
 	// 部门名称
 	Name string `gorm:"type:varchar(255);comment:部门名称" json:"name"`
 	// 上级部门id
-	ExtParentID int64 `gorm:"type:int unsigned;comment:上级部门ID,根部门为1" json:"ext_parent_id"`
+	ExtParentID int64 `gorm:"type:bigint;comment:上级部门ID,根部门为1" json:"ext_parent_id"`
 }
 
 func (s *Staff) Get(extStaffID string, extCorpID string, withDepartments bool) (*Staff, error) {
@@ -146,7 +147,7 @@ func (s *Staff) Query(staff Staff, extCorpID string, sorter *app.Sorter, pager *
 	}
 
 	if len(staff.DeptIds) > 0 {
-		db = db.Where("json_contains(dept_ids, (?) )", staff.DeptIds)
+		db = db.Where("dept_ids @> ?::jsonb", staff.DeptIds)
 	}
 
 	if staff.RoleID != "" {

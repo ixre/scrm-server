@@ -20,11 +20,11 @@ type GroupChat struct {
 	CreateTime         time.Time                  `gorm:"comment:创建时间" json:"create_time"`
 	Notice             string                     `gorm:"type:text;comment:群公告" json:"notice"`
 	MemberList         []GroupChatMember          `gorm:"foreignKey:ExtChatID;references:ExtChatID;" json:"member_list"`
-	AdminList          constants.StringArrayField `gorm:"type:json;comment:群管理员列表" json:"admin_list"`
-	Status             constants.GroupChatStatus  `gorm:"type:tinyint unsigned;default:2;comment:群状态 1-解散 2-未解散" json:"status"`
-	Total              int64                      `gorm:"type:int unsigned;default:0;comment:群人数" json:"total"`
-	TodayJoinMemberNum int64                      `gorm:"type:int unsigned;default:0;comment:今日进群人数" json:"today_join_member_num"`
-	TodayQuitMemberNum int64                      `gorm:"type:int unsigned;default:0;comment:今日退群人数" json:"today_quit_member_num"`
+	AdminList          constants.StringArrayField `gorm:"type:jsonb;comment:群管理员列表" json:"admin_list"`
+	Status             constants.GroupChatStatus  `gorm:"type:smallint;default:2;comment:群状态 1-解散 2-未解散" json:"status"`
+	Total              int64                      `gorm:"type:bigint;default:0;comment:群人数" json:"total"`
+	TodayJoinMemberNum int64                      `gorm:"type:bigint;default:0;comment:今日进群人数" json:"today_join_member_num"`
+	TodayQuitMemberNum int64                      `gorm:"type:bigint;default:0;comment:今日退群人数" json:"today_quit_member_num"`
 	Tags               []GroupChatTag             `gorm:"many2many:group_chat_tags" json:"tags"`
 	OwnerAvatarURL     string                     `gorm:"->" json:"owner_avatar_url"`
 	OwnerRoleType      string                     `gorm:"->" json:"owner_role_type"`

@@ -32,7 +32,7 @@ func (o *QuickReplyField) Scan(input interface{}) error {
 }
 
 func (o QuickReplyField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 // QuickReplyField 欢迎语/群发消息的附件

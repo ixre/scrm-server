@@ -32,5 +32,5 @@ func (o *ExtCustomerFilter) Scan(input interface{}) error {
 }
 
 func (o ExtCustomerFilter) GormDataType() string {
-	return "json"
+	return "jsonb"
 }

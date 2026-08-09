@@ -1,16 +1,17 @@
 package models
 
 import (
-	"fmt"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
 	"core/app/constants"
 	log "core/common/log"
 	"core/conf"
+	"fmt"
 	"os"
 	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 var DB *gorm.DB // 默认数据库
@@ -22,7 +23,7 @@ type Timestamp struct {
 }
 
 type Model struct {
-	ID string `gorm:"primaryKey;type:bigint AUTO_INCREMENT;comment:'ID'" json:"id" validate:"int64"`
+	ID string `gorm:"primaryKey;type:bigint;comment:'ID'" json:"id" validate:"int64"`
 }
 
 type ExtCorpModel struct {
@@ -64,7 +65,6 @@ func AutoMigrate(db *gorm.DB) error {
 		return nil
 	}
 
-	db = db.Set("gorm:table_options", "ENGINE=InnoDB")
 	err := db.AutoMigrate(
 		// 此处顺序不可改动，以免触发外键约束
 		&Customer{},
@@ -142,12 +142,18 @@ func initDB(c conf.DBConfig) (db *gorm.DB) {
 		gormLogLevel = logger.Info
 	}
 
+	sslmode := c.SSLMode
+	if sslmode == "" {
+		sslmode = "disable"
+	}
+	tz := c.TimeZone
+	if tz == "" {
+		tz = "Asia/Shanghai"
+	}
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
+		c.Host, c.Port, c.User, c.Password, c.Name, sslmode, tz)
 	db, err = gorm.Open(
-		mysql.Open(fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Asia%%2FShanghai",
-			c.User,
-			c.Password,
-			c.Host,
-			c.Name)),
+		postgres.Open(dsn),
 		&gorm.Config{
 			SkipDefaultTransaction:                   false,
 			DisableForeignKeyConstraintWhenMigrating: true,

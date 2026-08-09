@@ -1,16 +1,17 @@
 package services
 
 import (
-	"github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/entities"
 	"core/app/models"
 	"core/app/requests"
 	"core/common/app"
+	"core/common/dbutil"
 	"core/common/ecode"
 	"core/common/id_generator"
+
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 type QuickReplyGroup struct {
@@ -46,8 +47,7 @@ func (o QuickReplyGroup) Create(req entities.CreateQuickReplyGroupReq, extCorpID
 
 	err := o.QuickReplyGroupRepo.Create(topGroup)
 
-	mysqlErr := &mysql.MySQLError{}
-	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+	if dbutil.IsUniqueViolation(err) {
 		return models.QuickReplyGroup{}, ecode.DuplicateQuickReplyGroupNameError
 	}
 	return topGroup, err

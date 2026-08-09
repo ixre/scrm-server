@@ -52,7 +52,7 @@ func (o *StringArrayField) Scan(input interface{}) error {
 }
 
 func (o StringArrayField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 func (o StringArrayField) ToStringArray() []string {
@@ -85,7 +85,7 @@ func (o *Int64ArrayField) Scan(input interface{}) error {
 }
 
 func (o Int64ArrayField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 // AttachmentField 欢迎语/群发消息的附件
@@ -112,7 +112,7 @@ func (o *AttachmentField) Scan(input interface{}) error {
 }
 
 func (o AttachmentField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 // Image 图片
@@ -167,7 +167,7 @@ func (o *AttachmentArrayField) Scan(input interface{}) error {
 }
 
 func (o AttachmentArrayField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 type AutoReplyField struct {
@@ -185,7 +185,7 @@ func (o *AutoReplyField) Scan(input interface{}) error {
 }
 
 func (o AutoReplyField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 type TimeField string
@@ -378,7 +378,7 @@ func (o *GroupChatWelcomeMsgField) Scan(input interface{}) error {
 }
 
 func (o GroupChatWelcomeMsgField) GormDataType() string {
-	return "json"
+	return "jsonb"
 }
 
 type Time sql.NullTime

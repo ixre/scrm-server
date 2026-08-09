@@ -1,13 +1,14 @@
 package services
 
 import (
-	"github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
 	"core/app/models"
 	"core/app/requests"
 	"core/common/app"
+	"core/common/dbutil"
 	"core/common/ecode"
 	"core/common/id_generator"
+
+	"github.com/pkg/errors"
 )
 
 type GroupChatTagGroup struct {
@@ -38,8 +39,7 @@ func (o GroupChatTagGroup) Create(req *requests.CreateGroupChatTagGroupReq, extC
 	tg.Tags = tags
 	err := o.model.Create(tg)
 
-	mysqlErr := &mysql.MySQLError{}
-	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+	if dbutil.IsUniqueViolation(err) {
 		return tg, ecode.DuplicateTagGroupError
 	}
 	return tg, err

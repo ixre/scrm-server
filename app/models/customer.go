@@ -39,12 +39,12 @@ type Customer struct {
 	// 头像
 	Avatar string `gorm:"type:varchar(255);comment:头像" json:"avatar"`
 	// 客户类型 1-微信用户, 2-企业微信用户
-	Type int `gorm:"type:tinyint(1);index;comment:类型,1-微信用户, 2-企业微信用户" json:"type"`
+	Type int `gorm:"type:smallint;index;comment:类型,1-微信用户, 2-企业微信用户" json:"type"`
 	// 0-未知 1-男性 2-女性
-	Gender  int    `gorm:"type:tinyint;comment:性别,0-未知 1-男性 2-女性" json:"gender"`
+	Gender  int    `gorm:"type:smallint;comment:性别,0-未知 1-男性 2-女性" json:"gender"`
 	Unionid string `gorm:"type:varchar(128);comment:微信开放平台的唯一身份标识(微信unionID)" json:"unionid"`
 	// 仅当联系人类型是企业微信用户时有此字段
-	ExternalProfile ExternalProfile `gorm:"type:json;comment:仅当联系人类型是企业微信用户时有此字段" json:"external_profile"`
+	ExternalProfile ExternalProfile `gorm:"type:jsonb;comment:仅当联系人类型是企业微信用户时有此字段" json:"external_profile"`
 	// 所属员工
 	Staffs []CustomerStaff `gorm:"foreignKey:ExtCustomerID;references:ExtID" json:"staff_relations"`
 	// 所属员工

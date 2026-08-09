@@ -33,7 +33,7 @@ type Role struct {
 	// IsDefault 是否为默认角色，1：是；2：否
 	IsDefault constants.Boolean `json:"is_default" gorm:"default:2;comment:'是否为默认角色，1：是；2：否'" validate:"oneof=1 2"`
 	// PermissionIDs 角色绑定的权限标识数组
-	PermissionIDs constants.StringArrayField `json:"permission_ids" gorm:"type:json;comment:'角色绑定的权限标识数组'" validate:"dive,word"`
+	PermissionIDs constants.StringArrayField `json:"permission_ids" gorm:"type:jsonb;comment:'角色绑定的权限标识数组'" validate:"dive,word"`
 	Timestamp
 }
 

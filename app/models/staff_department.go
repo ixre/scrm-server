@@ -8,11 +8,11 @@ import (
 type StaffDepartment struct {
 	ExtCorpID       string            `json:"ext_corp_id" gorm:"index;type:char(18);uniqueIndex:idx_ext_corp_id_ext_staff_id"`
 	ExtStaffID      string            `json:"ext_staff_id" gorm:"type:varchar(64);index;uniqueIndex:idx_ext_corp_id_ext_staff_id"`
-	ExtDepartmentID int64             `json:"ext_department_id" gorm:"type:int unsigned;uniqueIndex:idx_ext_corp_id_ext_staff_id"`
+	ExtDepartmentID int64             `json:"ext_department_id" gorm:"type:bigint;uniqueIndex:idx_ext_corp_id_ext_staff_id"`
 	StaffID         string            `json:"staff_id" gorm:"primaryKey;type:bigint" `
 	DepartmentID    string            `json:"department_id" gorm:"primaryKey;type:bigint;" `
-	IsLeader        constants.Boolean `json:"is_leader" gorm:"type:tinyint unsigned;comment:是否是所在部门的领导"`
-	Order           uint32            `json:"order" gorm:"type:int unsigned;comment:所在部门的排序"`
+	IsLeader        constants.Boolean `json:"is_leader" gorm:"type:smallint;comment:是否是所在部门的领导"`
+	Order           uint32            `json:"order" gorm:"type:bigint;comment:所在部门的排序"`
 }
 
 func (s StaffDepartment) Upsert(sd ...StaffDepartment) error {

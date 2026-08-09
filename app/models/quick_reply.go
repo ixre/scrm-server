@@ -1,12 +1,13 @@
 package models
 
 import (
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/app/requests"
 	"core/common/app"
+
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // QuickReply 话术内容
@@ -15,15 +16,15 @@ type QuickReply struct {
 	// 内部企业ID
 	CorpId string `gorm:"comment:内部企业id" json:"ext_corp_id"`
 	// 可见部门
-	//DepartmentList constants.Int64ArrayField `gorm:"type:json;comment:可见部门" json:"department_list"`
+	//DepartmentList constants.Int64ArrayField `gorm:"type:jsonb;comment:可见部门" json:"department_list"`
 	// 话术名
 	Name string `gorm:"type:varchar(255);comment:话术名" json:"name"`
 	// 话术类型
-	QuickReplyType constants.QuickReplyType `gorm:"type:tinyint" json:"quick_reply_type"`
+	QuickReplyType constants.QuickReplyType `gorm:"type:smallint" json:"quick_reply_type"`
 	// 用于搜索的词语，多为标题
-	SearchableText constants.StringArrayField `gorm:"type:json;comment: 用于搜索的词语，多为标题" json:"searchable_text"`
+	SearchableText constants.StringArrayField `gorm:"type:jsonb;comment: 用于搜索的词语，多为标题" json:"searchable_text"`
 	// 发送次数
-	SendCount int `gorm:"type:int unsigned;comment:已发送次数" json:"send_count"`
+	SendCount int `gorm:"type:bigint;comment:已发送次数" json:"send_count"`
 	// 创建者ID
 	ExtStaffId string `gorm:"type:char(64);comment:创建人企微ID" json:"staff_ext_id"`
 	// 创建人名字
@@ -94,7 +95,7 @@ func (q QuickReply) Query(
 	if len(req.DepartmentIDs) > 0 {
 		db = db.Where(func(db *gorm.DB) *gorm.DB {
 			for _, deptID := range req.DepartmentIDs {
-				db = db.Or("json_contains(quick_reply_group.departments, json_array(?))", deptID)
+				db = db.Or("quick_reply_group.departments @> jsonb_build_array(?)", deptID)
 			}
 			return db
 		}(DB))
@@ -147,11 +148,11 @@ type QuickReplyDetail struct {
 	// 话术ID
 	QuickReplyID string `json:"quick_reply_id"`
 	// 话术内容json 类型
-	QuickReplyContent constants.QuickReplyField `gorm:"type:json" json:"quick_reply_content"`
+	QuickReplyContent constants.QuickReplyField `gorm:"type:jsonb" json:"quick_reply_content"`
 	// 可见范围 corp/staff_event/group
 	Scope string `json:"scope"`
 	// 单一类型(文字/图片/图文/PDF/视频)
-	ContentType constants.QuickReplyType `gorm:"type:tinyint unsigned;comment:单项类型" json:"content_type"`
+	ContentType constants.QuickReplyType `gorm:"type:smallint;comment:单项类型" json:"content_type"`
 	// 已使用次数
 	SendCount int `json:"send_count"`
 	Timestamp

@@ -1,9 +1,10 @@
 package conf
 
 import (
-	"github.com/spf13/viper"
 	"log"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 var Settings *config
@@ -83,7 +84,10 @@ type DBConfig struct {
 	User     string `validate:"required"`
 	Password string `validate:"required"`
 	Host     string `validate:"required"`
+	Port     string `validate:"required"`
 	Name     string `validate:"required"`
+	SSLMode  string // PostgreSQL sslmode: disable/require/verify-ca/verify-full，默认 disable
+	TimeZone string // PostgreSQL 会话时区，默认 Asia/Shanghai
 }
 
 // redisConfig redis config

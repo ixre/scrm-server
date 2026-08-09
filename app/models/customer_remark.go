@@ -10,7 +10,7 @@ type CustomerRemark struct {
 	Name         string         `gorm:"type:char(64);uniqueIndex:idx_corp_id_name;" json:"name"`
 	FieldType    string         `json:"field_type"` // todo rename to remark_type
 	HasStaffUsed bool           `json:"has_staff_used"`
-	RankNum      int            `gorm:"type:int unsigned" json:"rank_num"`
+	RankNum      int            `gorm:"type:bigint" json:"rank_num"`
 	Options      []RemarkOption `gorm:"foreignKey:RemarkID" json:"info_option"`
 	Timestamp
 }
