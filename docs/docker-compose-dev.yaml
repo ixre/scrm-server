@@ -3,15 +3,17 @@
 # 对齐 conf/config.yaml 的本地默认值（DB.User/Password/Name、Redis.Host/Password），
 # 启动后直接 `go run .` 即可连上。
 #
+# 镜像：abcfy2/zhparser:18（基于 PostgreSQL 18，预装 zhparser 中文分词扩展）
+#   仓库：https://github.com/abcfy2/docker_zhparser
+#   Docker Hub：https://hub.docker.com/r/abcfy2/zhparser
+#
 # 用法：
-#   先构建含 zhparser 的 PG 镜像（仅首次或改 Dockerfile 后）：
-#     docker build -t scrm-pg-zhparser:16 -f docs/postgres-zhparser.Dockerfile docs/
 #   docker compose -f docker-compose-dev.yaml up -d     # 启动
 #   docker compose -f docker-compose-dev.yaml down      # 停止（保留数据）
 #   docker compose -f docker-compose-dev.yaml down -v   # 停止并清空数据卷
 services:
   postgres:
-    image: scrm-pg-zhparser:16
+    image: abcfy2/zhparser:18
     container_name: scrm-dev-postgres
     restart: unless-stopped
     environment:
@@ -21,9 +23,9 @@ services:
       TZ: Asia/Shanghai
       PGTZ: Asia/Shanghai
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - scrm-pg-data:/var/lib/postgresql/data
+      - scrm-pg-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "localhost", "-U", "root", "-d", "scrm"]
       interval: 10s
@@ -36,7 +38,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "123456"]
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - scrm-redis-data:/data
     healthcheck:

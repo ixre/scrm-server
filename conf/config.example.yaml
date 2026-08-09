@@ -31,10 +31,10 @@ Server:
 # PostgreSQL数据库配置
 DB:
   Host: 172.17.0.1
-  Port: 5432
-  User: open_scrm_demo
-  Name: open_scrm_demo
-  Password: A6UBxB4igUNxPRfx3CpYutH353VYo8Atpc
+  Port: 5433
+  User: root
+  Name: scrm
+  Password: root123456
   # PostgreSQL sslmode: disable/require/verify-ca/verify-full
   SSLMode: disable
   # 会话时区

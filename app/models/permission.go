@@ -1,18 +1,19 @@
 package models
 
 import (
-	"fmt"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"github.com/thoas/go-funk"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/id_generator"
 	"core/common/log"
+	"fmt"
 	"os"
+
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Permission 权限
@@ -29,7 +30,7 @@ type Permission struct {
 	// Operation 操作
 	Operation string `json:"operation" gorm:"comment:'操作'" validate:"omitempty,oneof=read full"`
 	// Identity 权限标识
-	Identity string `json:"identity" gorm:"unique;size:50;comment:'权限标识'" validate:"omitempty,alphanum,max=50"`
+	Identity string `json:"identity" gorm:"column:identity;unique;size:50;comment:'权限标识'" validate:"omitempty,alphanum,max=50"`
 	// SortWeight 权限排序权重
 	SortWeight int `json:"sort_weight" gorm:"index;default:1000;comment:'权限排序权重'" validate:"gte=0"`
 	Timestamp
@@ -138,9 +139,22 @@ func (o Permission) Delete(ids []string) (total int64, err error) {
 }
 
 func (o Permission) BatchUpsert(items []*Permission) (err error) {
+	// 按 identity 去重，避免 PG ON CONFLICT DO UPDATE 同一批次影响同一行多次
+	// （MySQL ON DUPLICATE KEY UPDATE 会静默合并，PG 不允许）
+	seen := make(map[string]bool, len(items))
+	deduped := make([]*Permission, 0, len(items))
+	for _, item := range items {
+		if item.Identity == "" || seen[item.Identity] {
+			continue
+		}
+		seen[item.Identity] = true
+		deduped = append(deduped, item)
+	}
+	items = deduped
+
 	err = DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{
-			Name: "identify",
+			Name: "identity",
 		}},
 		DoUpdates: clause.AssignmentColumns([]string{`name`, `description`, `biz_name`, `biz_identity`, `operation`, `updated_at`}),
 		UpdateAll: false,

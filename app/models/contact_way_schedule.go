@@ -1,9 +1,10 @@
 package models
 
 import (
+	"core/app/constants"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/constants"
 )
 
 // ContactWaySchedule 渠道码调度设置（根据时间自动上下线员工）
@@ -33,6 +34,7 @@ func (o ContactWaySchedule) BeforeCreate(tx *gorm.DB) (err error) {
 		}
 	}
 	tx.Statement.AddClause(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns(colsNames),
 	})
 	return nil

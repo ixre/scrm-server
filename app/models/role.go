@@ -1,22 +1,23 @@
 package models
 
 import (
-	"fmt"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"github.com/thoas/go-funk"
-	"golang.org/x/net/context"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/log"
 	"core/common/redis"
 	"core/conf"
+	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
+	"golang.org/x/net/context"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Role 角色
@@ -290,6 +291,7 @@ func SetupRoles() {
 	}
 
 	err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{`name`, `sort_weight`, `description`, `type`, `is_default`, `permission_ids`, `updated_at`}),
 	}).Create(&roles).Error
 	if err != nil {

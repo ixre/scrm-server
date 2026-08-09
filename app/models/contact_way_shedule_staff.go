@@ -47,6 +47,7 @@ func (o ContactWayScheduleStaff) BeforeCreate(tx *gorm.DB) (err error) {
 		}
 	}
 	tx.Statement.AddClause(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns(colsNames),
 	})
 	return nil

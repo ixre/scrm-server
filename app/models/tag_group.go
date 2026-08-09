@@ -1,29 +1,54 @@
 package models
 
 import (
+	"core/app/constants"
+	"core/app/requests"
+	"core/common/app"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/thoas/go-funk"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/constants"
-	"core/app/requests"
-	"core/common/app"
 )
 
 type TagGroup struct {
 	ExtCorpModel
 	ExtID          string                    `gorm:"type:char(64);uniqueIndex;comment:外部标签分组ID" json:"ext_id"`
 	Name           string                    `gorm:"index;comment:组名字" json:"name"`
-	CreateTime     int                       `gorm:"type:int(16);comment:" json:"create_time"`
-	Order          uint32                    `gorm:"type:int(32);index;comment:order值大的排序靠前" json:"order"`
+	CreateTime     int                       `gorm:"type:bigint;comment:" json:"create_time"`
+	Order          uint32                    `gorm:"type:bigint;index;comment:order值大的排序靠前" json:"order"`
 	DepartmentList constants.Int64ArrayField `gorm:"type:jsonb;comment:该标签组可用部门列表,默认0全部可用;" json:"department_list"`
 	Tags           []Tag                     `gorm:"foreignKey:ExtGroupID;references:ExtID" json:"tags"`
 	Timestamp
 }
 
 func (tg TagGroup) ExchangeOrder(ID string, ID2 string) error {
-	rawSQL := `update tag_group a, tag_group b set a.order = b.order, b.order= a.order,a.updated_at = b.updated_at, b.updated_at= a.updated_at where a.id =? and b.id = ?;`
-	return DB.Exec(rawSQL, ID, ID2).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var a, b struct {
+			Order     uint32    `gorm:"column:order"`
+			UpdatedAt time.Time `gorm:"column:updated_at"`
+		}
+		if err := tx.Table("tag_group").Select(`"order", updated_at`).Where("id = ?", ID).Take(&a).Error; err != nil {
+			return err
+		}
+		if err := tx.Table("tag_group").Select(`"order", updated_at`).Where("id = ?", ID2).Take(&b).Error; err != nil {
+			return err
+		}
+		if err := tx.Table("tag_group").Where("id = ?", ID).Updates(map[string]interface{}{
+			"order":      b.Order,
+			"updated_at": b.UpdatedAt,
+		}).Error; err != nil {
+			return err
+		}
+		if err := tx.Table("tag_group").Where("id = ?", ID2).Updates(map[string]interface{}{
+			"order":      a.Order,
+			"updated_at": a.UpdatedAt,
+		}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // Query
