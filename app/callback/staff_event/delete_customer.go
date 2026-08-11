@@ -1,12 +1,9 @@
 package staff_event
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
+	"core/app/services"
 	"core/common/delay_queue"
 	"core/common/id_generator"
 	"core/common/log"
@@ -14,7 +11,12 @@ import (
 	"core/common/we_work"
 	"core/conf"
 	gowx "core/pkg/easywework"
+	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // EventDelExternalContactHandler 员工删除客户回调处理
@@ -75,6 +77,21 @@ func EventDelExternalContactHandler(msg *gowx.RxMessage) (err error) {
 		err = errors.WithStack(err)
 		return err
 	}
+
+	// Phase 7：记录客户流失到 CRM 风控
+	go func() {
+		defer func() { recover() }()
+		var link models.ChannelLink
+		if err := models.DB.Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom, "customer", extCustomerID).First(&link).Error; err == nil {
+			custName := ""
+			var cust models.CrmCustomer
+			if models.DB.Where("id = ?", link.EntityID).First(&cust).Error == nil {
+				custName = cust.Name
+			}
+			_ = services.NewCrmCustomerLoss().RecordLoss(link.TenantID, link.EntityID, custName, "", "deleted", 0)
+		}
+	}()
+
 	return
 }
 

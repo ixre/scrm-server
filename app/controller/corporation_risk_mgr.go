@@ -33,13 +33,13 @@ func (m CorpRiskMgr) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := m.GetStaffAdminInfo(handler)
+	consoleStaff, err := m.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = m.srv.Upsert(req, staffAdmin.ExtCorpID)
+	err = m.srv.Upsert(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -56,7 +56,7 @@ func (m CorpRiskMgr) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.StaffDeleteCustomer}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/action/notify/delete-customer [get]
+// @Router /api/v1/console/action/notify/delete-customer [get]
 func (m CorpRiskMgr) Query(c *gin.Context) {
 	req := requests.QueryStaffDeleteCustomerHistoryReq{}
 	handler := app.NewHandler(c)
@@ -66,13 +66,13 @@ func (m CorpRiskMgr) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := m.GetStaffAdminInfo(handler)
+	consoleStaff, err := m.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := m.srv.Query(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := m.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -92,13 +92,13 @@ func (m CorpRiskMgr) Query(c *gin.Context) {
 // @Router /api/v1/staff_admin/notify/delete_customer/status [get]
 func (m CorpRiskMgr) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffAdmin, err := m.GetStaffAdminInfo(handler)
+	consoleStaff, err := m.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, err := m.srv.Get(staffAdmin.ExtCorpID)
+	items, err := m.srv.Get(consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get notify status failed")
 		handler.ResponseError(err)

@@ -28,7 +28,7 @@ func NewQuickReplyGroup() *QuickReplyGroup {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply-group [post]
+// @Router /api/v1/console/quick-reply-group [post]
 func (rg *QuickReplyGroup) Create(c *gin.Context) {
 	req := entities.CreateQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
@@ -38,13 +38,13 @@ func (rg *QuickReplyGroup) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := rg.GetStaffAdminInfo(handler)
+	consoleStaff, err := rg.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := rg.srv.Create(req, staffAdmin.ExtCorpID, staffAdmin.ExtID)
+	item, err := rg.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create quick reply group failed")
 		handler.ResponseError(err)
@@ -61,7 +61,7 @@ func (rg *QuickReplyGroup) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply-groups [get]
+// @Router /api/v1/console/quick-reply-groups [get]
 func (rg *QuickReplyGroup) Get(c *gin.Context) {
 	req := requests.QueryQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
@@ -71,9 +71,9 @@ func (rg *QuickReplyGroup) Get(c *gin.Context) {
 		return
 	}
 
-	staff, err := rg.GetStaffAdminInfo(handler)
+	staff, err := rg.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (rg *QuickReplyGroup) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply-group/action/delete [post]
+// @Router /api/v1/console/quick-reply-group/action/delete [post]
 func (rg *QuickReplyGroup) Delete(c *gin.Context) {
 	req := entities.DeleteQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
@@ -104,13 +104,13 @@ func (rg *QuickReplyGroup) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := rg.GetStaffAdminInfo(handler)
+	consoleStaff, err := rg.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = rg.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	err = rg.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -127,7 +127,7 @@ func (rg *QuickReplyGroup) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply-group/{id} [put]
+// @Router /api/v1/console/quick-reply-group/{id} [put]
 func (rg *QuickReplyGroup) Update(c *gin.Context) {
 	req := entities.UpdateQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
@@ -137,13 +137,13 @@ func (rg *QuickReplyGroup) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := rg.GetStaffAdminInfo(handler)
+	consoleStaff, err := rg.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	group, err := rg.srv.Update(req, staffAdmin.ExtCorpID)
+	group, err := rg.srv.Update(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Create quick reply group failed")
 		handler.ResponseError(err)

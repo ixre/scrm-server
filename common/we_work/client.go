@@ -54,6 +54,14 @@ func SetupClient(conf CorpConf) {
 	})
 }
 
+// EnsureClients 懒初始化全局 Clients map（多租户 per-corp 运行时首次注册前调用）。
+// 与 SetupClient 的 once 并存：SetupClient 走单 corp 全局；此处为「一租户一企微」按 corp 追加。
+func EnsureClients() {
+	if Clients == nil {
+		Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{}}
+	}
+}
+
 func NewClient(conf CorpConf) (client Client, err error) {
 	client.Contact, err = NewWxApp(conf.ExtCorpID, conf.ContactSecret, 0)
 	if err != nil {

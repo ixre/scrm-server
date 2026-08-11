@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"core/api/pb"
+	"core/common/identity"
 	"core/internal/dispatch"
 
 	"google.golang.org/grpc/codes"
@@ -25,6 +26,12 @@ func (s *BusinessServer) Invoke(ctx context.Context, req *pb.BusinessRequest) (*
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unknown business action %s/%s", service, action)
 	}
+	// CRM 渠道无关身份（tenant_id/user_id）经 context 注入，供 CRM Adapter 读取；
+	// 既有企微 Adapter 继续用 corpID/staffID 入参，不受影响。
+	ctx = identity.WithIdentity(ctx, identity.Identity{
+		TenantID: req.GetTenantId(),
+		UserID:   req.GetUserId(),
+	})
 	res, err := a(ctx, req.GetCorpId(), req.GetStaffId(), req.GetParams())
 	if err != nil {
 		// 业务错误走响应码透传给网关，由网关映射为 HTTP 状态；不用 gRPC status。

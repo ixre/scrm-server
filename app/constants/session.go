@@ -7,8 +7,8 @@ const (
 	CustomerSessionName SessionName = "OpenSCRMCustomerSession"
 	// StaffSessionName 前台员工Session
 	StaffSessionName SessionName = "OpenSCRMStaffSession"
-	// StaffAdminSessionName 企业员工后台session
-	StaffAdminSessionName SessionName = "OpenSCRMStaffAdminSession"
+	// ConsoleSessionName 企业员工后台session
+	ConsoleSessionName SessionName = "OpenSCRMConsoleSession"
 	// CorpAdminSessionName 企业超级管理员session
 	CorpAdminSessionName SessionName = "OpenSCRMCorpAdminSession"
 	// SaasAdminSessionName Saas管理员Session

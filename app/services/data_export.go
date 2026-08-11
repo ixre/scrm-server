@@ -225,10 +225,10 @@ func (o DataExport) PrettifySheet(sheetName string, file *excelize.File, exportT
 
 // ---------------- backup for async task ------------------
 
-func (o DataExport) GenDataExportTask(req requests.DataExportReq, staffAdmin models.Staff) (string, error) {
+func (o DataExport) GenDataExportTask(req requests.DataExportReq, consoleStaff models.Staff) (string, error) {
 	exportJob := requests.DataExportJob{
 		DataExportReq: req,
-		ExtCorpID:     staffAdmin.ExtCorpID,
+		ExtCorpID:     consoleStaff.ExtCorpID,
 	}
 	reqBytes, err := json.Marshal(exportJob)
 	if err != nil {

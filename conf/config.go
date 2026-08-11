@@ -50,6 +50,10 @@ type serverConfig struct {
 	WriteTimeout    time.Duration `validate:"required,gt=0"`
 	MsgArchHttpPort int
 	MsgArchSrvHost  string
+	// CallbackPort 企微事件回调 webhook 监听端口（收企微主动 POST 的加密事件）。默认 9003。
+	CallbackPort int `json:"callback_port"`
+	// XhsCallbackPort 小红书事件回调 webhook 监听端口。默认 9004。
+	XhsCallbackPort int `json:"xhs_callback_port"`
 }
 
 // weWorkConfig 企业微信配置

@@ -39,7 +39,7 @@ func (r *QuickReplyFrontend) Query(c *gin.Context) {
 
 	staff, err := r.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 

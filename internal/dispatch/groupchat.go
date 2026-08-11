@@ -14,6 +14,8 @@ import (
 func init() {
 	Reg.Register("group_chat", "Query", groupChatQuery)
 	Reg.Register("group_chat", "UpdateTags", groupChatUpdateTags)
+	Reg.Register("group_chat", "GetAllOwners", groupChatGetAllOwners)
+	Reg.Register("group_chat", "GetAll", groupChatGetAll)
 
 	Reg.Register("group_chat_group", "Query", groupChatGroupQuery)
 	Reg.Register("group_chat_group", "Create", groupChatGroupCreate)
@@ -64,6 +66,23 @@ func groupChatUpdateTags(_ context.Context, _, _ string, params json.RawMessage)
 		return nil, err
 	}
 	return nil, services.NewGroupChatService().UpdateTags(req)
+}
+
+func groupChatGetAllOwners(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return services.NewGroupChatService().GetAllOwners(corpID)
+}
+
+func groupChatGetAll(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+	var p QueryParams[requests.QueryGroupChatReq]
+	if err := Bind(params, &p); err != nil {
+		return nil, err
+	}
+	MergePS(&p)
+	items, total, err := services.NewGroupChatService().GetAll(p.Query, corpID)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, total), nil
 }
 
 func groupChatGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
@@ -209,7 +228,7 @@ func groupChatAutoJoinQuery(_ context.Context, corpID, _ string, params json.Raw
 
 func groupChatAutoJoinUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                                   `json:"id"`
+		ID  string                                    `json:"id"`
 		Req requests.UpdateGroupChatAutoJoinQrCodeReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
@@ -263,6 +282,7 @@ func groupChatWelcomeMsgQuery(_ context.Context, corpID, _ string, params json.R
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	MergePS(&p)
 	staff := models.Staff{ExtCorpID: corpID}
 	items, total, err := services.NewGroupChatWelcomeMsg().Query(p.Query, staff)
 	if err != nil {

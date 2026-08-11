@@ -27,11 +27,13 @@ const (
 // params 是该动作入参的 JSON（具体结构由 service/action 决定）。
 type BusinessRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Service       string                 `protobuf:"bytes,1,opt,name=service,proto3" json:"service,omitempty"`                // 业务域名，如 customer / group_chat / role
-	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`                  // 动作名，如 Query / Get / Create / Update / Delete
-	CorpId        string                 `protobuf:"bytes,3,opt,name=corp_id,json=corpId,proto3" json:"corp_id,omitempty"`    // 企业微信 corp_id（网关鉴权注入）
-	StaffId       string                 `protobuf:"bytes,4,opt,name=staff_id,json=staffId,proto3" json:"staff_id,omitempty"` // 员工 id（网关鉴权注入）
-	Params        []byte                 `protobuf:"bytes,5,opt,name=params,proto3" json:"params,omitempty"`                  // 动作入参 JSON
+	Service       string                 `protobuf:"bytes,1,opt,name=service,proto3" json:"service,omitempty"`                   // 业务域名，如 customer / group_chat / role / crm_lead
+	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`                     // 动作名，如 Query / Get / Create / Update / Delete
+	CorpId        string                 `protobuf:"bytes,3,opt,name=corp_id,json=corpId,proto3" json:"corp_id,omitempty"`       // 企业微信 corp_id（网关鉴权注入；企微渠道上下文，可为空）
+	StaffId       string                 `protobuf:"bytes,4,opt,name=staff_id,json=staffId,proto3" json:"staff_id,omitempty"`    // 员工 id（网关鉴权注入；企微渠道上下文，可为空）
+	Params        []byte                 `protobuf:"bytes,5,opt,name=params,proto3" json:"params,omitempty"`                     // 动作入参 JSON
+	TenantId      string                 `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"` // 本地租户 id（CRM 渠道无关身份，网关鉴权注入）
+	UserId        string                 `protobuf:"bytes,7,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`       // 本地用户 id（CRM 渠道无关身份，网关鉴权注入）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -101,6 +103,20 @@ func (x *BusinessRequest) GetParams() []byte {
 	return nil
 }
 
+func (x *BusinessRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *BusinessRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
 // BusinessResponse 通用 JSON 透传响应。data 为结果 JSON；失败时 code!=0 且带 msg。
 type BusinessResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -166,13 +182,15 @@ var File_api_pb_business_proto protoreflect.FileDescriptor
 
 const file_api_pb_business_proto_rawDesc = "" +
 	"\n" +
-	"\x15api/pb/business.proto\x12\vbusiness.v1\"\x8f\x01\n" +
+	"\x15api/pb/business.proto\x12\vbusiness.v1\"\xc5\x01\n" +
 	"\x0fBusinessRequest\x12\x18\n" +
 	"\aservice\x18\x01 \x01(\tR\aservice\x12\x16\n" +
 	"\x06action\x18\x02 \x01(\tR\x06action\x12\x17\n" +
 	"\acorp_id\x18\x03 \x01(\tR\x06corpId\x12\x19\n" +
 	"\bstaff_id\x18\x04 \x01(\tR\astaffId\x12\x16\n" +
-	"\x06params\x18\x05 \x01(\fR\x06params\"L\n" +
+	"\x06params\x18\x05 \x01(\fR\x06params\x12\x1b\n" +
+	"\ttenant_id\x18\x06 \x01(\tR\btenantId\x12\x17\n" +
+	"\auser_id\x18\a \x01(\tR\x06userId\"L\n" +
 	"\x10BusinessResponse\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\x05R\x04code\x12\x10\n" +

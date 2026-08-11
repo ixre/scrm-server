@@ -16,16 +16,16 @@ type SaasAdminLoginReq struct {
 	Password string `json:"password" validate:"required,max=100"`
 }
 
-// StaffAdminLoginReq 企业员工后台扫码登录请求
-type StaffAdminLoginReq struct {
+// ConsoleLoginReq 企业员工后台扫码登录请求
+type ConsoleLoginReq struct {
 	// ExtCorpID 外部企业ID
 	ExtCorpID string `form:"ext_corp_id" json:"ext_corp_id" gorm:"index;comment:'外部企业ID'" validate:"omitempty,corp_id"`
 	// SourceURL 登录来源页面URL，登录成功自动跳转过去
 	SourceURL string `form:"source_url" json:"source_url" validate:"required"`
 }
 
-// StaffAdminLoginResp 企业员工后台扫码登录响应
-type StaffAdminLoginResp struct {
+// ConsoleLoginResp 企业员工后台扫码登录响应
+type ConsoleLoginResp struct {
 	// AppID 外部企业ID
 	AppID string `json:"app_id"`
 	// AgentID 授权应用AgentID
@@ -38,8 +38,8 @@ type StaffAdminLoginResp struct {
 	LocationURL string `json:"location_url"`
 }
 
-// StaffAdminLoginCallbackReq 企业员工后台扫码登录回调请求
-type StaffAdminLoginCallbackReq struct {
+// ConsoleLoginCallbackReq 企业员工后台扫码登录回调请求
+type ConsoleLoginCallbackReq struct {
 	// AppID 外部企业ID
 	AppID string `form:"appid" json:"appid" validate:"required,corp_id"`
 	// Code
@@ -48,8 +48,8 @@ type StaffAdminLoginCallbackReq struct {
 	State string `form:"state" json:"state"`
 }
 
-// StaffAdminForceLoginReq 调试接口-指定普通管理员强制登录
-type StaffAdminForceLoginReq struct {
+// ConsoleForceLoginReq 调试接口-指定普通管理员强制登录
+type ConsoleForceLoginReq struct {
 	// ExtCorpID 外部企业ID
 	ExtCorpID string `form:"ext_corp_id" json:"ext_corp_id" validate:"omitempty,corp_id"`
 	// ExtStaffID 外部员工ID

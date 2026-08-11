@@ -9,11 +9,13 @@ option go_package = "core/api/pb;pb";
 // 采用 JSON 透传：service/action 定位到闭源 core 内的真实 service 方法，
 // params 是该动作入参的 JSON（具体结构由 service/action 决定）。
 message BusinessRequest {
-  string service = 1;   // 业务域名，如 customer / group_chat / role
+  string service = 1;   // 业务域名，如 customer / group_chat / role / crm_lead
   string action = 2;    // 动作名，如 Query / Get / Create / Update / Delete
-  string corp_id = 3;   // 企业微信 corp_id（网关鉴权注入）
-  string staff_id = 4;  // 员工 id（网关鉴权注入）
+  string corp_id = 3;   // 企业微信 corp_id（网关鉴权注入；企微渠道上下文，可为空）
+  string staff_id = 4;  // 员工 id（网关鉴权注入；企微渠道上下文，可为空）
   bytes params = 5;     // 动作入参 JSON
+  string tenant_id = 6; // 本地租户 id（CRM 渠道无关身份，网关鉴权注入）
+  string user_id = 7;   // 本地用户 id（CRM 渠道无关身份，网关鉴权注入）
 }
 
 // BusinessResponse 通用 JSON 透传响应。data 为结果 JSON；失败时 code!=0 且带 msg。

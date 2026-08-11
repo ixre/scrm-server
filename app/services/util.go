@@ -2,18 +2,7 @@ package services
 
 import (
 	"bytes"
-	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/go-resty/resty/v2"
-	"github.com/gogf/gf/crypto/gmd5"
-	"github.com/gogf/gf/crypto/gsha1"
-	"github.com/gogf/gf/util/grand"
-	"github.com/pkg/errors"
-	"github.com/thoas/go-funk"
-	"math"
-	"math/rand"
-	"net/http"
-	"net/url"
+	"core/app/constants"
 	"core/app/requests"
 	"core/app/responses"
 	"core/common/ecode"
@@ -21,13 +10,31 @@ import (
 	"core/common/redis"
 	"core/common/storage"
 	"core/common/we_work"
-	"core/pkg/easywework"
+	workwx "core/pkg/easywework"
+	"fmt"
+	"math"
+	"math/rand"
+	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/go-resty/resty/v2"
+	"github.com/gogf/gf/crypto/gmd5"
+	"github.com/gogf/gf/crypto/gsha1"
+	"github.com/gogf/gf/util/grand"
+	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
 )
 
 type Util struct {
+}
+
+// GetSignedURL generates a signed download URL for a given file name (object key).
+func (o *Util) GetSignedURL(fileName string) (string, error) {
+	return storage.FileStorage.SignURL(fileName, constants.HTTPGet, 86400)
 }
 
 // CachedUploadMedia  上传临时素材(带缓存)

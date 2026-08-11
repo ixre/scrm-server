@@ -27,7 +27,7 @@ func NewGroupChat() *GroupChat {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChat}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group [get]
+// @Router /api/v1/console/customer-group [get]
 func (o GroupChat) Query(c *gin.Context) {
 	req := requests.QueryGroupChatReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o GroupChat) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin.ExtCorpID, &req.Pager, &req.Sorter)
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -62,7 +62,7 @@ func (o GroupChat) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/action/update-tags [post]
+// @Router /api/v1/console/customer-group/action/update-tags [post]
 func (o GroupChat) UpdateTags(c *gin.Context) {
 	req := requests.UpdateCustomerGroupReq{}
 	handler := app.NewHandler(c)
@@ -90,7 +90,7 @@ func (o GroupChat) UpdateTags(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-groups/action/export [get]
+// @Router /api/v1/console/customer-groups/action/export [get]
 func (o GroupChat) Export(c *gin.Context) {
 	req := requests.QueryGroupChatReq{}
 	handler := app.NewHandler(c)
@@ -100,13 +100,13 @@ func (o GroupChat) Export(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	buf, filename, err := o.srv.Export(req, staffAdmin.ExtCorpID)
+	buf, filename, err := o.srv.Export(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -123,17 +123,17 @@ func (o GroupChat) Export(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=[]models.StaffMainInfo} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tags [put]
+// @Router /api/v1/console/customer-group/tags [put]
 func (o GroupChat) GetAllOwners(c *gin.Context) {
 	handler := app.NewHandler(c)
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, err := o.srv.GetAllOwners(staffAdmin.ExtCorpID)
+	items, err := o.srv.GetAllOwners(consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -151,7 +151,7 @@ func (o GroupChat) GetAllOwners(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=[]models.StaffMainInfo} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/action/get-all [post]
+// @Router /api/v1/console/customer-group/action/get-all [post]
 func (o GroupChat) GetAll(c *gin.Context) {
 	req := requests.QueryGroupChatReq{}
 	handler := app.NewHandler(c)
@@ -161,13 +161,13 @@ func (o GroupChat) GetAll(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.GetAll(req, staffAdmin.ExtCorpID)
+	items, total, err := o.srv.GetAll(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

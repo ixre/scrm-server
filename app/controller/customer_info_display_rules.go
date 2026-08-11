@@ -25,10 +25,10 @@ func NewCustomerInfoDisplayRules() *CustomerInfoDisplayRulesHandler {
 // @Success 200 {object} app.JSONResult{data=models.CustomerInfoDisplayRule} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/info/displays [get]
+// @Router /api/v1/console/customer/info/displays [get]
 func (ch CustomerInfoDisplayRulesHandler) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
-	adminInfo, err := ch.GetStaffAdminInfo(handler)
+	adminInfo, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -51,7 +51,7 @@ func (ch CustomerInfoDisplayRulesHandler) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/info/displays [put]
+// @Router /api/v1/console/customer/info/displays [put]
 func (ch CustomerInfoDisplayRulesHandler) Update(c *gin.Context) {
 	var req entities.UpdateCustomerInfoDisplayRulesReq
 	handler := app.NewHandler(c)
@@ -60,12 +60,12 @@ func (ch CustomerInfoDisplayRulesHandler) Update(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	staffAdminInfo, err := ch.GetStaffAdminInfo(handler)
+	consoleStaffInfo, err := ch.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	err = ch.srv.Update(staffAdminInfo.ExtCorpID, &req)
+	err = ch.srv.Update(consoleStaffInfo.ExtCorpID, &req)
 	if err != nil {
 		log.Sugar.Errorf("app.GetCustomerInfoDisplay errs: %v", err)
 		handler.ResponseError(err)

@@ -26,7 +26,7 @@ func NewGroupChatTagGroup() *CustomerGroupTagGroup {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag-group [post]
+// @Router /api/v1/console/customer-group/tag-group [post]
 func (o CustomerGroupTagGroup) Create(c *gin.Context) {
 	req := &requests.CreateGroupChatTagGroupReq{}
 	handler := app.NewHandler(c)
@@ -35,7 +35,7 @@ func (o CustomerGroupTagGroup) Create(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -58,7 +58,7 @@ func (o CustomerGroupTagGroup) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag-group [put]
+// @Router /api/v1/console/customer-group/tag-group [put]
 func (o CustomerGroupTagGroup) Update(c *gin.Context) {
 	req := &requests.UpdateGroupChatTagGroupReq{}
 	handler := app.NewHandler(c)
@@ -67,7 +67,7 @@ func (o CustomerGroupTagGroup) Update(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -90,7 +90,7 @@ func (o CustomerGroupTagGroup) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag-group/action/delete [post]
+// @Router /api/v1/console/customer-group/tag-group/action/delete [post]
 func (o CustomerGroupTagGroup) Delete(c *gin.Context) {
 	req := &requests.CommonDeleteReq{}
 	handler := app.NewHandler(c)
@@ -118,7 +118,7 @@ func (o CustomerGroupTagGroup) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag-group [get]
+// @Router /api/v1/console/customer-group/tag-group [get]
 func (o CustomerGroupTagGroup) Query(c *gin.Context) {
 	req := &requests.QueryCustomerGroupTagGroupReq{}
 	handler := app.NewHandler(c)
@@ -127,7 +127,7 @@ func (o CustomerGroupTagGroup) Query(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return

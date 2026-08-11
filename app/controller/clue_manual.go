@@ -23,7 +23,7 @@ type ClueManual struct {
 // @Success 200 {object} app.JSONResult{data=models.CustomerEvent} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/clue-manual [post]
+// @Router /api/v1/console/customer/clue-manual [post]
 func (o ClueManual) Create(c *gin.Context) {
 	req := requests.CreateClueManualReq{}
 	handler := app.NewHandler(c)
@@ -33,13 +33,13 @@ func (o ClueManual) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin.ExtCorpID, staffAdmin.ExtID)
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -58,7 +58,7 @@ func (o ClueManual) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/clue-manual/action/delete/{id} [post]
+// @Router /api/v1/console/customer/clue-manual/action/delete/{id} [post]
 func (o ClueManual) Delete(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.CommonDeleteReq{}
@@ -67,13 +67,13 @@ func (o ClueManual) Delete(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	res, err := o.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	res, err := o.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -92,7 +92,7 @@ func (o ClueManual) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.CustomerEvent} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/clue-manual/{id} [put]
+// @Router /api/v1/console/clue-manual/{id} [put]
 func (o ClueManual) Update(c *gin.Context) {
 	req := requests.UpdateClueManualReq{}
 	handler := app.NewHandler(c)
@@ -109,13 +109,13 @@ func (o ClueManual) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Update(id, req, staffAdmin.ExtCorpID)
+	item, err := o.srv.Update(id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)

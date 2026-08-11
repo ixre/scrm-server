@@ -2,14 +2,18 @@ package services
 
 import (
 	"fmt"
-	"github.com/gogf/gf/encoding/gurl"
-	"github.com/pkg/errors"
 	"net/url"
+
+	"core/app/constants"
 	"core/app/entities"
 	"core/app/models"
 	"core/common/ecode"
+	"core/common/log"
 	"core/common/we_work"
 	"core/conf"
+
+	"github.com/gogf/gf/encoding/gurl"
+	"github.com/pkg/errors"
 )
 
 type Login struct {
@@ -28,7 +32,11 @@ func NewLogin(staff models.Staff) *Login {
 	}
 }
 
-func (o *Login) StaffAdminLogin(extCorpID string, state string, sourceURL string) (item entities.StaffAdminLoginResp, err error) {
+func (o *Login) ConsoleLogin(extCorpID string, state string, sourceURL string) (item entities.ConsoleLoginResp, err error) {
+
+	if extCorpID == "" {
+		extCorpID = conf.Settings.WeWork.ExtCorpID
+	}
 
 	sourceURL, err = gurl.Decode(sourceURL)
 	if err != nil {
@@ -42,11 +50,11 @@ func (o *Login) StaffAdminLogin(extCorpID string, state string, sourceURL string
 		return
 	}
 
-	item = entities.StaffAdminLoginResp{
+	item = entities.ConsoleLoginResp{
 		AppID:   extCorpID,
 		AgentID: conf.Settings.WeWork.MainAgentID,
 		RedirectURI: fmt.Sprintf(
-			"%s://%s/api/v1/staff-admin/action/login-callback",
+			"%s://%s/api/v1/console/action/login-callback",
 			sourceURLInfo.Scheme,
 			sourceURLInfo.Host,
 		),
@@ -61,7 +69,7 @@ func (o *Login) StaffAdminLogin(extCorpID string, state string, sourceURL string
 	return
 }
 
-func (o *Login) StaffAdminLoginCallback(extCorpID string, code string) (item *models.Staff, err error) {
+func (o *Login) ConsoleLoginCallback(extCorpID string, code string) (item *models.Staff, err error) {
 	client, err := we_work.Clients.Get(conf.Settings.WeWork.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Get Client failed")
@@ -91,6 +99,43 @@ func (o *Login) StaffAdminLoginCallback(extCorpID string, code string) (item *mo
 	}
 
 	return
+}
+
+// ForceConsoleLogin 调试接口-指定员工强制登录。仅开发/测试环境可用。
+// 逻辑与 app/controller/login.go 的 ConsoleForceLogin 一致：查到员工直接返回；
+// 目标是超级管理员且员工不存在时自动创建。
+func (o *Login) ForceConsoleLogin(extCorpID string, extStaffID string) (item *models.Staff, err error) {
+	if extCorpID == "" {
+		extCorpID = conf.Settings.WeWork.ExtCorpID
+	}
+	if extStaffID == "" && len(conf.Settings.App.SuperAdmin) > 0 {
+		extStaffID = conf.Settings.App.SuperAdmin[0]
+	}
+
+	item, err = (&models.Staff{}).Get(extStaffID, "", false)
+	if err != nil {
+		err = errors.Wrap(err, "GetStaffByUserID failed")
+		if len(conf.Settings.App.SuperAdmin) > 0 && extStaffID == conf.Settings.App.SuperAdmin[0] {
+			log.Errorf("GetStaffByUserID failed, err: %v, try to login as super admin staff", err)
+			// 超级管理员缺失时自动创建
+			item = &models.Staff{
+				Model:     models.Model{ID: "1"},
+				ExtID:     extStaffID,
+				ExtCorpID: extCorpID,
+				Name:      extStaffID,
+				RoleType:  string(constants.RoleTypeSuperAdmin),
+				RoleID:    string(constants.DefaultCorpSuperAdminRoleID),
+				Status:    constants.UserStatusActivated,
+			}
+			if err = models.DB.Create(item).Error; err != nil {
+				err = errors.Wrap(err, "create super admin staff failed")
+				return nil, err
+			}
+			return item, nil
+		}
+		return nil, err
+	}
+	return item, nil
 }
 
 func (o *Login) StaffLogin(extCorpID string, state string, sourceURL string) (item entities.StaffLoginResp, err error) {

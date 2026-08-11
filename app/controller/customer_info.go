@@ -26,7 +26,7 @@ func NewCustomerInfoHandler() *CustomerInfoHandler {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/info [put]
+// @Router /api/v1/console/customer/info [put]
 func (ch CustomerInfoHandler) Update(c *gin.Context) {
 	req := entities.UpdateCustomerInfoReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (ch CustomerInfoHandler) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := ch.GetStaffAdminInfo(handler)
+	consoleStaff, err := ch.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = ch.customerInfoService.Update(&req, staffAdmin.ExtCorpID)
+	err = ch.customerInfoService.Update(&req, consoleStaff.ExtCorpID)
 	if err != nil {
 		log.Sugar.Errorf("ch.ch.Upsert errs: %v", err)
 		handler.ResponseError(err)
@@ -60,7 +60,7 @@ func (ch CustomerInfoHandler) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{}"成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/info [get]
+// @Router /api/v1/console/customer/info [get]
 func (ch CustomerInfoHandler) Get(c *gin.Context) {
 	req := entities.GetCustomerInfoReq{}
 	handler := app.NewHandler(c)
@@ -71,13 +71,13 @@ func (ch CustomerInfoHandler) Get(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := ch.GetStaffAdminInfo(handler)
+	consoleStaff, err := ch.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	info, err := ch.customerInfoService.Get(req, staffAdmin.ExtCorpID)
+	info, err := ch.customerInfoService.Get(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Upsert failed")
 		handler.ResponseError(err)

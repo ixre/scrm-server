@@ -25,6 +25,7 @@ func contactWayQuery(_ context.Context, corpID, _ string, params json.RawMessage
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	MergePS(&p)
 	items, total, err := services.NewContactWay().Query(p.Query, corpID)
 	if err != nil {
 		return nil, err
@@ -52,7 +53,7 @@ func contactWayCreate(_ context.Context, corpID, staffID string, params json.Raw
 
 func contactWayUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                        `json:"id"`
+		ID  string                       `json:"id"`
 		Req requests.UpdateContactWayReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
@@ -121,7 +122,7 @@ func contactWayGroupCreate(_ context.Context, corpID, staffID string, params jso
 
 func contactWayGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                        `json:"id"`
+		ID  string                            `json:"id"`
 		Req requests.UpdateContactWayGroupReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {

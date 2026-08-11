@@ -34,7 +34,7 @@ func NewUtil() *Util {
 // @Success 200 {object} app.JSONResult{data=responses.ParseLinkResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/common/action/parse-link [post]
+// @Router /api/v1/console/common/action/parse-link [post]
 func (o *Util) ParseLink(c *gin.Context) {
 	req := requests.ParseLinkReq{}
 	handler := app.NewHandler(c)
@@ -62,7 +62,7 @@ func (o *Util) ParseLink(c *gin.Context) {
 // @Success 200 {file} file "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/storage/action/get-signed-url [post]
+// @Router /api/v1/console/storage/action/get-signed-url [post]
 func (o *Util) GetUploadURL(c *gin.Context) {
 	req := requests.GetUploadURLReq{}
 	handler := app.NewHandler(c)
@@ -77,7 +77,7 @@ func (o *Util) GetUploadURL(c *gin.Context) {
 		return
 	}
 
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(errors.WithStack(err))
 		return
@@ -119,7 +119,7 @@ func (o *Util) GetUploadURL(c *gin.Context) {
 // @Success 200 {file} file "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/action/upload-media [post]
+// @Router /api/v1/console/action/upload-media [post]
 func (o *Util) UploadMedia(c *gin.Context) {
 	req := requests.UploadMediaReq{}
 	handler := app.NewHandler(c)

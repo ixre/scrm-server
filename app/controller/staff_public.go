@@ -25,7 +25,7 @@ func NewStaffPublic() *Staff {
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/staff/{ext_id} [get]
+// @Router /api/v1/console/staff/{ext_id} [get]
 func (s Staff) GetStaff(c *gin.Context) {
 	handler := app.NewHandler(c)
 	extStaffID, err := handler.GetStringParam("ext_id")
@@ -34,12 +34,12 @@ func (s Staff) GetStaff(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.Get(extStaffID, staffAdmin.ExtCorpID)
+	staff, err := s.staffService.Get(extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return

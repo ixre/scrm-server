@@ -27,7 +27,7 @@ func NewCustomerEvent() *CustomerEvent {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.CustomerEvent}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/events [get]
+// @Router /api/v1/console/customer/events [get]
 func (o CustomerEvent) Query(c *gin.Context) {
 	req := requests.QueryEventListReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o CustomerEvent) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

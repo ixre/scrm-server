@@ -13,6 +13,7 @@ import (
 func init() {
 	s := "staff"
 	Reg.Register(s, "Enable", staffEnable)
+	Reg.Register(s, "Sync", staffSync)
 	Reg.Register(s, "GetDetail", staffGetDetail)
 	Reg.Register(s, "StaffInfoStatistics", staffStaffInfoStatistics)
 	Reg.Register(s, "UpdateCustomerTag", staffUpdateCustomerTag)
@@ -26,7 +27,8 @@ func init() {
 
 	l := "login"
 	Reg.Register(l, "StaffLogin", loginStaffLogin)
-	Reg.Register(l, "StaffAdminLogin", loginStaffAdminLogin)
+	Reg.Register(l, "ConsoleLogin", loginConsoleLogin)
+	Reg.Register(l, "ConsoleForceLogin", loginConsoleForceLogin)
 
 	j := "js_api"
 	Reg.Register(j, "GetJSConfig", jsApiGetJSConfig)
@@ -34,6 +36,7 @@ func init() {
 
 	u := "util"
 	Reg.Register(u, "ParseLink", utilParseLink)
+	Reg.Register(u, "GetSignedURL", utilGetSignedURL)
 
 	m := "msg_arch"
 	Reg.Register(m, "QueryMsgs", msgArchQueryMsgs)
@@ -127,8 +130,8 @@ func permissionGet(_ context.Context, _, _ string, params json.RawMessage) (any,
 
 func loginStaffLogin(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		State      string `json:"state"`
-		SourceURL  string `json:"source_url"`
+		State     string `json:"state"`
+		SourceURL string `json:"source_url"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -136,7 +139,7 @@ func loginStaffLogin(_ context.Context, corpID, _ string, params json.RawMessage
 	return services.NewDefaultLogin().StaffLogin(corpID, req.State, req.SourceURL)
 }
 
-func loginStaffAdminLogin(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func loginConsoleLogin(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		State     string `json:"state"`
 		SourceURL string `json:"source_url"`
@@ -144,7 +147,18 @@ func loginStaffAdminLogin(_ context.Context, corpID, _ string, params json.RawMe
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewDefaultLogin().StaffAdminLogin(corpID, req.State, req.SourceURL)
+	return services.NewDefaultLogin().ConsoleLogin(corpID, req.State, req.SourceURL)
+}
+
+func loginConsoleForceLogin(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		ExtCorpID  string `json:"ext_corp_id"`
+		ExtStaffID string `json:"ext_staff_id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewDefaultLogin().ForceConsoleLogin(req.ExtCorpID, req.ExtStaffID)
 }
 
 func jsApiGetJSConfig(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
@@ -175,6 +189,16 @@ func utilParseLink(_ context.Context, _, _ string, params json.RawMessage) (any,
 	return (&services.Util{}).ParseLink(req)
 }
 
+func utilGetSignedURL(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		FileName string `json:"file_name"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return (&services.Util{}).GetSignedURL(req.FileName)
+}
+
 func msgArchQueryMsgs(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.QueryChatMsgReq
 	if err := Bind(params, &req); err != nil {
@@ -197,4 +221,8 @@ func msgArchSearchMsgs(_ context.Context, corpID, _ string, params json.RawMessa
 		return nil, err
 	}
 	return services.NewMsgArch().SearchMsgs(req, corpID)
+}
+
+func staffSync(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return nil, services.NewStaffService().Sync(corpID)
 }

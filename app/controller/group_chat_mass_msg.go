@@ -26,7 +26,7 @@ func NewDefaultGroupChatMassMsg() *GroupChatMassMsg {
 // @Success 200 {object} app.JSONResult{data=models.GroupChatMassMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/group-chat/mass-msg [post]
+// @Router /api/v1/console/group-chat/mass-msg [post]
 func (ch GroupChatMassMsg) Create(c *gin.Context) {
 	req := requests.SendGroupChatMassMsgReq{}
 	handler := app.NewHandler(c)
@@ -37,12 +37,12 @@ func (ch GroupChatMassMsg) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdminInfo, err := ch.GetStaffAdminInfo(handler)
+	consoleStaffInfo, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
 	}
-	msg, err := ch.srv.SendMassMsgAsync(req, staffAdminInfo.ExtID, staffAdminInfo.ExtCorpID)
+	msg, err := ch.srv.SendMassMsgAsync(req, consoleStaffInfo.ExtID, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -58,7 +58,7 @@ func (ch GroupChatMassMsg) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.MassMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/{id} [get]
+// @Router /api/v1/console/customer/mass-msg/{id} [get]
 func (ch GroupChatMassMsg) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
 	ID, err := handler.GetIDParam()
@@ -68,7 +68,7 @@ func (ch GroupChatMassMsg) Get(c *gin.Context) {
 		return
 	}
 
-	_, err = ch.GetStaffAdminInfo(handler)
+	_, err = ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseBadRequestError(err)
 		return
@@ -90,7 +90,7 @@ func (ch GroupChatMassMsg) Get(c *gin.Context) {
 //// @Success 200 {object} app.JSONResult{data=requests.SendMassMsgResp} "成功"
 //// @Failure 400 {object} app.JSONResult{} "请求错误"
 //// @Failure 500 {object} app.JSONResult{} "内部错误"
-//// @Router /api/v1/staff-admin/customer/mass-msg/result/{id} [get]
+//// @Router /api/v1/console/customer/mass-msg/result/{id} [get]
 //func (ch GroupChatMassMsg) GetSendMassMsgResult(c *gin.Context) {
 //	handler := app.NewHandler(c)
 //	missionID, err := handler.GetIDParam()
@@ -116,7 +116,7 @@ func (ch GroupChatMassMsg) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/action/delete [post]
+// @Router /api/v1/console/customer/mass-msg/action/delete [post]
 func (ch GroupChatMassMsg) Delete(c *gin.Context) {
 	handler := app.NewHandler(c)
 
@@ -145,7 +145,7 @@ func (ch GroupChatMassMsg) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msgs [get]
+// @Router /api/v1/console/customer/mass-msgs [get]
 func (ch GroupChatMassMsg) Query(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.QueryMassMsgReq{}
@@ -155,7 +155,7 @@ func (ch GroupChatMassMsg) Query(c *gin.Context) {
 		return
 	}
 
-	info, err := ch.GetStaffAdminInfo(handler)
+	info, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return

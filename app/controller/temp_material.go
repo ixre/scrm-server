@@ -27,7 +27,7 @@ func NewTempMaterial() *TempMaterial {
 // @Success 200 {object} app.JSONResult{data=workwx.MediaUploadResult} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/temp [post]
+// @Router /api/v1/console/material/temp [post]
 func (o TempMaterial) Upload(c *gin.Context) {
 	req := entities.UploadMaterialReq{}
 	handler := app.NewHandler(c)
@@ -37,12 +37,12 @@ func (o TempMaterial) Upload(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	resp, err := o.srv.UploadMedia(req, staffAdmin.ExtCorpID)
+	resp, err := o.srv.UploadMedia(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "upload failed")
 		handler.ResponseError(err)

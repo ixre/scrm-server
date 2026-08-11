@@ -32,7 +32,7 @@ func NewDefaultMassMsg() *MassMsg {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg [post]
+// @Router /api/v1/console/customer/mass-msg [post]
 func (ch MassMsg) Create(c *gin.Context) {
 	req := requests.SendMassMsgReq{}
 	handler := app.NewHandler(c)
@@ -43,12 +43,12 @@ func (ch MassMsg) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdminInfo, err := ch.GetStaffAdminInfo(handler)
+	consoleStaffInfo, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
 	}
-	msg, err := ch.srv.Create(req, staffAdminInfo.Name, staffAdminInfo.ExtCorpID)
+	msg, err := ch.srv.Create(req, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -64,7 +64,7 @@ func (ch MassMsg) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.MassMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/{id} [get]
+// @Router /api/v1/console/customer/mass-msg/{id} [get]
 func (ch MassMsg) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
 	missionID, err := handler.GetIDParam()
@@ -74,7 +74,7 @@ func (ch MassMsg) Get(c *gin.Context) {
 		return
 	}
 
-	info, err := ch.GetStaffAdminInfo(handler)
+	info, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		return
 	}
@@ -95,7 +95,7 @@ func (ch MassMsg) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=requests.SendMassMsgResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/result/{id} [get]
+// @Router /api/v1/console/customer/mass-msg/result/{id} [get]
 func (ch MassMsg) GetSendMassMsgResult(c *gin.Context) {
 	handler := app.NewHandler(c)
 	missionID, err := handler.GetIDParam()
@@ -121,7 +121,7 @@ func (ch MassMsg) GetSendMassMsgResult(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/action/delete/{id} [post]
+// @Router /api/v1/console/customer/mass-msg/action/delete/{id} [post]
 func (ch MassMsg) Delete(c *gin.Context) {
 	handler := app.NewHandler(c)
 
@@ -150,7 +150,7 @@ func (ch MassMsg) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/notify [post]
+// @Router /api/v1/console/customer/mass-msg/notify [post]
 func (ch MassMsg) Notify(c *gin.Context) {
 	req := requests.MassMsgNotifyReq{}
 	handler := app.NewHandler(c)
@@ -160,13 +160,13 @@ func (ch MassMsg) Notify(c *gin.Context) {
 		return
 	}
 
-	staffAdminInfo, err := ch.GetStaffAdminInfo(handler)
+	consoleStaffInfo, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
 	}
 
-	err = ch.srv.Notify(req.IDs, staffAdminInfo.ExtCorpID)
+	err = ch.srv.Notify(req.IDs, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -183,7 +183,7 @@ func (ch MassMsg) Notify(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msgs [get]
+// @Router /api/v1/console/customer/mass-msgs [get]
 func (ch MassMsg) Query(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.QueryMassMsgReq{}
@@ -193,7 +193,7 @@ func (ch MassMsg) Query(c *gin.Context) {
 		return
 	}
 
-	info, err := ch.GetStaffAdminInfo(handler)
+	info, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -215,7 +215,7 @@ func (ch MassMsg) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/customer-filter [get]
+// @Router /api/v1/console/customer/mass-msg/customer-filter [get]
 func (ch MassMsg) CustomerFilter(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.CountCustomer{}
@@ -243,7 +243,7 @@ func (ch MassMsg) CustomerFilter(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/action/get-upload-url [post]
+// @Router /api/v1/console/customer/mass-msg/action/get-upload-url [post]
 func (ch MassMsg) GetUploadUrl(c *gin.Context) {
 	req := requests.GetUploadURLReq{}
 	handler := app.NewHandler(c)
@@ -258,7 +258,7 @@ func (ch MassMsg) GetUploadUrl(c *gin.Context) {
 		return
 	}
 
-	info, err := ch.GetStaffAdminInfo(handler)
+	info, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -295,7 +295,7 @@ func (ch MassMsg) GetUploadUrl(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/mass-msg/:id [get]
+// @Router /api/v1/console/customer/mass-msg/:id [get]
 func (ch MassMsg) Update(c *gin.Context) {
 	req := requests.UpdateMassMsgReq{}
 	handler := app.NewHandler(c)
@@ -313,12 +313,12 @@ func (ch MassMsg) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdminInfo, err := ch.GetStaffAdminInfo(handler)
+	consoleStaffInfo, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
 	}
-	msgID, err := ch.srv.UpdateMassMsg(req, id, staffAdminInfo.Name, staffAdminInfo.ExtCorpID)
+	msgID, err := ch.srv.UpdateMassMsg(req, id, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)

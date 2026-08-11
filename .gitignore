@@ -1,3 +1,9 @@
 /bin/
 *.log
 conf/config.yaml
+/tmp/
+
+# docker-compose-dev.yaml 的 bind mount 数据目录
+docs/pg-data/
+docs/redis-data/
+.DS_Store

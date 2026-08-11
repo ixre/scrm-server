@@ -37,4 +37,10 @@ func main() {
 		log.Fatalf("[migrate] apply: %v", err)
 	}
 	log.Println("[migrate] schema migrations done")
+
+	// 回填存量企微数据到 CRM 原生表（幂等，无企微数据时为空操作）。
+	if err := migrate.BackfillCRM(models.DB); err != nil {
+		log.Fatalf("[migrate] backfill crm: %v", err)
+	}
+	log.Println("[migrate] crm backfill done")
 }

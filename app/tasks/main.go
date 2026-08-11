@@ -1,11 +1,12 @@
 package tasks
 
 import (
-	"github.com/gogf/gf/os/gcron"
 	"core/common/log"
+
+	"github.com/gogf/gf/os/gcron"
 )
 
-//Start 用于运行定时任务
+// Start 用于运行定时任务
 func Start() {
 	var err error
 	defer func() {
@@ -33,6 +34,15 @@ func Start() {
 	if err != nil {
 		log.Sugar.Errorw("AddSingleton failed", "err", err)
 	}
+
+	// Phase 1：公海自动回收（每日凌晨执行）
+	_, err = gcron.AddSingleton("0 0 2 * * *", (CrmPool{}).AutoRecycle, "CrmPoolAutoRecycle")
+	if err != nil {
+		log.Sugar.Errorw("AddSingleton failed", "err", err)
+	}
+
+	// Phase 4：自动化定时任务（SOP执行/客户评分/自动打标签）
+	RegisterCrmAutomationTasks()
 
 	log.Sugar.Infow("Tasks Running")
 }

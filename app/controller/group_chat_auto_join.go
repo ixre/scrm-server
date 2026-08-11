@@ -27,7 +27,7 @@ func NewGroupChatAutoJoin() *GroupChatAutoJoin {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChatAutoJoinCode}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/auto-join-code [get]
+// @Router /api/v1/console/auto-join-code [get]
 func (o *GroupChatAutoJoin) Query(c *gin.Context) {
 	req := requests.QueryGroupChatAutoJoinReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o *GroupChatAutoJoin) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -61,7 +61,7 @@ func (o *GroupChatAutoJoin) Query(c *gin.Context) {
 // @success 200 {object} app.JSONResult{data=models.GroupChatAutoJoinCode} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/auto-join-code [post]
+// @router /api/v1/console/customer-group/auto-join-code [post]
 func (o *GroupChatAutoJoin) Create(c *gin.Context) {
 	req := requests.CreateGroupChatAutoJoinCodeReq{}
 	handler := app.NewHandler(c)
@@ -71,13 +71,13 @@ func (o *GroupChatAutoJoin) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		log.TracedError("get staff admin info failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin.ExtCorpID)
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "create failed")
 		handler.ResponseError(err)
@@ -96,7 +96,7 @@ func (o *GroupChatAutoJoin) Create(c *gin.Context) {
 // @success 200 {object} app.JSONResult{data=models.GroupChatAutoJoinCode} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/auto-join-code/{id} [put]
+// @router /api/v1/console/customer-group/auto-join-code/{id} [put]
 func (o *GroupChatAutoJoin) Update(c *gin.Context) {
 	req := requests.UpdateGroupChatAutoJoinQrCodeReq{}
 	handler := app.NewHandler(c)
@@ -113,13 +113,13 @@ func (o *GroupChatAutoJoin) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Update(id, req, staffAdmin.ExtCorpID)
+	item, err := o.srv.Update(id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "update failed")
 		handler.ResponseError(err)
@@ -137,7 +137,7 @@ func (o *GroupChatAutoJoin) Update(c *gin.Context) {
 // @success 200 {object} app.JSONResult{} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/auto-join-code/action/delete [post]
+// @router /api/v1/console/customer-group/auto-join-code/action/delete [post]
 func (o *GroupChatAutoJoin) Delete(c *gin.Context) {
 	req := requests.DeleteGroupChatAutoJoinReq{}
 	handler := app.NewHandler(c)
@@ -147,13 +147,13 @@ func (o *GroupChatAutoJoin) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	total, err := o.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	total, err := o.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "delete failed")
 		handler.ResponseError(err)
@@ -171,7 +171,7 @@ func (o *GroupChatAutoJoin) Delete(c *gin.Context) {
 // @success 200 {object} app.JSONResult{} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/auto-join-code/action/batch-regroup [post]
+// @router /api/v1/console/customer-group/auto-join-code/action/batch-regroup [post]
 func (o *GroupChatAutoJoin) BatchRegroup(c *gin.Context) {
 	req := requests.BatchRegroupReq{}
 	handler := app.NewHandler(c)
@@ -181,13 +181,13 @@ func (o *GroupChatAutoJoin) BatchRegroup(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = o.srv.BatchRegroup(req, staffAdmin.ExtCorpID)
+	err = o.srv.BatchRegroup(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "delete failed")
 		handler.ResponseError(err)

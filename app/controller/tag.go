@@ -25,10 +25,10 @@ func NewTag(tagSvc *services.TagService) *Tag {
 // @Success 200 {object} app.JSONResult{data=models.TagGroupSwagger} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/action/sync [post]
+// @Router /api/v1/console/customer/action/sync [post]
 func (t Tag) Sync(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffInfo, err := t.GetStaffAdminInfo(handler)
+	staffInfo, err := t.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseBadRequestError(err)
 		return
@@ -49,7 +49,7 @@ func (t Tag) Sync(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/tag [post]
+// @Router /api/v1/console/customer/tag [post]
 func (t Tag) Create(c *gin.Context) {
 	req := &requests.CreateTagReq{}
 	handler := app.NewHandler(c)
@@ -58,7 +58,7 @@ func (t Tag) Create(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := t.GetStaffAdminInfo(handler)
+	adminInfo, err := t.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return

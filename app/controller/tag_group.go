@@ -26,7 +26,7 @@ func NewTagGroup() *TagGroup {
 // @Success 200 {object} app.JSONResult{data=models.TagGroupSwagger} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/tag-group [get]
+// @Router /api/v1/console/customer/tag-group [get]
 func (t TagGroup) Query(c *gin.Context) {
 	request := requests.TagListReq{}
 	handler := app.NewHandler(c)
@@ -36,7 +36,7 @@ func (t TagGroup) Query(c *gin.Context) {
 		return
 	}
 
-	adminInfo, err := t.GetStaffAdminInfo(handler)
+	adminInfo, err := t.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -57,7 +57,7 @@ func (t TagGroup) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/tag-group [post]
+// @Router /api/v1/console/customer/tag-group [post]
 func (t TagGroup) Create(c *gin.Context) {
 	req := requests.CreateTagGroupReq{}
 	handler := app.NewHandler(c)
@@ -67,7 +67,7 @@ func (t TagGroup) Create(c *gin.Context) {
 		return
 	}
 
-	adminInfo, err := t.GetStaffAdminInfo(handler)
+	adminInfo, err := t.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -89,7 +89,7 @@ func (t TagGroup) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/tag-group/action/delete [post]
+// @Router /api/v1/console/customer/tag-group/action/delete [post]
 func (t TagGroup) Delete(c *gin.Context) {
 	req := requests.DeleteTagGroupsReq{}
 	handler := app.NewHandler(c)
@@ -98,7 +98,7 @@ func (t TagGroup) Delete(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := t.GetStaffAdminInfo(handler)
+	adminInfo, err := t.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(errors.WithStack(err))
 		return
@@ -120,7 +120,7 @@ func (t TagGroup) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/tag-group/{ext_id} [post]
+// @Router /api/v1/console/customer/tag-group/{ext_id} [post]
 func (t TagGroup) Update(c *gin.Context) {
 	var req = requests.UpdateTagGroupReq{}
 	handler := app.NewHandler(c)
@@ -135,7 +135,7 @@ func (t TagGroup) Update(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := t.GetStaffAdminInfo(handler)
+	adminInfo, err := t.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(errors.WithStack(err))
 		return
@@ -160,7 +160,7 @@ func (t TagGroup) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/tag-group/action/exchange-order [post]
+// @Router /api/v1/console/customer/tag-group/action/exchange-order [post]
 func (t TagGroup) ExchangeOrder(c *gin.Context) {
 	req := requests.ExchangeOrderReq{}
 	handler := app.NewHandler(c)

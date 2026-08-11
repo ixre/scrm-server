@@ -27,7 +27,7 @@ func NewMsgArch() *MsgArch {
 //@Success 200 {object} app.JSONResult{} "成功"
 //@Failure 400 {object} app.JSONResult{} "非法请求"
 //@Failure 500 {object} app.JSONResult{} "内部错误"
-//@Router /api/v1/staff-admin/customers/chat-sessions [get]
+//@Router /api/v1/console/customers/chat-sessions [get]
 func (o MsgArch) QuerySessions(c *gin.Context) {
 	req := requests.QuerySessionReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o MsgArch) QuerySessions(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
-	items, err := o.srv.QuerySessions(req, staffAdmin.ExtCorpID)
+	items, err := o.srv.QuerySessions(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		log.TracedError("QuerySessions failed", err)
 		handler.ResponseError(err)
@@ -59,15 +59,15 @@ func (o MsgArch) QuerySessions(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/chat-msg/sync [post]
+// @Router /api/v1/console/chat-msg/sync [post]
 func (o MsgArch) Sync(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	err = o.srv.Sync(staffAdmin.ExtCorpID)
+	err = o.srv.Sync(consoleStaff.ExtCorpID)
 	if err != nil {
 		log.TracedError("QuerySessions failed", err)
 		handler.ResponseError(err)
@@ -86,7 +86,7 @@ func (o MsgArch) Sync(c *gin.Context) {
 //@Success 200 {object} app.JSONResult{} "成功"
 //@Failure 400 {object} app.JSONResult{} "非法请求"
 //@Failure 500 {object} app.JSONResult{} "内部错误"
-//@Router /api/v1/staff-admin/customer/sessions-msgs [get]
+//@Router /api/v1/console/customer/sessions-msgs [get]
 func (o MsgArch) QuerySessionMsgs(c *gin.Context) {
 	req := requests.QueryChatMsgReq{}
 	handler := app.NewHandler(c)
@@ -96,12 +96,12 @@ func (o MsgArch) QuerySessionMsgs(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	res, err := o.srv.QueryMsgs(req, staffAdmin.ExtCorpID)
+	res, err := o.srv.QueryMsgs(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		log.TracedError("QuerySessions failed", err)
 		handler.ResponseError(err)
@@ -119,7 +119,7 @@ func (o MsgArch) QuerySessionMsgs(c *gin.Context) {
 //@Success 200 {object} app.JSONResult{} "成功"
 //@Failure 400 {object} app.JSONResult{} "非法请求"
 //@Failure 500 {object} app.JSONResult{} "内部错误"
-//@Router /api/v1/staff-admin/customer/sessions-msg/action/search [post]
+//@Router /api/v1/console/customer/sessions-msg/action/search [post]
 func (o MsgArch) SearchMsgs(c *gin.Context) {
 	req := requests.SearchMsgReq{}
 	handler := app.NewHandler(c)
@@ -129,12 +129,12 @@ func (o MsgArch) SearchMsgs(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	res, err := o.srv.SearchMsgs(req, staffAdmin.ExtCorpID)
+	res, err := o.srv.SearchMsgs(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		log.TracedError("QuerySessions failed", err)
 		handler.ResponseError(err)

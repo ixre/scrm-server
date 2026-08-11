@@ -42,7 +42,7 @@ func (rg *QuickReplyGroupFrontend) Query(c *gin.Context) {
 
 	staff, err := rg.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (rg *QuickReplyGroupFrontend) Search(c *gin.Context) {
 
 	staff, err := rg.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (rg *QuickReplyGroupFrontend) Update(c *gin.Context) {
 
 	staff, err := rg.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 

@@ -26,10 +26,10 @@ func NewStaff() *Staff {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/staff [post]
+// @Router /api/v1/console/staff [post]
 func (s Staff) Sync(c *gin.Context) {
 	handler := app.NewHandler(c)
-	adminInfo, err := s.GetStaffAdminInfo(handler)
+	adminInfo, err := s.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseBadRequestError(err)
 		return
@@ -50,7 +50,7 @@ func (s Staff) Sync(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/staff/{ext_id} [get]
+// @Router /api/v1/console/staff/{ext_id} [get]
 func (s Staff) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
 	extStaffID, err := handler.GetStringParam("ext_id")
@@ -59,13 +59,13 @@ func (s Staff) Get(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	staff, err := s.staffService.Get(extStaffID, staffAdmin.ExtCorpID)
+	staff, err := s.staffService.Get(extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -80,7 +80,7 @@ func (s Staff) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/staff [put]
+// @Router /api/v1/console/staff [put]
 func (s Staff) Update(c *gin.Context) {
 	req := requests.EnableStaffs{}
 	handler := app.NewHandler(c)
@@ -90,13 +90,13 @@ func (s Staff) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = s.staffService.Enable(req, staffAdmin.ExtCorpID)
+	err = s.staffService.Enable(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -112,15 +112,15 @@ func (s Staff) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=responses.StaffDetail} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/action/get-current-staff [get]
+// @Router /api/v1/console/action/get-current-staff [get]
 func (s Staff) GetCurrent(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(staffAdmin.ExtID, staffAdmin.ExtCorpID)
+	item, err := s.staffService.GetDetail(consoleStaff.ExtID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -137,7 +137,7 @@ func (s Staff) GetCurrent(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Staff}} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/staffs [get]
+// @Router /api/v1/console/staffs [get]
 func (s Staff) Query(c *gin.Context) {
 	req := requests.QueryStaffReq{}
 	handler := app.NewHandler(c)
@@ -147,14 +147,14 @@ func (s Staff) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
 	items, total, err := s.staffService.Query(
-		req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+		req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -171,7 +171,7 @@ func (s Staff) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.StaffCustomerCount} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/staff-event/statistics/{ext_id} [get]
+// @Router /api/v1/console/staff-event/statistics/{ext_id} [get]
 func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 	handler := app.NewHandler(c)
 	extStaffID, err := handler.GetStringParam("ext_id")
@@ -180,12 +180,12 @@ func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.StaffInfoStatistics(extStaffID, staffAdmin.ExtCorpID)
+	staff, err := s.staffService.StaffInfoStatistics(extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -200,7 +200,7 @@ func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/action/update-tags [post]
+// @Router /api/v1/console/customer/action/update-tags [post]
 func (s Staff) UpdateCustomerTag(c *gin.Context) {
 	req := requests.UpdateCustomerTagsReq{}
 	handler := app.NewHandler(c)
@@ -210,17 +210,17 @@ func (s Staff) UpdateCustomerTag(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	var extStaffID = staffAdmin.ExtID
+	var extStaffID = consoleStaff.ExtID
 	//if req.ExtStaffID != "" {
 	//	extStaffID = req.ExtStaffID
 	//}
-	err = s.staffService.UpdateCustomerTag(req, extStaffID, staffAdmin.ExtCorpID)
+	err = s.staffService.UpdateCustomerTag(req, extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -236,7 +236,7 @@ func (s Staff) UpdateCustomerTag(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/action/update-internal-tags [post]
+// @Router /api/v1/console/customer/action/update-internal-tags [post]
 func (s Staff) UpdateCustomerInternalTag(c *gin.Context) {
 	req := requests.UpdateCustomerInternalTagsReq{}
 	handler := app.NewHandler(c)
@@ -246,13 +246,13 @@ func (s Staff) UpdateCustomerInternalTag(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = s.staffService.UpdateCustomerInternalTag(req, staffAdmin.ExtCorpID)
+	err = s.staffService.UpdateCustomerInternalTag(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -278,13 +278,13 @@ func (s Staff) QueryMainInfo(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	res, err := s.staffService.QueryMainInfo(req, staffAdmin.ExtCorpID, &req.Pager)
+	res, err := s.staffService.QueryMainInfo(req, consoleStaff.ExtCorpID, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -310,12 +310,12 @@ func (s Staff) ExportDeleteCustomers(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := s.GetStaffAdminInfo(handler)
+	consoleStaff, err := s.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	file, fileName, err := s.staffService.ExportDeleteCustomerList(req, staffAdmin.ExtCorpID)
+	file, fileName, err := s.staffService.ExportDeleteCustomerList(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

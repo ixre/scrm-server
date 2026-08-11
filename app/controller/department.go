@@ -28,7 +28,7 @@ func NewDepartment() *Department {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Department}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/departments [get]
+// @Router /api/v1/console/departments [get]
 func (d *Department) Query(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := entities.GetSubDepartmentReq{}
@@ -38,12 +38,12 @@ func (d *Department) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := d.GetStaffAdminInfo(handler)
+	consoleStaff, err := d.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	departments, total, err := d.srv.Query(req, staffAdmin.ExtCorpID)
+	departments, total, err := d.srv.Query(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query departments failed")
 		handler.ResponseError(err)
@@ -58,15 +58,15 @@ func (d *Department) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/department [post]
+// @Router /api/v1/console/department [post]
 func (d *Department) Sync(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffAdminInfo, err := d.GetStaffAdminInfo(handler)
+	consoleStaffInfo, err := d.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	err = d.srv.Sync(staffAdminInfo.ExtCorpID)
+	err = d.srv.Sync(consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "sync departments failed")
 		handler.ResponseError(err)
@@ -84,7 +84,7 @@ func (d *Department) Sync(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Department}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/department [get]
+// @Router /api/v1/console/department [get]
 func (d *Department) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.QueryDepartmentReq{}
@@ -94,12 +94,12 @@ func (d *Department) Get(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := d.GetStaffAdminInfo(handler)
+	consoleStaff, err := d.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	departments, err := d.srv.Get(req.ExtID, staffAdmin.ExtCorpID)
+	departments, err := d.srv.Get(req.ExtID, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get departments failed")
 		handler.ResponseError(err)

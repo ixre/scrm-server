@@ -22,7 +22,7 @@ type CustomerRemarkHandler struct {
 // @Success 200 {object} app.JSONResult{data=models.CustomerRemark} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark  [post]
+// @Router /api/v1/console/customer/remark  [post]
 func (ch CustomerRemarkHandler) Create(c *gin.Context) {
 	req := requests.AddCustomerRemarkReq{}
 	handler := app.NewHandler(c)
@@ -33,7 +33,7 @@ func (ch CustomerRemarkHandler) Create(c *gin.Context) {
 		return
 	}
 
-	info, err := ch.GetStaffAdminInfo(handler)
+	info, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -54,10 +54,10 @@ func (ch CustomerRemarkHandler) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=services.InfoRemark} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark [get]
+// @Router /api/v1/console/customer/remark [get]
 func (ch CustomerRemarkHandler) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staff, err := ch.GetStaffAdminInfo(handler)
+	staff, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -78,7 +78,7 @@ func (ch CustomerRemarkHandler) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark/action/delete [post]
+// @Router /api/v1/console/customer/remark/action/delete [post]
 func (ch CustomerRemarkHandler) Delete(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.DeleteCustomerRemarkReq{}
@@ -88,7 +88,7 @@ func (ch CustomerRemarkHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	info, err := ch.GetStaffAdminInfo(handler)
+	info, err := ch.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -111,7 +111,7 @@ func (ch CustomerRemarkHandler) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.CustomerRemark} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark [put]
+// @Router /api/v1/console/customer/remark [put]
 func (ch CustomerRemarkHandler) Update(c *gin.Context) {
 	req := requests.UpdateRemarkReq{}
 	handler := app.NewHandler(c)
@@ -139,7 +139,7 @@ func (ch CustomerRemarkHandler) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark/action/exchange-order [put]
+// @Router /api/v1/console/customer/remark/action/exchange-order [put]
 func (ch CustomerRemarkHandler) ExchangeOrder(c *gin.Context) {
 	req := requests.ExchangeOrderReq{}
 	handler := app.NewHandler(c)
@@ -167,7 +167,7 @@ func (ch CustomerRemarkHandler) ExchangeOrder(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark/option [post]
+// @Router /api/v1/console/customer/remark/option [post]
 func (ch CustomerRemarkHandler) AddRemarkOption(c *gin.Context) {
 	req := requests.AddRemarkOptionReq{}
 	handler := app.NewHandler(c)
@@ -195,7 +195,7 @@ func (ch CustomerRemarkHandler) AddRemarkOption(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark/option [put]
+// @Router /api/v1/console/customer/remark/option [put]
 func (ch CustomerRemarkHandler) UpdateRemarkOption(c *gin.Context) {
 	req := requests.UpdateRemarkOptionReq{}
 	handler := app.NewHandler(c)
@@ -225,7 +225,7 @@ func (ch CustomerRemarkHandler) UpdateRemarkOption(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remark/option/action/delete [post]
+// @Router /api/v1/console/customer/remark/option/action/delete [post]
 func (ch CustomerRemarkHandler) DeleteRemarkOption(c *gin.Context) {
 	req := requests.DeleteRemarkOptionReq{}
 	handler := app.NewHandler(c)

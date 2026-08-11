@@ -35,7 +35,7 @@ func (o ClueManualPublic) Create(c *gin.Context) {
 
 	staff, err := o.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (o ClueManualPublic) Delete(c *gin.Context) {
 	}
 	staff, err := o.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (o ClueManualPublic) Update(c *gin.Context) {
 
 	staff, err := o.GetStaffInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 

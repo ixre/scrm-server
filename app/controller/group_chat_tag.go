@@ -26,7 +26,7 @@ func NewGroupChatTag() *CustomerGroupTag {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag [post]
+// @Router /api/v1/console/customer-group/tag [post]
 func (o CustomerGroupTag) Create(c *gin.Context) {
 	req := requests.CreateGroupChatTagsReq{}
 	handler := app.NewHandler(c)
@@ -35,7 +35,7 @@ func (o CustomerGroupTag) Create(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -58,7 +58,7 @@ func (o CustomerGroupTag) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag [put]
+// @Router /api/v1/console/customer-group/tag [put]
 func (o CustomerGroupTag) Update(c *gin.Context) {
 	req := requests.UpdateGroupChatTagReq{}
 	handler := app.NewHandler(c)
@@ -67,7 +67,7 @@ func (o CustomerGroupTag) Update(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -90,7 +90,7 @@ func (o CustomerGroupTag) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/tag/action/delete [post]
+// @Router /api/v1/console/customer-group/tag/action/delete [post]
 func (o CustomerGroupTag) Delete(c *gin.Context) {
 	req := requests.CommonDeleteReq{}
 	handler := app.NewHandler(c)

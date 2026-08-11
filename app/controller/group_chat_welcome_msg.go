@@ -27,7 +27,7 @@ func NewGroupChatWelcomeMsg() *GroupChatWelcomeMsg {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChatWelcomeMsg}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/welcome-msgs [get]
+// @Router /api/v1/console/customer-group/welcome-msgs [get]
 func (o *GroupChatWelcomeMsg) Query(c *gin.Context) {
 	req := requests.QueryGroupChatWelcomeMsgReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o *GroupChatWelcomeMsg) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin)
+	items, total, err := o.srv.Query(req, consoleStaff)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -61,7 +61,7 @@ func (o *GroupChatWelcomeMsg) Query(c *gin.Context) {
 // @success 200 {object} app.JSONResult{data=models.GroupChatWelcomeMsg} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/welcome-msg [post]
+// @router /api/v1/console/customer-group/welcome-msg [post]
 func (o *GroupChatWelcomeMsg) Create(c *gin.Context) {
 	req := requests.CreateGroupChatWelcomeMsgReq{}
 	handler := app.NewHandler(c)
@@ -71,13 +71,13 @@ func (o *GroupChatWelcomeMsg) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
 		log.TracedError("get staff admin info failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin)
+	item, err := o.srv.Create(req, consoleStaff)
 	if err != nil {
 		err = errors.Wrap(err, "create failed")
 		handler.ResponseError(err)
@@ -96,7 +96,7 @@ func (o *GroupChatWelcomeMsg) Create(c *gin.Context) {
 // @success 200 {object} app.JSONResult{data=models.GroupChatWelcomeMsg} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/welcome-msg/{id} [put]
+// @router /api/v1/console/customer-group/welcome-msg/{id} [put]
 func (o *GroupChatWelcomeMsg) Update(c *gin.Context) {
 	req := requests.UpdateGroupChatWelcomeMsgReq{}
 	handler := app.NewHandler(c)
@@ -113,13 +113,13 @@ func (o *GroupChatWelcomeMsg) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Update(req, id, staffAdmin)
+	item, err := o.srv.Update(req, id, consoleStaff)
 	if err != nil {
 		err = errors.Wrap(err, "update failed")
 		handler.ResponseError(err)
@@ -137,7 +137,7 @@ func (o *GroupChatWelcomeMsg) Update(c *gin.Context) {
 // @success 200 {object} app.JSONResult{} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
-// @router /api/v1/staff-admin/customer-group/welcome-msg/action/delete [post]
+// @router /api/v1/console/customer-group/welcome-msg/action/delete [post]
 func (o *GroupChatWelcomeMsg) Delete(c *gin.Context) {
 	req := requests.CommonDeleteReq{}
 	handler := app.NewHandler(c)
@@ -147,9 +147,9 @@ func (o *GroupChatWelcomeMsg) Delete(c *gin.Context) {
 		return
 	}
 
-	_, err = o.GetStaffAdminInfo(handler)
+	_, err = o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 

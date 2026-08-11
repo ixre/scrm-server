@@ -36,7 +36,7 @@ func NewQuickReply() *QuickReply {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply [post]
+// @Router /api/v1/console/quick-reply [post]
 func (r *QuickReply) Create(c *gin.Context) {
 	req := entities.CreateQuickReplyReq{}
 	handler := app.NewHandler(c)
@@ -47,13 +47,13 @@ func (r *QuickReply) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := r.GetStaffAdminInfo(handler)
+	consoleStaff, err := r.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := r.srv.Create(req, staffAdmin)
+	item, err := r.srv.Create(req, consoleStaff)
 	if err != nil {
 		err = errors.Wrap(err, "Create quick-reply failed")
 		handler.ResponseError(err)
@@ -81,13 +81,13 @@ func (r *QuickReply) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := r.GetStaffAdminInfo(handler)
+	consoleStaff, err := r.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, total, err := r.srv.QueryQuickReply(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	item, total, err := r.srv.QueryQuickReply(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "QueryQuickReply failed")
 		handler.ResponseError(err)
@@ -105,7 +105,7 @@ func (r *QuickReply) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply/action/delete [post]
+// @Router /api/v1/console/quick-reply/action/delete [post]
 func (r *QuickReply) Delete(c *gin.Context) {
 	req := entities.DeleteQuickReplyReq{}
 	handler := app.NewHandler(c)
@@ -115,13 +115,13 @@ func (r *QuickReply) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := r.GetStaffAdminInfo(handler)
+	consoleStaff, err := r.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	total, err := r.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	total, err := r.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -140,7 +140,7 @@ func (r *QuickReply) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply [put]
+// @Router /api/v1/console/quick-reply [put]
 func (r *QuickReply) Update(c *gin.Context) {
 	req := entities.UpdateQuickReplyReq{}
 	handler := app.NewHandler(c)
@@ -150,13 +150,13 @@ func (r *QuickReply) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := r.GetStaffAdminInfo(handler)
+	consoleStaff, err := r.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := r.srv.Update(req, staffAdmin)
+	item, err := r.srv.Update(req, consoleStaff)
 	if err != nil {
 		err = errors.Wrap(err, "update quick-reply failed")
 		handler.ResponseError(err)
@@ -174,7 +174,7 @@ func (r *QuickReply) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=requests.GetUploadURLResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/quick-reply/action/get-upload-url [get]
+// @Router /api/v1/console/quick-reply/action/get-upload-url [get]
 //上传图片得到图片URL，该URL永久有效
 //返回的图片URL，仅能用于图文消息正文中的图片展示，或者给客户发送欢迎语等
 func (r *QuickReply) GetUploadURL(c *gin.Context) {
@@ -191,7 +191,7 @@ func (r *QuickReply) GetUploadURL(c *gin.Context) {
 		return
 	}
 
-	info, err := r.GetStaffAdminInfo(handler)
+	info, err := r.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return

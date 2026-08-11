@@ -7,12 +7,12 @@ import (
 	"core/common/app"
 )
 
-func RequireStaffAdminLogin() gin.HandlerFunc {
+func RequireConsoleLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var err error
 		handler := app.NewHandler(c)
 		item := models.Staff{}
-		err = handler.GetSessionVal(constants.StaffAdminSessionName, constants.StaffInfo, &item)
+		err = handler.GetSessionVal(constants.ConsoleSessionName, constants.StaffInfo, &item)
 		if err != nil {
 			handler.ResponseError(err)
 			c.Abort()

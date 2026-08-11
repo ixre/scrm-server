@@ -27,7 +27,7 @@ func NewRemainder() *Remainder {
 // @Success 200 {object} app.JSONResult{data=models.Remainder} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remainder [post]
+// @Router /api/v1/console/customer/remainder [post]
 func (o Remainder) Create(c *gin.Context) {
 	req := requests.CreateRemainderReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o Remainder) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin.ExtCorpID, staffAdmin.ExtID)
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -61,7 +61,7 @@ func (o Remainder) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remainder/action/delete/{id} [post]
+// @Router /api/v1/console/customer/remainder/action/delete/{id} [post]
 func (o Remainder) Delete(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.CommonDeleteReq{}
@@ -70,13 +70,13 @@ func (o Remainder) Delete(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	res, err := o.srv.Delete(req.IDs[0], staffAdmin.ExtCorpID)
+	res, err := o.srv.Delete(req.IDs[0], consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -96,7 +96,7 @@ func (o Remainder) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.Remainder} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/remainder/{id} [put]
+// @Router /api/v1/console/customer/remainder/{id} [put]
 func (o Remainder) Update(c *gin.Context) {
 	req := requests.UpdateRemainderReq{}
 	handler := app.NewHandler(c)
@@ -113,13 +113,13 @@ func (o Remainder) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Update(id, req, staffAdmin.ExtCorpID)
+	item, err := o.srv.Update(id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)

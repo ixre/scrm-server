@@ -10,7 +10,7 @@
 # 用法：
 #   docker compose -f docker-compose-dev.yaml up -d     # 启动
 #   docker compose -f docker-compose-dev.yaml down      # 停止（保留数据）
-#   docker compose -f docker-compose-dev.yaml down -v   # 停止并清空数据卷
+#   rm -rf pg-data redis-data                           # 清空数据（bind mount 不受 down -v 影响）
 services:
   postgres:
     image: abcfy2/zhparser:18
@@ -25,7 +25,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - scrm-pg-data:/var/lib/postgresql
+      - ./pg-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "localhost", "-U", "root", "-d", "scrm"]
       interval: 10s
@@ -40,13 +40,9 @@ services:
     ports:
       - "6380:6379"
     volumes:
-      - scrm-redis-data:/data
+      - ./redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "123456", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
-
-volumes:
-  scrm-pg-data:
-  scrm-redis-data:

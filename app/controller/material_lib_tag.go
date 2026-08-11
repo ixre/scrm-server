@@ -27,7 +27,7 @@ func NewMaterialLibTag() *MaterialLibTag {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/tag [post]
+// @Router /api/v1/console/material/lib/tag [post]
 func (o MaterialLibTag) Create(c *gin.Context) {
 	req := requests.CreateMaterialLibTagReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o MaterialLibTag) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req.Names, staffAdmin)
+	item, err := o.srv.Create(req.Names, consoleStaff)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -62,7 +62,7 @@ func (o MaterialLibTag) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/tag/action/delete [post]
+// @Router /api/v1/console/material/lib/tag/action/delete [post]
 func (o MaterialLibTag) Delete(c *gin.Context) {
 	req := requests.CommonDeleteReq{}
 	handler := app.NewHandler(c)
@@ -90,7 +90,7 @@ func (o MaterialLibTag) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.MaterialLibTag}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/tags [get]
+// @Router /api/v1/console/material/lib/tags [get]
 func (o MaterialLibTag) Query(c *gin.Context) {
 	req := requests.QueryMaterialLibTagReq{}
 	handler := app.NewHandler(c)
@@ -100,13 +100,13 @@ func (o MaterialLibTag) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req.Name, staffAdmin, &req.Pager, &req.Sorter)
+	items, total, err := o.srv.Query(req.Name, consoleStaff, &req.Pager, &req.Sorter)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

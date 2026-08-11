@@ -1,0 +1,6 @@
+# 单测配置（conf.SetupTestSetting 读取）。仅需 App.Key 供 secrets 加密往返测试解密用，
+# 其余字段留零值即可（SetupTestSetting 不做 validator 校验）。
+App:
+  Name: openscrm
+  Env: TEST
+  Key: AzbkdkkAV6ow17Jcwk7Z+r0q8MwOGm7lV5WXjalow++RLP/AL22+vEfJbEWnDu4Dvgu6Ee8nt4lqsQllhg13Bg==

@@ -23,7 +23,7 @@ type GroupChatGroup struct {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChatGroup}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/auto-join/group [get]
+// @Router /api/v1/console/customer-group/auto-join/group [get]
 func (o *GroupChatGroup) Query(c *gin.Context) {
 	req := entities.QueryGroupChatGroupReq{}
 	handler := app.NewHandler(c)
@@ -33,13 +33,13 @@ func (o *GroupChatGroup) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -57,7 +57,7 @@ func (o *GroupChatGroup) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.GroupChatGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/auto-join/group [post]
+// @Router /api/v1/console/customer-group/auto-join/group [post]
 func (o *GroupChatGroup) Create(c *gin.Context) {
 	req := entities.CreateGroupChatGroupReq{}
 	handler := app.NewHandler(c)
@@ -67,13 +67,13 @@ func (o *GroupChatGroup) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin.ExtCorpID, staffAdmin.ExtID)
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -92,7 +92,7 @@ func (o *GroupChatGroup) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.GroupChatGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/auto-join/group/{id} [put]
+// @Router /api/v1/console/customer-group/auto-join/group/{id} [put]
 func (o *GroupChatGroup) Update(c *gin.Context) {
 	req := entities.UpdateGroupChatGroupReq{}
 	handler := app.NewHandler(c)
@@ -109,13 +109,13 @@ func (o *GroupChatGroup) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Update(id, req, staffAdmin.ExtCorpID)
+	item, err := o.srv.Update(id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)
@@ -133,7 +133,7 @@ func (o *GroupChatGroup) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer-group/auto-join/action/delete [post]
+// @Router /api/v1/console/customer-group/auto-join/action/delete [post]
 func (o *GroupChatGroup) Delete(c *gin.Context) {
 	req := entities.DeleteGroupChatGroupReq{}
 	handler := app.NewHandler(c)
@@ -143,13 +143,13 @@ func (o *GroupChatGroup) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	total, err := o.srv.Delete(req, staffAdmin.ExtCorpID)
+	total, err := o.srv.Delete(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)

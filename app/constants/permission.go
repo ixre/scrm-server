@@ -23,6 +23,12 @@ const (
 	BizMediaMgr          BizIdentity = "BizMediaMgr"
 	BizMsgArch           BizIdentity = "BizMsgArch"
 	BizRole              BizIdentity = "BizRole"
+	// Phase 7 权限标识
+	BizSensitiveWord BizIdentity = "BizSensitiveWord" // 敏感词风控
+	BizRiskCenter    BizIdentity = "BizRiskCenter"    // 风控中心（继承/流失/超时）
+	BizGroupSop      BizIdentity = "BizGroupSop"      // 群SOP
+	BizMarketingExt  BizIdentity = "BizMarketingExt"  // 营销活动扩展
+	BizSmartCard     BizIdentity = "BizSmartCard"     // 智能名片
 )
 
 type Operation string
@@ -115,6 +121,17 @@ var StaffPermissions = []Permission{
 		BizIdentity: BizContactWay,
 		Operation:   Read,
 		Name:        "渠道码-查看",
+	},
+	// Phase 7：智能名片（销售可管理自己的名片）
+	{
+		BizIdentity: BizSmartCard,
+		Operation:   Read,
+		Name:        "智能名片-查看",
+	},
+	{
+		BizIdentity: BizSmartCard,
+		Operation:   Full,
+		Name:        "智能名片-完全",
 	},
 }
 
@@ -269,6 +286,57 @@ var DepartmentAdminPermissions = append(StaffPermissions, []Permission{
 		BizIdentity: BizContactWay,
 		Operation:   Full,
 		Name:        "渠道码-完全",
+	},
+	// Phase 7：风控+营销扩展+群SOP（部门管理员可管理）
+	{
+		BizIdentity: BizSensitiveWord,
+		Operation:   Read,
+		Name:        "敏感词风控-查看",
+	},
+	{
+		BizIdentity: BizSensitiveWord,
+		Operation:   Full,
+		Name:        "敏感词风控-完全",
+	},
+	{
+		BizIdentity: BizRiskCenter,
+		Operation:   Read,
+		Name:        "风控中心-查看",
+	},
+	{
+		BizIdentity: BizRiskCenter,
+		Operation:   Full,
+		Name:        "风控中心-完全",
+	},
+	{
+		BizIdentity: BizGroupSop,
+		Operation:   Read,
+		Name:        "群SOP-查看",
+	},
+	{
+		BizIdentity: BizGroupSop,
+		Operation:   Full,
+		Name:        "群SOP-完全",
+	},
+	{
+		BizIdentity: BizMarketingExt,
+		Operation:   Read,
+		Name:        "营销活动扩展-查看",
+	},
+	{
+		BizIdentity: BizMarketingExt,
+		Operation:   Full,
+		Name:        "营销活动扩展-完全",
+	},
+	{
+		BizIdentity: BizSmartCard,
+		Operation:   Read,
+		Name:        "智能名片-查看",
+	},
+	{
+		BizIdentity: BizSmartCard,
+		Operation:   Full,
+		Name:        "智能名片-完全",
 	},
 }...)
 

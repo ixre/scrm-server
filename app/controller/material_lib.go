@@ -27,7 +27,7 @@ func NewMaterialLib() *MaterialLib {
 // @Success 200 {object} app.JSONResult{data=models.Material} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib [post]
+// @Router /api/v1/console/material/lib [post]
 func (o MaterialLib) Create(c *gin.Context) {
 	req := requests.UploadMaterialReq{}
 	handler := app.NewHandler(c)
@@ -37,13 +37,13 @@ func (o MaterialLib) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin.ExtCorpID, staffAdmin.ExtID)
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -62,7 +62,7 @@ func (o MaterialLib) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/action/delete [post]
+// @Router /api/v1/console/material/lib/action/delete [post]
 func (o MaterialLib) Delete(c *gin.Context) {
 	req := requests.CommonDeleteReq{}
 	handler := app.NewHandler(c)
@@ -72,13 +72,13 @@ func (o MaterialLib) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	total, err := o.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	total, err := o.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -97,7 +97,7 @@ func (o MaterialLib) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.Material} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/{id} [put]
+// @Router /api/v1/console/material/lib/{id} [put]
 func (o MaterialLib) Update(c *gin.Context) {
 	req := requests.UpdateMaterialReq{}
 	handler := app.NewHandler(c)
@@ -114,13 +114,13 @@ func (o MaterialLib) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = o.srv.Update(id, req, staffAdmin.ExtCorpID)
+	err = o.srv.Update(id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)
@@ -138,7 +138,7 @@ func (o MaterialLib) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Material}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib [get]
+// @Router /api/v1/console/material/lib [get]
 func (o MaterialLib) Query(c *gin.Context) {
 	req := requests.QueryMaterialReq{}
 	handler := app.NewHandler(c)
@@ -148,13 +148,13 @@ func (o MaterialLib) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin.ExtCorpID)
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -172,17 +172,17 @@ func (o MaterialLib) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=constants.Boolean} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/sidebar-status [get]
+// @Router /api/v1/console/material/lib/sidebar-status [get]
 func (o MaterialLib) GetSidebarStatus(c *gin.Context) {
 	handler := app.NewHandler(c)
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	status, err := o.srv.GetSidebarStatus(staffAdmin.ExtCorpID)
+	status, err := o.srv.GetSidebarStatus(consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -200,7 +200,7 @@ func (o MaterialLib) GetSidebarStatus(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/material/lib/sidebar-status [put]
+// @Router /api/v1/console/material/lib/sidebar-status [put]
 func (o MaterialLib) UpdateSidebarStatus(c *gin.Context) {
 	req := requests.UpdateGetSidebarStatusReq{}
 	handler := app.NewHandler(c)
@@ -210,13 +210,13 @@ func (o MaterialLib) UpdateSidebarStatus(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = o.srv.UpdateGetSidebarStatus(req, staffAdmin.ExtCorpID)
+	err = o.srv.UpdateGetSidebarStatus(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)

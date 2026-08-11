@@ -31,19 +31,19 @@ func (o CustomerHandler) NotifyVerify(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/action/sync [post]
+// @Router /api/v1/console/customer/action/sync [post]
 func (o CustomerHandler) Sync(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
 
-	err = o.srv.Sync(staffAdmin.ExtCorpID)
+	err = o.srv.Sync(consoleStaff.ExtCorpID)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
@@ -58,7 +58,7 @@ func (o CustomerHandler) Sync(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/{extID} [get]
+// @Router /api/v1/console/customer/{extID} [get]
 func (o CustomerHandler) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
 
@@ -68,9 +68,9 @@ func (o CustomerHandler) Get(c *gin.Context) {
 		return
 	}
 
-	adminInfo, err := o.GetStaffAdminInfo(handler)
+	adminInfo, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 	customer, errs := o.srv.Get(ExtID, adminInfo.ExtCorpID, true)
@@ -91,7 +91,7 @@ func (o CustomerHandler) Get(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Customer}} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customers [get]
+// @Router /api/v1/console/customers [get]
 func (o CustomerHandler) Query(c *gin.Context) {
 	request := requests.QueryCustomerReq{}
 	handler := app.NewHandler(c)
@@ -101,15 +101,15 @@ func (o CustomerHandler) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
 
 	pager := app.Pager{Page: app.GetPage(c), PageSize: app.GetPageSize(c)}
-	customers, total, err := o.srv.Query(request, staffAdmin.ExtCorpID, &pager)
+	customers, total, err := o.srv.Query(request, consoleStaff.ExtCorpID, &pager)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)
@@ -128,7 +128,7 @@ func (o CustomerHandler) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/action/update-loss-notify-rule [put]
+// @Router /api/v1/console/customer/action/update-loss-notify-rule [put]
 func (o CustomerHandler) UpdateNotifyStaffRule(c *gin.Context) {
 	req := entities.UpdateCustomerDeleteStaffNotifierReq{}
 	handler := app.NewHandler(c)
@@ -138,13 +138,13 @@ func (o CustomerHandler) UpdateNotifyStaffRule(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = o.srv.UpdateDeleteEventNotify(req, staffAdmin.ExtCorpID)
+	err = o.srv.UpdateDeleteEventNotify(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -159,16 +159,16 @@ func (o CustomerHandler) UpdateNotifyStaffRule(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/delete-staff [get]
+// @Router /api/v1/console/customer/delete-staff [get]
 func (o CustomerHandler) GetNotifyStaffRule(c *gin.Context) {
 	handler := app.NewHandler(c)
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	resp, err := o.srv.GetNotifyStaffRule(staffAdmin.ExtCorpID)
+	resp, err := o.srv.GetNotifyStaffRule(consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -184,7 +184,7 @@ func (o CustomerHandler) GetNotifyStaffRule(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/losses [get]
+// @Router /api/v1/console/customer/losses [get]
 func (o CustomerHandler) GetLossCustomers(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.QueryCustomerLossesReq{}
@@ -193,13 +193,13 @@ func (o CustomerHandler) GetLossCustomers(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.GetCustomerLosses(req, staffAdmin.ExtCorpID, &req.Pager, &req.Sorter)
+	items, total, err := o.srv.GetCustomerLosses(req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -215,7 +215,7 @@ func (o CustomerHandler) GetLossCustomers(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/action/customers-losses-data-export [get]
+// @Router /api/v1/console/customer/action/customers-losses-data-export [get]
 func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 	req := requests.QueryCustomerLossesReq{}
 	handler := app.NewHandler(c)
@@ -225,12 +225,12 @@ func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(req, staffAdmin.ExtCorpID)
+	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -249,7 +249,7 @@ func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customers/action/export [get]
+// @Router /api/v1/console/customers/action/export [get]
 func (o CustomerHandler) Export(c *gin.Context) {
 	req := requests.QueryCustomerReq{}
 	handler := app.NewHandler(c)
@@ -259,14 +259,14 @@ func (o CustomerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
 
-	buf, filename, err := o.srv.Export(req, staffAdmin.ExtCorpID, &req.Pager)
+	buf, filename, err := o.srv.Export(req, consoleStaff.ExtCorpID, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)
@@ -283,7 +283,7 @@ func (o CustomerHandler) Export(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=[]models.CustomerSummary} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customers/statistic [get]
+// @Router /api/v1/console/customers/statistic [get]
 func (o CustomerHandler) Statistic(c *gin.Context) {
 	req := requests.QueryCustomerStatisticReq{}
 	handler := app.NewHandler(c)
@@ -293,14 +293,14 @@ func (o CustomerHandler) Statistic(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
 
-	items, err := o.srv.CustomerStatistic(req, staffAdmin.ExtCorpID)
+	items, err := o.srv.CustomerStatistic(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)

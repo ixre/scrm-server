@@ -18,6 +18,7 @@ func init() {
 	Reg.Register(s, "Query", massMsgQuery)
 	Reg.Register(s, "Get", massMsgGet)
 	Reg.Register(s, "Delete", massMsgDelete)
+	Reg.Register(s, "Notify", massMsgNotify)
 }
 
 func massMsgCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
@@ -33,7 +34,7 @@ func massMsgCreate(_ context.Context, corpID, staffID string, params json.RawMes
 
 func massMsgUpdate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                   `json:"id"`
+		ID  string                    `json:"id"`
 		Req requests.UpdateMassMsgReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
@@ -74,6 +75,16 @@ func massMsgDelete(_ context.Context, _, _ string, params json.RawMessage) (any,
 	return nil, services.NewDefaultMassMsgService().DeleteTimedMassMsg(req.IDs)
 }
 
+func massMsgNotify(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return nil, services.NewDefaultMassMsgService().Notify(req.IDs, corpID)
+}
+
 // 欢迎语（welcome_msg）域适配器 —— 通用 JSON 透传分发。
 func init() {
 	s := "welcome_msg"
@@ -97,7 +108,7 @@ func welcomeMsgCreate(_ context.Context, corpID, staffID string, params json.Raw
 
 func welcomeMsgUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                      `json:"id"`
+		ID  string                       `json:"id"`
 		Req requests.UpdateWelcomeMsgReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {

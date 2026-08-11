@@ -65,3 +65,37 @@ type QueryParams[T any] struct {
 	Sorter *app.Sorter `json:"sorter"`
 	Pager  *app.Pager  `json:"pager"`
 }
+
+// MergePS 把 QueryParams 顶层的 Pager/Sorter 合并到 query 中同名嵌入字段。
+// 很多 requests.XXXReq 内嵌了 app.Pager / app.Sorter，而 PQuery 网关层把
+// pager/sorter 放在 JSON 顶层而非 query 内部，需要手动回填。
+func MergePS[T any](p *QueryParams[T]) {
+	if p.Pager == nil && p.Sorter == nil {
+		return
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return
+	}
+	// 重新序列化为扁平结构：把 pager/sorter 字段注入到 query 内部
+	var flat map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &flat); err != nil {
+		return
+	}
+	queryBytes, ok := flat["query"]
+	if !ok {
+		return
+	}
+	var queryMap map[string]json.RawMessage
+	if err := json.Unmarshal(queryBytes, &queryMap); err != nil {
+		return
+	}
+	if pagerBytes, ok := flat["pager"]; ok {
+		queryMap["pager"] = pagerBytes
+	}
+	if sorterBytes, ok := flat["sorter"]; ok {
+		queryMap["sorter"] = sorterBytes
+	}
+	merged, _ := json.Marshal(queryMap)
+	_ = json.Unmarshal(merged, &p.Query)
+}

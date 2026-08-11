@@ -23,7 +23,7 @@ type InternalTag struct {
 // @Success 200 {object} app.JSONResult{data=models.InternalTag} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/internal-tag [post]
+// @Router /api/v1/console/customer/internal-tag [post]
 func (o InternalTag) Create(c *gin.Context) {
 	req := requests.CreateInternalTagReq{}
 	handler := app.NewHandler(c)
@@ -33,13 +33,13 @@ func (o InternalTag) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	tag, err := o.srv.Create(req, staffAdmin.ExtCorpID)
+	tag, err := o.srv.Create(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -61,7 +61,7 @@ func NewInternalTag() *InternalTag {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/internal-tag/action/delete [post]
+// @Router /api/v1/console/customer/internal-tag/action/delete [post]
 func (o *InternalTag) Delete(c *gin.Context) {
 	req := requests.DeleteInternalTagReq{}
 	handler := app.NewHandler(c)
@@ -71,13 +71,13 @@ func (o *InternalTag) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	total, err := o.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	total, err := o.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -95,7 +95,7 @@ func (o *InternalTag) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.InternalTag}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/internal-tags [get]
+// @Router /api/v1/console/customer/internal-tags [get]
 func (o *InternalTag) Query(c *gin.Context) {
 	req := requests.QueryInternalTagReq{}
 	handler := app.NewHandler(c)
@@ -105,13 +105,13 @@ func (o *InternalTag) Query(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	iterms, total, err := o.srv.Query(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	iterms, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)

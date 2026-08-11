@@ -31,12 +31,12 @@ func NewHomePageHandler() *HomePageHandler {
 // @Success 200 {object} app.JSONResult{data=models.CustomerSummary} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/action/get-summary [get]
+// @Router /api/v1/console/action/get-summary [get]
 func (o HomePageHandler) GetCustomerSummary(c *gin.Context) {
 	handler := app.NewHandler(c)
-	admin, err := o.GetStaffAdminInfo(handler)
+	admin, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 	customer, errs := o.staffSrv.GetCustomerSummary(admin.ExtID, admin.ExtCorpID)
@@ -56,7 +56,7 @@ func (o HomePageHandler) GetCustomerSummary(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=[]models.CustomerTrend} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/action/get-trend [get]
+// @Router /api/v1/console/action/get-trend [get]
 func (o HomePageHandler) GetCustomersTrend(c *gin.Context) {
 	req := requests.QueryCustomerStatisticReq{}
 	handler := app.NewHandler(c)
@@ -66,14 +66,14 @@ func (o HomePageHandler) GetCustomersTrend(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
 		return
 	}
 
-	items, err := o.customerSrv.CustomerStatistic(req, staffAdmin.ExtCorpID)
+	items, err := o.customerSrv.CustomerStatistic(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)

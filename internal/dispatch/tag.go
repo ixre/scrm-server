@@ -17,6 +17,7 @@ import (
 func init() {
 	// tag
 	Reg.Register("tag", "Create", tagCreate)
+	Reg.Register("tag", "Sync", tagSync)
 	Reg.Register("tag", "DeleteTagGroups", tagDeleteTagGroups)
 	// tag_group
 	Reg.Register("tag_group", "Query", tagGroupQuery)
@@ -51,6 +52,10 @@ func tagCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any
 	return services.NewTag().Create(&req, corpID)
 }
 
+func tagSync(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return nil, services.NewTag().Sync(corpID)
+}
+
 func tagDeleteTagGroups(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.DeleteTagGroupsReq
 	if err := Bind(params, &req); err != nil {
@@ -66,6 +71,7 @@ func tagGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) 
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	MergePS(&p)
 	items, total, err := services.NewTagGroupService().Query(p.Query, corpID)
 	if err != nil {
 		return nil, err
@@ -112,6 +118,7 @@ func materialQuery(_ context.Context, corpID, _ string, params json.RawMessage) 
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	MergePS(&p)
 	items, total, err := services.NewMaterial().Query(p.Query, corpID)
 	if err != nil {
 		return nil, err

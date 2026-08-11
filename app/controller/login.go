@@ -27,19 +27,19 @@ func NewLogin() *Login {
 	return &Login{srv: services.NewDefaultLogin()}
 }
 
-// StaffAdminLogin
+// ConsoleLogin
 // @tags 企业管理
 // @Summary 企业员工后台登录
 // @Description 同时支持get和post请求，get可自动跳转，post可获取详细信息
 // @Produce  json
 // @Accept json
-// @Param params body entities.StaffAdminLoginReq true "企业普通管理员登录请求"
-// @Success 200 {object} app.JSONResult{data=entities.StaffAdminLoginResp} "成功"
+// @Param params body entities.ConsoleLoginReq true "企业普通管理员登录请求"
+// @Success 200 {object} app.JSONResult{data=entities.ConsoleLoginResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/action/login [get]
-func (o *Login) StaffAdminLogin(c *gin.Context) {
-	req := entities.StaffAdminLoginReq{}
+func (o *Login) ConsoleLogin(c *gin.Context) {
+	req := entities.ConsoleLoginReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -52,15 +52,15 @@ func (o *Login) StaffAdminLogin(c *gin.Context) {
 	}
 
 	state := grand.Letters(10)
-	item, err := o.srv.StaffAdminLogin(req.ExtCorpID, state, req.SourceURL)
+	item, err := o.srv.ConsoleLogin(req.ExtCorpID, state, req.SourceURL)
 	if err != nil {
-		err = errors.Wrap(err, "StaffAdminLogin failed")
+		err = errors.Wrap(err, "ConsoleLogin failed")
 		handler.ResponseError(err)
 		return
 	}
 
-	handler.StaffAdminSession.Set(string(constants.QrcodeAuthState), state)
-	err = handler.StaffAdminSession.Save()
+	handler.ConsoleSession.Set(string(constants.QrcodeAuthState), state)
+	err = handler.ConsoleSession.Save()
 	if err != nil {
 		err = errors.Wrap(err, "sess.Save failed")
 		handler.ResponseError(err)
@@ -75,18 +75,18 @@ func (o *Login) StaffAdminLogin(c *gin.Context) {
 	handler.ResponseItem(item)
 }
 
-// StaffAdminLoginCallback
+// ConsoleLoginCallback
 // @tags 企业管理
 // @Summary 企业微信扫码登录回调
 // @Produce  json
 // @Accept json
-// @Param params body entities.StaffAdminLoginCallbackReq true "企业普通管理员登录请求"
+// @Param params body entities.ConsoleLoginCallbackReq true "企业普通管理员登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/action/login_callback [post]
-func (o *Login) StaffAdminLoginCallback(c *gin.Context) {
-	req := entities.StaffAdminLoginCallbackReq{}
+func (o *Login) ConsoleLoginCallback(c *gin.Context) {
+	req := entities.ConsoleLoginCallbackReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -95,7 +95,7 @@ func (o *Login) StaffAdminLoginCallback(c *gin.Context) {
 	}
 
 	// 验证state，避免csrf攻击
-	state, ok := handler.StaffAdminSession.Get(string(constants.QrcodeAuthState)).(string)
+	state, ok := handler.ConsoleSession.Get(string(constants.QrcodeAuthState)).(string)
 	if !ok {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
@@ -107,37 +107,37 @@ func (o *Login) StaffAdminLoginCallback(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.StaffAdminLoginCallback(req.AppID, req.Code)
+	item, err := o.srv.ConsoleLoginCallback(req.AppID, req.Code)
 	if err != nil {
-		err = errors.Wrap(err, "StaffAdminLoginCallback failed")
+		err = errors.Wrap(err, "ConsoleLoginCallback failed")
 		handler.ResponseError(err)
 		return
 	}
 
-	handler.StaffAdminSession.Set(string(constants.StaffInfo), util.JsonEncode(item))
-	err = handler.StaffAdminSession.Save()
+	handler.ConsoleSession.Set(string(constants.StaffInfo), util.JsonEncode(item))
+	err = handler.ConsoleSession.Save()
 	if err != nil {
 		err = errors.Wrap(err, "sess.Save failed")
 		handler.ResponseError(err)
 		return
 	}
 
-	handler.Ctx.Redirect(http.StatusFound, "/staff-admin/login-callback")
+	handler.Ctx.Redirect(http.StatusFound, "/console/login-callback")
 }
 
-// StaffAdminForceLogin
+// ConsoleForceLogin
 // @tags 调试接口
 // @Summary 指定任意用户强制登录
 // @Description 仅开发和测试环境可用
 // @Produce  json
 // @Accept json
-// @Param params body entities.StaffAdminForceLoginReq true "指定用户强制登录请求"
+// @Param params body entities.ConsoleForceLoginReq true "指定用户强制登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/action/force_login [post]
-func (o *Login) StaffAdminForceLogin(c *gin.Context) {
-	req := entities.StaffAdminForceLoginReq{}
+func (o *Login) ConsoleForceLogin(c *gin.Context) {
+	req := entities.ConsoleForceLoginReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -188,8 +188,8 @@ func (o *Login) StaffAdminForceLogin(c *gin.Context) {
 		return
 	}
 
-	handler.StaffAdminSession.Set(string(constants.StaffInfo), util.JsonEncode(item))
-	err = handler.StaffAdminSession.Save()
+	handler.ConsoleSession.Set(string(constants.StaffInfo), util.JsonEncode(item))
+	err = handler.ConsoleSession.Save()
 	if err != nil {
 		err = errors.Wrap(err, "sess.Save failed")
 		handler.ResponseError(err)
@@ -306,7 +306,7 @@ func (o *Login) StaffLoginCallback(c *gin.Context) {
 // @Description 仅开发和测试环境可用
 // @Produce  json
 // @Accept json
-// @Param params body entities.StaffAdminForceLoginReq true "指定用户强制登录请求"
+// @Param params body entities.ConsoleForceLoginReq true "指定用户强制登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"

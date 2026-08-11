@@ -22,8 +22,8 @@ type Handler struct {
 	CustomerSession sessions.Session
 	// StaffSession 前台员工会话，主要用于企业微信侧边栏
 	StaffSession sessions.Session
-	// StaffAdminSession 企业员工后台会话，主要用于企业微信扫码登录后台
-	StaffAdminSession sessions.Session
+	// ConsoleSession 企业员工后台会话，主要用于企业微信扫码登录后台
+	ConsoleSession sessions.Session
 	// CorpAdminSession 企业超级管理员会话，主要用于企业超级管理员修改企业信息
 	CorpAdminSession sessions.Session
 	// SaasAdminSession Saas管理员会话，主要用于管理租户
@@ -39,7 +39,7 @@ func NewHandler(ctx *gin.Context) *Handler {
 		Ctx:               ctx,
 		CustomerSession:   sessions.DefaultMany(ctx, string(constants.CustomerSessionName)),
 		StaffSession:      sessions.DefaultMany(ctx, string(constants.StaffSessionName)),
-		StaffAdminSession: sessions.DefaultMany(ctx, string(constants.StaffAdminSessionName)),
+		ConsoleSession: sessions.DefaultMany(ctx, string(constants.ConsoleSessionName)),
 		CorpAdminSession:  sessions.DefaultMany(ctx, string(constants.CorpAdminSessionName)),
 		SaasAdminSession:  sessions.DefaultMany(ctx, string(constants.SaasAdminSessionName)),
 	}
@@ -52,7 +52,7 @@ func NewHandler(ctx *gin.Context) *Handler {
 		MaxAge: 86400 * 30, // 侧边栏会话时效长一些
 		Path:   "/",
 	})
-	handler.StaffAdminSession.Options(sessions.Options{
+	handler.ConsoleSession.Options(sessions.Options{
 		MaxAge: 86400 * 7,
 		Path:   "/",
 	})

@@ -40,13 +40,13 @@ func (o WelComeMsg) Create(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Create(req, staffAdmin.ExtCorpID, staffAdmin.ExtID)
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create welcome msg failed")
 		handler.ResponseError(err)
@@ -64,7 +64,7 @@ func (o WelComeMsg) Create(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.WelcomeMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/welcome-msg [get]
+// @Router /api/v1/console/customer/welcome-msg [get]
 func (o WelComeMsg) Query(c *gin.Context) {
 	handler := app.NewHandler(c)
 	req := requests.QueryWelcomeMsgReq{}
@@ -73,13 +73,13 @@ func (o WelComeMsg) Query(c *gin.Context) {
 		handler.ResponseBadRequestError(errors.WithStack(err))
 		return
 	}
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffAdmin.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -97,7 +97,7 @@ func (o WelComeMsg) Query(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.WelcomeMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/welcome-msg/{id} [put]
+// @Router /api/v1/console/customer/welcome-msg/{id} [put]
 func (o WelComeMsg) Update(c *gin.Context) {
 	req := requests.UpdateWelcomeMsgReq{}
 	handler := app.NewHandler(c)
@@ -112,13 +112,13 @@ func (o WelComeMsg) Update(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Update(ID, req, staffAdmin.ExtCorpID)
+	item, err := o.srv.Update(ID, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Create welcome msg failed")
 		handler.ResponseError(err)
@@ -136,7 +136,7 @@ func (o WelComeMsg) Update(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/customer/welcome-msg/action/delete [post]
+// @Router /api/v1/console/customer/welcome-msg/action/delete [post]
 func (o WelComeMsg) Delete(c *gin.Context) {
 	req := requests.CommonDeleteReq{}
 	handler := app.NewHandler(c)
@@ -146,13 +146,13 @@ func (o WelComeMsg) Delete(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	err = o.srv.Delete(req.IDs, staffAdmin.ExtCorpID)
+	err = o.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -170,7 +170,7 @@ func (o WelComeMsg) Delete(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/welcome-msg/action/get-upload-url [get]
+// @Router /api/v1/console/welcome-msg/action/get-upload-url [get]
 func (r *WelComeMsg) UploadFileUrl(c *gin.Context) {
 	req := requests.GetUploadURLReq{}
 	handler := app.NewHandler(c)
@@ -185,7 +185,7 @@ func (r *WelComeMsg) UploadFileUrl(c *gin.Context) {
 		return
 	}
 
-	info, err := r.GetStaffAdminInfo(handler)
+	info, err := r.GetConsoleInfo(handler)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -209,7 +209,7 @@ func (r *WelComeMsg) UploadFileUrl(c *gin.Context) {
 // @Success 200 {object} app.JSONResult{data=models.WelcomeMsgWithDeptAndStaff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
-// @Router /api/v1/staff-admin/welcome-msg/{id} [get]
+// @Router /api/v1/console/welcome-msg/{id} [get]
 func (o *WelComeMsg) Get(c *gin.Context) {
 	handler := app.NewHandler(c)
 	id, err := handler.GetIDParam()
@@ -219,13 +219,13 @@ func (o *WelComeMsg) Get(c *gin.Context) {
 		return
 	}
 
-	staffAdmin, err := o.GetStaffAdminInfo(handler)
+	consoleStaff, err := o.GetConsoleInfo(handler)
 	if err != nil {
-		log.TracedError("GetStaffAdminInfo failed", err)
+		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
 
-	item, err := o.srv.Get(id, staffAdmin.ExtCorpID)
+	item, err := o.srv.Get(id, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
 		handler.ResponseError(err)
