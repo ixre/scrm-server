@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,12 +25,14 @@ type CrmGroupBuyService struct{}
 
 func NewCrmGroupBuy() *CrmGroupBuyService { return &CrmGroupBuyService{} }
 
-func (s CrmGroupBuyService) Query(tenantID, status string, p *app.Pager) ([]models.CrmGroupBuy, int64, error) {
+func (s CrmGroupBuyService) Query(ctx context.Context, status string, p *app.Pager) ([]models.CrmGroupBuy, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -39,13 +45,18 @@ func (s CrmGroupBuyService) Query(tenantID, status string, p *app.Pager) ([]mode
 	return items, total, err
 }
 
-func (s CrmGroupBuyService) Get(tenantID, id string) (models.CrmGroupBuy, error) {
+func (s CrmGroupBuyService) Get(ctx context.Context, id string) (models.CrmGroupBuy, error) {
+
+
 	var item models.CrmGroupBuy
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	return item, err
 }
 
-func (s CrmGroupBuyService) Create(tenantID string, req models.CrmGroupBuy) (models.CrmGroupBuy, error) {
+func (s CrmGroupBuyService) Create(ctx context.Context, req models.CrmGroupBuy) (models.CrmGroupBuy, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if req.Name == "" {
 		return req, errors.New("活动名称不能为空")
 	}
@@ -75,20 +86,25 @@ func (s CrmGroupBuyService) Create(tenantID string, req models.CrmGroupBuy) (mod
 	return req, nil
 }
 
-func (s CrmGroupBuyService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmGroupBuyService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmGroupBuy{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmGroupBuy{})
 	return res.RowsAffected, res.Error
 }
 
 // OpenGroup 开团：团长发起拼团。
-func (s CrmGroupBuyService) OpenGroup(tenantID, groupBuyID, leaderID string) (models.CrmGroupBuyRecord, error) {
+func (s CrmGroupBuyService) OpenGroup(ctx context.Context, groupBuyID, leaderID string) (models.CrmGroupBuyRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if leaderID == "" {
 		return models.CrmGroupBuyRecord{}, errors.New("团长ID不能为空")
 	}
-	gb, err := s.Get(tenantID, groupBuyID)
+	gb, err := s.Get(ctx, groupBuyID)
 	if err != nil {
 		return models.CrmGroupBuyRecord{}, err
 	}
@@ -126,12 +142,14 @@ func (s CrmGroupBuyService) OpenGroup(tenantID, groupBuyID, leaderID string) (mo
 }
 
 // JoinGroup 参团：加入已有拼团。
-func (s CrmGroupBuyService) JoinGroup(tenantID, recordID, memberID string) (models.CrmGroupBuyRecord, error) {
+func (s CrmGroupBuyService) JoinGroup(ctx context.Context, recordID, memberID string) (models.CrmGroupBuyRecord, error) {
+
+
 	if memberID == "" {
 		return models.CrmGroupBuyRecord{}, errors.New("成员ID不能为空")
 	}
 	var rec models.CrmGroupBuyRecord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  recordID).First(&rec).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  recordID).First(&rec).Error; err != nil {
 		return rec, err
 	}
 	if rec.Status != "open" {
@@ -173,12 +191,14 @@ func (s CrmGroupBuyService) JoinGroup(tenantID, recordID, memberID string) (mode
 	return rec, nil
 }
 
-func (s CrmGroupBuyService) ListRecords(tenantID, groupBuyID string, p *app.Pager) ([]models.CrmGroupBuyRecord, int64, error) {
+func (s CrmGroupBuyService) ListRecords(ctx context.Context, groupBuyID string, p *app.Pager) ([]models.CrmGroupBuyRecord, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if groupBuyID != "" {
 		db = db.Where("group_buy_id = ?", groupBuyID)
 	}
@@ -197,12 +217,14 @@ type CrmBargainService struct{}
 
 func NewCrmBargain() *CrmBargainService { return &CrmBargainService{} }
 
-func (s CrmBargainService) Query(tenantID, status string, p *app.Pager) ([]models.CrmBargain, int64, error) {
+func (s CrmBargainService) Query(ctx context.Context, status string, p *app.Pager) ([]models.CrmBargain, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -215,13 +237,18 @@ func (s CrmBargainService) Query(tenantID, status string, p *app.Pager) ([]model
 	return items, total, err
 }
 
-func (s CrmBargainService) Get(tenantID, id string) (models.CrmBargain, error) {
+func (s CrmBargainService) Get(ctx context.Context, id string) (models.CrmBargain, error) {
+
+
 	var item models.CrmBargain
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	return item, err
 }
 
-func (s CrmBargainService) Create(tenantID string, req models.CrmBargain) (models.CrmBargain, error) {
+func (s CrmBargainService) Create(ctx context.Context, req models.CrmBargain) (models.CrmBargain, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if req.Name == "" {
 		return req, errors.New("活动名称不能为空")
 	}
@@ -254,20 +281,25 @@ func (s CrmBargainService) Create(tenantID string, req models.CrmBargain) (model
 	return req, nil
 }
 
-func (s CrmBargainService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmBargainService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmBargain{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmBargain{})
 	return res.RowsAffected, res.Error
 }
 
 // Start 发起砍价。
-func (s CrmBargainService) Start(tenantID, bargainID, customerID string) (models.CrmBargainRecord, error) {
+func (s CrmBargainService) Start(ctx context.Context, bargainID, customerID string) (models.CrmBargainRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerID == "" {
 		return models.CrmBargainRecord{}, errors.New("客户ID不能为空")
 	}
-	b, err := s.Get(tenantID, bargainID)
+	b, err := s.Get(ctx, bargainID)
 	if err != nil {
 		return models.CrmBargainRecord{}, err
 	}
@@ -283,7 +315,7 @@ func (s CrmBargainService) Start(tenantID, bargainID, customerID string) (models
 	}
 	// 幂等：同一客户同一活动只能发起一次
 	var exist models.CrmBargainRecord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("bargain_id = ? AND customer_id = ?",  bargainID,  customerID).First(&exist).Error; err == nil {
+	if err := models.MustFor(ctx).Where("bargain_id = ? AND customer_id = ?",  bargainID,  customerID).First(&exist).Error; err == nil {
 		return exist, nil
 	}
 	expireAt := now.Add(time.Duration(b.TimeLimit) * time.Hour)
@@ -305,12 +337,14 @@ func (s CrmBargainService) Start(tenantID, bargainID, customerID string) (models
 }
 
 // Help 帮砍一刀。
-func (s CrmBargainService) Help(tenantID, recordID, helperID string) (models.CrmBargainRecord, error) {
+func (s CrmBargainService) Help(ctx context.Context, recordID, helperID string) (models.CrmBargainRecord, error) {
+
+
 	if helperID == "" {
 		return models.CrmBargainRecord{}, errors.New("帮砍者ID不能为空")
 	}
 	var rec models.CrmBargainRecord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  recordID).First(&rec).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  recordID).First(&rec).Error; err != nil {
 		return rec, err
 	}
 	if rec.Status != "active" {
@@ -366,12 +400,14 @@ func (s CrmBargainService) Help(tenantID, recordID, helperID string) (models.Crm
 	return rec, nil
 }
 
-func (s CrmBargainService) ListRecords(tenantID, bargainID string, p *app.Pager) ([]models.CrmBargainRecord, int64, error) {
+func (s CrmBargainService) ListRecords(ctx context.Context, bargainID string, p *app.Pager) ([]models.CrmBargainRecord, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if bargainID != "" {
 		db = db.Where("bargain_id = ?", bargainID)
 	}
@@ -390,12 +426,14 @@ type CrmFullReductionService struct{}
 
 func NewCrmFullReduction() *CrmFullReductionService { return &CrmFullReductionService{} }
 
-func (s CrmFullReductionService) Query(tenantID, status string, p *app.Pager) ([]models.CrmFullReduction, int64, error) {
+func (s CrmFullReductionService) Query(ctx context.Context, status string, p *app.Pager) ([]models.CrmFullReduction, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -408,7 +446,10 @@ func (s CrmFullReductionService) Query(tenantID, status string, p *app.Pager) ([
 	return items, total, err
 }
 
-func (s CrmFullReductionService) Create(tenantID string, req models.CrmFullReduction) (models.CrmFullReduction, error) {
+func (s CrmFullReductionService) Create(ctx context.Context, req models.CrmFullReduction) (models.CrmFullReduction, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if req.Name == "" {
 		return req, errors.New("活动名称不能为空")
 	}
@@ -457,19 +498,23 @@ func (s CrmFullReductionService) Create(tenantID string, req models.CrmFullReduc
 	return req, nil
 }
 
-func (s CrmFullReductionService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmFullReductionService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmFullReduction{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmFullReduction{})
 	return res.RowsAffected, res.Error
 }
 
 // CalculateDiscount 计算给定金额/件数的优惠金额。
 // ruleType=full_amount 时 value=订单金额，ruleType=full_count 时 value=商品件数。
-func (s CrmFullReductionService) CalculateDiscount(tenantID, id string, value float64) (float64, error) {
+func (s CrmFullReductionService) CalculateDiscount(ctx context.Context, id string, value float64) (float64, error) {
+
+
 	var fr models.CrmFullReduction
-	if e := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ? AND status = ?",  id,  "active").First(&fr).Error; e != nil {
+	if e := models.MustFor(ctx).Where("id = ? AND status = ?",  id,  "active").First(&fr).Error; e != nil {
 		return 0, e
 	}
 	var discount float64
@@ -494,12 +539,14 @@ type CrmRedPacketService struct{}
 
 func NewCrmRedPacket() *CrmRedPacketService { return &CrmRedPacketService{} }
 
-func (s CrmRedPacketService) Query(tenantID, status string, p *app.Pager) ([]models.CrmRedPacket, int64, error) {
+func (s CrmRedPacketService) Query(ctx context.Context, status string, p *app.Pager) ([]models.CrmRedPacket, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -512,13 +559,18 @@ func (s CrmRedPacketService) Query(tenantID, status string, p *app.Pager) ([]mod
 	return items, total, err
 }
 
-func (s CrmRedPacketService) Get(tenantID, id string) (models.CrmRedPacket, error) {
+func (s CrmRedPacketService) Get(ctx context.Context, id string) (models.CrmRedPacket, error) {
+
+
 	var item models.CrmRedPacket
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	return item, err
 }
 
-func (s CrmRedPacketService) Create(tenantID string, req models.CrmRedPacket) (models.CrmRedPacket, error) {
+func (s CrmRedPacketService) Create(ctx context.Context, req models.CrmRedPacket) (models.CrmRedPacket, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if req.Name == "" {
 		return req, errors.New("活动名称不能为空")
 	}
@@ -540,20 +592,25 @@ func (s CrmRedPacketService) Create(tenantID string, req models.CrmRedPacket) (m
 	return req, nil
 }
 
-func (s CrmRedPacketService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmRedPacketService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmRedPacket{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmRedPacket{})
 	return res.RowsAffected, res.Error
 }
 
 // Claim 领取红包（乐观锁防超发，事务保证一致性）。
-func (s CrmRedPacketService) Claim(tenantID, redPacketID, customerID string) (models.CrmRedPacketRecord, error) {
+func (s CrmRedPacketService) Claim(ctx context.Context, redPacketID, customerID string) (models.CrmRedPacketRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerID == "" {
 		return models.CrmRedPacketRecord{}, errors.New("客户ID不能为空")
 	}
-	rp, err := s.Get(tenantID, redPacketID)
+	rp, err := s.Get(ctx, redPacketID)
 	if err != nil {
 		return models.CrmRedPacketRecord{}, err
 	}
@@ -569,7 +626,7 @@ func (s CrmRedPacketService) Claim(tenantID, redPacketID, customerID string) (mo
 	}
 	// 幂等：同一客户同一活动只能领一次
 	var exist models.CrmRedPacketRecord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("red_packet_id = ? AND customer_id = ?",  redPacketID,  customerID).First(&exist).Error; err == nil {
+	if err := models.MustFor(ctx).Where("red_packet_id = ? AND customer_id = ?",  redPacketID,  customerID).First(&exist).Error; err == nil {
 		return exist, nil
 	}
 	// 事务：乐观锁扣库存 + 创建领取记录
@@ -596,12 +653,14 @@ func (s CrmRedPacketService) Claim(tenantID, redPacketID, customerID string) (mo
 	return rec, err
 }
 
-func (s CrmRedPacketService) ListRecords(tenantID, redPacketID string, p *app.Pager) ([]models.CrmRedPacketRecord, int64, error) {
+func (s CrmRedPacketService) ListRecords(ctx context.Context, redPacketID string, p *app.Pager) ([]models.CrmRedPacketRecord, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if redPacketID != "" {
 		db = db.Where("red_packet_id = ?", redPacketID)
 	}
@@ -620,12 +679,14 @@ type CrmSignInService struct{}
 
 func NewCrmSignIn() *CrmSignInService { return &CrmSignInService{} }
 
-func (s CrmSignInService) Query(tenantID, status string, p *app.Pager) ([]models.CrmSignIn, int64, error) {
+func (s CrmSignInService) Query(ctx context.Context, status string, p *app.Pager) ([]models.CrmSignIn, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -638,13 +699,18 @@ func (s CrmSignInService) Query(tenantID, status string, p *app.Pager) ([]models
 	return items, total, err
 }
 
-func (s CrmSignInService) Get(tenantID, id string) (models.CrmSignIn, error) {
+func (s CrmSignInService) Get(ctx context.Context, id string) (models.CrmSignIn, error) {
+
+
 	var item models.CrmSignIn
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	return item, err
 }
 
-func (s CrmSignInService) Create(tenantID string, req models.CrmSignIn) (models.CrmSignIn, error) {
+func (s CrmSignInService) Create(ctx context.Context, req models.CrmSignIn) (models.CrmSignIn, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if req.Name == "" {
 		return req, errors.New("活动名称不能为空")
 	}
@@ -662,20 +728,25 @@ func (s CrmSignInService) Create(tenantID string, req models.CrmSignIn) (models.
 	return req, nil
 }
 
-func (s CrmSignInService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmSignInService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSignIn{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSignIn{})
 	return res.RowsAffected, res.Error
 }
 
 // CheckIn 签到：每日一次，计算连续天数，发券。
-func (s CrmSignInService) CheckIn(tenantID, signInID, customerID string) (models.CrmSignInRecord, error) {
+func (s CrmSignInService) CheckIn(ctx context.Context, signInID, customerID string) (models.CrmSignInRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerID == "" {
 		return models.CrmSignInRecord{}, errors.New("客户ID不能为空")
 	}
-	si, err := s.Get(tenantID, signInID)
+	si, err := s.Get(ctx, signInID)
 	if err != nil {
 		return models.CrmSignInRecord{}, err
 	}
@@ -692,14 +763,14 @@ func (s CrmSignInService) CheckIn(tenantID, signInID, customerID string) (models
 	today := now.Format("2006-01-02")
 	// 幂等：今日已签到
 	var exist models.CrmSignInRecord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("sign_in_id = ? AND customer_id = ? AND day = ?",  signInID,  customerID,  today).First(&exist).Error; err == nil {
+	if err := models.MustFor(ctx).Where("sign_in_id = ? AND customer_id = ? AND day = ?",  signInID,  customerID,  today).First(&exist).Error; err == nil {
 		return exist, nil
 	}
 	// 查昨日签到记录计算连续天数（断签则重置为1）
 	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
 	var yRec models.CrmSignInRecord
 	continuous := 1
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("sign_in_id = ? AND customer_id = ? AND day = ?",  signInID,  customerID,  yesterday).First(&yRec).Error; err == nil {
+	if err := models.MustFor(ctx).Where("sign_in_id = ? AND customer_id = ? AND day = ?",  signInID,  customerID,  yesterday).First(&yRec).Error; err == nil {
 		continuous = yRec.Continuous + 1
 	}
 	// 确定发券ID：检查连续签到奖励
@@ -734,18 +805,20 @@ func (s CrmSignInService) CheckIn(tenantID, signInID, customerID string) (models
 	if couponID != "" {
 		go func() {
 			defer func() { recover() }()
-			NewCrmCoupon().Issue(tenantID, couponID, customerID)
+			NewCrmCoupon().Issue(ctx, couponID, customerID)
 		}()
 	}
 	return rec, nil
 }
 
-func (s CrmSignInService) ListRecords(tenantID, signInID string, p *app.Pager) ([]models.CrmSignInRecord, int64, error) {
+func (s CrmSignInService) ListRecords(ctx context.Context, signInID string, p *app.Pager) ([]models.CrmSignInRecord, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if signInID != "" {
 		db = db.Where("sign_in_id = ?", signInID)
 	}

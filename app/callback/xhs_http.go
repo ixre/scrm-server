@@ -1,11 +1,13 @@
 package callback
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"core/app/services"
+	"core/common/identity"
 	"core/common/log"
 	"core/conf"
 
@@ -217,7 +219,8 @@ func xhsCallback(c *gin.Context) {
 			return
 		}
 		ev.AppID = appID
-		if err := customer.SyncFromXhs(tenantID, appID, ev); err != nil {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		if err := customer.SyncFromXhs(ctx, appID, ev); err != nil {
 			log.Sugar.Errorw("xhs callback: lead sync failed", "err", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 			return
@@ -231,7 +234,8 @@ func xhsCallback(c *gin.Context) {
 		}
 		ev.AppID = appID
 		ev.ActionType = body.EventType
-		if err := customer.SyncInteractionFromXhs(tenantID, appID, ev); err != nil {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		if err := customer.SyncInteractionFromXhs(ctx, appID, ev); err != nil {
 			log.Sugar.Errorw("xhs callback: interaction sync failed", "err", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 			return

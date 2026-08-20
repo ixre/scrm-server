@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -24,7 +28,10 @@ type CrmAftersalesTypeService struct{}
 func NewCrmAftersalesType() *CrmAftersalesTypeService { return &CrmAftersalesTypeService{} }
 
 // Create 创建售后类型。
-func (s CrmAftersalesTypeService) Create(tenantID string, t *models.CrmAftersalesType) error {
+func (s CrmAftersalesTypeService) Create(ctx context.Context, t *models.CrmAftersalesType) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if t == nil {
 		return errors.New("类型不能为空")
 	}
@@ -38,7 +45,9 @@ func (s CrmAftersalesTypeService) Create(tenantID string, t *models.CrmAftersale
 }
 
 // Update 更新售后类型。
-func (s CrmAftersalesTypeService) Update(tenantID, id string, t *models.CrmAftersalesType) error {
+func (s CrmAftersalesTypeService) Update(ctx context.Context, id string, t *models.CrmAftersalesType) error {
+
+
 	if t == nil {
 		return errors.New("类型不能为空")
 	}
@@ -47,27 +56,31 @@ func (s CrmAftersalesTypeService) Update(tenantID, id string, t *models.CrmAfter
 		"sort":   t.Sort,
 		"status": t.Status,
 	}
-	return models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
 }
 
 // Delete 删除售后类型。
-func (s CrmAftersalesTypeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmAftersalesTypeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmAftersalesType{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmAftersalesType{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询售后类型。
-func (s CrmAftersalesTypeService) Query(tenantID string, req AftersalesTypeQueryReq) ([]models.CrmAftersalesType, int64, error) {
+func (s CrmAftersalesTypeService) Query(ctx context.Context, req AftersalesTypeQueryReq) ([]models.CrmAftersalesType, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		db = db.Where("name LIKE ?", "%"+kw+"%")
 	}
@@ -91,7 +104,10 @@ type CrmAftersalesCommentService struct{}
 func NewCrmAftersalesComment() *CrmAftersalesCommentService { return &CrmAftersalesCommentService{} }
 
 // Create 创建售后评论。
-func (s CrmAftersalesCommentService) Create(tenantID, aftersalesID, userID, content string) error {
+func (s CrmAftersalesCommentService) Create(ctx context.Context, aftersalesID, userID, content string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if aftersalesID == "" {
 		return errors.New("售后单ID不能为空")
 	}
@@ -112,16 +128,20 @@ func (s CrmAftersalesCommentService) Create(tenantID, aftersalesID, userID, cont
 }
 
 // ListByAftersales 按售后单列出评论。
-func (s CrmAftersalesCommentService) ListByAftersales(tenantID, aftersalesID string) ([]models.CrmAftersalesComment, error) {
+func (s CrmAftersalesCommentService) ListByAftersales(ctx context.Context, aftersalesID string) ([]models.CrmAftersalesComment, error) {
+
+
 	var items []models.CrmAftersalesComment
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("aftersales_id = ?",  aftersalesID).
+	err := models.MustFor(ctx).Where("aftersales_id = ?",  aftersalesID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }
 
 // Delete 删除售后评论。
-func (s CrmAftersalesCommentService) Delete(tenantID, id string) error {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Delete(&models.CrmAftersalesComment{})
+func (s CrmAftersalesCommentService) Delete(ctx context.Context, id string) error {
+
+
+	res := models.MustFor(ctx).Where("id = ?",  id).Delete(&models.CrmAftersalesComment{})
 	if res.Error != nil {
 		return res.Error
 	}

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 
 	"core/app/models"
@@ -16,19 +20,24 @@ type CrmDedupService struct{}
 func NewCrmDedup() *CrmDedupService { return &CrmDedupService{} }
 
 // FindDuplicates 按 mobile 查同租户重复客户（mobile 非空）。
-func (s CrmDedupService) FindDuplicates(tenantID, mobile string) ([]models.CrmCustomer, error) {
+func (s CrmDedupService) FindDuplicates(ctx context.Context, mobile string) ([]models.CrmCustomer, error) {
+
+
 	if mobile == "" {
 		return nil, errors.New("mobile 不能为空")
 	}
 	var cs []models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("mobile = ?",  mobile).
+	err := models.MustFor(ctx).Where("mobile = ?",  mobile).
 		Order("created_at").Find(&cs).Error
 	return cs, err
 }
 
 // Merge 合并客户：把 duplicateIDs 的所有关联数据转移到 primaryID，然后软删除重复客户。
 // 全部在事务内完成。primaryID 自身不被删。
-func (s CrmDedupService) Merge(tenantID, primaryID string, duplicateIDs []string) error {
+func (s CrmDedupService) Merge(ctx context.Context, primaryID string, duplicateIDs []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if primaryID == "" {
 		return errors.New("primary_id 不能为空")
 	}

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -25,9 +29,11 @@ func NewCrmApproval() *CrmApprovalService { return &CrmApprovalService{} }
 // ---------- 审批流定义 ----------
 
 // ListFlows 按业务类型列出审批流定义。
-func (s CrmApprovalService) ListFlows(tenantID, bizType string) ([]models.CrmApprovalFlow, error) {
+func (s CrmApprovalService) ListFlows(ctx context.Context, bizType string) ([]models.CrmApprovalFlow, error) {
+
+
 	var items []models.CrmApprovalFlow
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if bizType != "" {
 		db = db.Where("biz_type = ?", bizType)
 	}
@@ -36,7 +42,10 @@ func (s CrmApprovalService) ListFlows(tenantID, bizType string) ([]models.CrmApp
 }
 
 // CreateFlow 创建审批流定义。
-func (s CrmApprovalService) CreateFlow(tenantID string, f *models.CrmApprovalFlow) error {
+func (s CrmApprovalService) CreateFlow(ctx context.Context, f *models.CrmApprovalFlow) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if f == nil {
 		return errors.New("审批流不能为空")
 	}
@@ -53,7 +62,9 @@ func (s CrmApprovalService) CreateFlow(tenantID string, f *models.CrmApprovalFlo
 }
 
 // UpdateFlow 更新审批流定义。
-func (s CrmApprovalService) UpdateFlow(tenantID, id string, f *models.CrmApprovalFlow) error {
+func (s CrmApprovalService) UpdateFlow(ctx context.Context, id string, f *models.CrmApprovalFlow) error {
+
+
 	if f == nil {
 		return errors.New("审批流不能为空")
 	}
@@ -66,25 +77,30 @@ func (s CrmApprovalService) UpdateFlow(tenantID, id string, f *models.CrmApprova
 		"nodes":      f.Nodes,
 		"is_enabled": f.IsEnabled,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // DeleteFlow 批量删除审批流定义。
-func (s CrmApprovalService) DeleteFlow(tenantID string, ids []string) (int64, error) {
+func (s CrmApprovalService) DeleteFlow(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmApprovalFlow{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmApprovalFlow{})
 	return res.RowsAffected, res.Error
 }
 
 // ---------- 审批实例 ----------
 
 // Submit 根据业务类型查找启用的审批流，创建审批实例。
-func (s CrmApprovalService) Submit(tenantID, bizType, bizID, applicantID string) (*models.CrmApprovalInstance, error) {
+func (s CrmApprovalService) Submit(ctx context.Context, bizType, bizID, applicantID string) (*models.CrmApprovalInstance, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if bizType == "" {
 		return nil, errors.New("业务类型不能为空")
 	}
@@ -95,7 +111,7 @@ func (s CrmApprovalService) Submit(tenantID, bizType, bizID, applicantID string)
 		return nil, errors.New("申请人不能为空")
 	}
 	var flow models.CrmApprovalFlow
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("biz_type = ? AND is_enabled = ?",  bizType,  true).
+	if err := models.MustFor(ctx).Where("biz_type = ? AND is_enabled = ?",  bizType,  true).
 		First(&flow).Error; err != nil {
 		return nil, errors.New("未找到启用的审批流")
 	}
@@ -119,14 +135,16 @@ func (s CrmApprovalService) Submit(tenantID, bizType, bizID, applicantID string)
 }
 
 // ListInstances 分页查询审批实例，支持按 biz_type/status/applicant_id 筛选。
-func (s CrmApprovalService) ListInstances(tenantID string, req ApprovalInstanceQuery) ([]models.CrmApprovalInstance, int64, error) {
+func (s CrmApprovalService) ListInstances(ctx context.Context, req ApprovalInstanceQuery) ([]models.CrmApprovalInstance, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.BizType != "" {
 		db = db.Where("biz_type = ?", req.BizType)
 	}
@@ -146,19 +164,22 @@ func (s CrmApprovalService) ListInstances(tenantID string, req ApprovalInstanceQ
 }
 
 // Approve 通过当前节点，推进到下一节点或完成审批。
-func (s CrmApprovalService) Approve(tenantID, instanceID, approverID, comment string) error {
+func (s CrmApprovalService) Approve(ctx context.Context, instanceID, approverID, comment string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if approverID == "" {
 		return errors.New("审批人不能为空")
 	}
 	var inst models.CrmApprovalInstance
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  instanceID).First(&inst).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  instanceID).First(&inst).Error; err != nil {
 		return errors.New("审批实例不存在")
 	}
 	if inst.Status != "pending" {
 		return errors.New("该审批实例不在审批中")
 	}
 	var flow models.CrmApprovalFlow
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  inst.FlowID).First(&flow).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  inst.FlowID).First(&flow).Error; err != nil {
 		return errors.New("审批流不存在")
 	}
 	nodeCount := len(flow.Nodes)
@@ -187,12 +208,15 @@ func (s CrmApprovalService) Approve(tenantID, instanceID, approverID, comment st
 }
 
 // Reject 驳回当前节点，审批终止。
-func (s CrmApprovalService) Reject(tenantID, instanceID, approverID, comment string) error {
+func (s CrmApprovalService) Reject(ctx context.Context, instanceID, approverID, comment string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if approverID == "" {
 		return errors.New("审批人不能为空")
 	}
 	var inst models.CrmApprovalInstance
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  instanceID).First(&inst).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  instanceID).First(&inst).Error; err != nil {
 		return errors.New("审批实例不存在")
 	}
 	if inst.Status != "pending" {
@@ -215,9 +239,12 @@ func (s CrmApprovalService) Reject(tenantID, instanceID, approverID, comment str
 }
 
 // Void 撤回审批实例（申请人撤回）。
-func (s CrmApprovalService) Void(tenantID, instanceID, approverID string) error {
+func (s CrmApprovalService) Void(ctx context.Context, instanceID, approverID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	var inst models.CrmApprovalInstance
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  instanceID).First(&inst).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  instanceID).First(&inst).Error; err != nil {
 		return errors.New("审批实例不存在")
 	}
 	if inst.Status != "pending" {
@@ -239,9 +266,11 @@ func (s CrmApprovalService) Void(tenantID, instanceID, approverID string) error 
 }
 
 // ListRecords 查询审批实例的操作记录。
-func (s CrmApprovalService) ListRecords(tenantID, instanceID string) ([]models.CrmApprovalRecord, error) {
+func (s CrmApprovalService) ListRecords(ctx context.Context, instanceID string) ([]models.CrmApprovalRecord, error) {
+
+
 	var items []models.CrmApprovalRecord
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("instance_id = ?",  instanceID).
+	err := models.MustFor(ctx).Where("instance_id = ?",  instanceID).
 		Order("id asc").Find(&items).Error
 	return items, err
 }

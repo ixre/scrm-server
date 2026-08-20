@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -27,7 +31,10 @@ type CrmAccountService struct{}
 func NewCrmAccount() *CrmAccountService { return &CrmAccountService{} }
 
 // Create 创建财务账户。
-func (s CrmAccountService) Create(tenantID string, a *models.CrmAccount) error {
+func (s CrmAccountService) Create(ctx context.Context, a *models.CrmAccount) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if a == nil {
 		return errors.New("账户不能为空")
 	}
@@ -44,7 +51,9 @@ func (s CrmAccountService) Create(tenantID string, a *models.CrmAccount) error {
 }
 
 // Update 更新财务账户。
-func (s CrmAccountService) Update(tenantID, id string, a *models.CrmAccount) error {
+func (s CrmAccountService) Update(ctx context.Context, id string, a *models.CrmAccount) error {
+
+
 	if a == nil {
 		return errors.New("账户不能为空")
 	}
@@ -58,25 +67,29 @@ func (s CrmAccountService) Update(tenantID, id string, a *models.CrmAccount) err
 		"status": a.Status,
 		"remark": a.Remark,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除财务账户。
-func (s CrmAccountService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmAccountService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmAccount{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmAccount{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 获取财务账户详情。
-func (s CrmAccountService) Get(tenantID, id string) (*models.CrmAccount, error) {
+func (s CrmAccountService) Get(ctx context.Context, id string) (*models.CrmAccount, error) {
+
+
 	var item models.CrmAccount
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +97,16 @@ func (s CrmAccountService) Get(tenantID, id string) (*models.CrmAccount, error) 
 }
 
 // Query 分页查询财务账户。
-func (s CrmAccountService) Query(tenantID string, req AccountQueryReq) ([]models.CrmAccount, int64, error) {
+func (s CrmAccountService) Query(ctx context.Context, req AccountQueryReq) ([]models.CrmAccount, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if t := strings.TrimSpace(req.Type); t != "" {
 		db = db.Where("type = ?", t)
 	}
@@ -128,7 +143,10 @@ type CrmFinanceRecordService struct{}
 func NewCrmFinanceRecord() *CrmFinanceRecordService { return &CrmFinanceRecordService{} }
 
 // Create 创建财务收支记录（事务内更新账户余额）。
-func (s CrmFinanceRecordService) Create(tenantID string, r *models.CrmFinanceRecord) error {
+func (s CrmFinanceRecordService) Create(ctx context.Context, r *models.CrmFinanceRecord) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("收支记录不能为空")
 	}
@@ -161,7 +179,9 @@ func (s CrmFinanceRecordService) Create(tenantID string, r *models.CrmFinanceRec
 }
 
 // Update 更新财务收支记录（仅允许 pending 状态编辑；已确认记录需先作废再重建）。
-func (s CrmFinanceRecordService) Update(tenantID, id string, r *models.CrmFinanceRecord) error {
+func (s CrmFinanceRecordService) Update(ctx context.Context, id string, r *models.CrmFinanceRecord) error {
+
+
 	if r == nil {
 		return errors.New("收支记录不能为空")
 	}
@@ -181,30 +201,34 @@ func (s CrmFinanceRecordService) Update(tenantID, id string, r *models.CrmFinanc
 		"remark":       r.Remark,
 	}
 	updatesCRM(m, "account_id", "to_account_id", "order_id", "customer_id")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除财务收支记录。
-func (s CrmFinanceRecordService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmFinanceRecordService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmFinanceRecord{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmFinanceRecord{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询财务收支记录。
-func (s CrmFinanceRecordService) Query(tenantID string, req FinanceRecordQueryReq) ([]models.CrmFinanceRecord, int64, error) {
+func (s CrmFinanceRecordService) Query(ctx context.Context, req FinanceRecordQueryReq) ([]models.CrmFinanceRecord, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if t := strings.TrimSpace(req.Type); t != "" {
 		db = db.Where("type = ?", t)
 	}
@@ -225,7 +249,10 @@ func (s CrmFinanceRecordService) Query(tenantID string, req FinanceRecordQueryRe
 }
 
 // Void 作废财务收支记录（回滚账户余额变动）。
-func (s CrmFinanceRecordService) Void(tenantID, id string) error {
+func (s CrmFinanceRecordService) Void(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmFinanceRecord
 		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
@@ -302,7 +329,10 @@ type CrmInvoiceService struct{}
 func NewCrmInvoice() *CrmInvoiceService { return &CrmInvoiceService{} }
 
 // Create 创建发票。
-func (s CrmInvoiceService) Create(tenantID string, i *models.CrmInvoice) error {
+func (s CrmInvoiceService) Create(ctx context.Context, i *models.CrmInvoice) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if i == nil {
 		return errors.New("发票不能为空")
 	}
@@ -322,7 +352,9 @@ func (s CrmInvoiceService) Create(tenantID string, i *models.CrmInvoice) error {
 }
 
 // Update 更新发票。
-func (s CrmInvoiceService) Update(tenantID, id string, i *models.CrmInvoice) error {
+func (s CrmInvoiceService) Update(ctx context.Context, id string, i *models.CrmInvoice) error {
+
+
 	if i == nil {
 		return errors.New("发票不能为空")
 	}
@@ -342,30 +374,34 @@ func (s CrmInvoiceService) Update(tenantID, id string, i *models.CrmInvoice) err
 		"status":      i.Status,
 	}
 	updatesCRM(m, "order_id", "customer_id")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除发票。
-func (s CrmInvoiceService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmInvoiceService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmInvoice{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmInvoice{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询发票。
-func (s CrmInvoiceService) Query(tenantID string, req InvoiceQueryReq) ([]models.CrmInvoice, int64, error) {
+func (s CrmInvoiceService) Query(ctx context.Context, req InvoiceQueryReq) ([]models.CrmInvoice, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -386,9 +422,12 @@ func (s CrmInvoiceService) Query(tenantID string, req InvoiceQueryReq) ([]models
 }
 
 // Void 作废发票。
-func (s CrmInvoiceService) Void(tenantID, id string) error {
+func (s CrmInvoiceService) Void(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	var i models.CrmInvoice
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&i).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).First(&i).Error; err != nil {
 		return err
 	}
 	if i.Status == "void" {

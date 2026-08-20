@@ -14,7 +14,7 @@ import (
 // ---- 跟进评论 ----
 
 func crmFollowupCommentList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +24,7 @@ func crmFollowupCommentList(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, err := services.NewCrmFollowupComment().ListByFollowup(t, req.FollowupID)
+	items, err := services.NewCrmFollowupComment().ListByFollowup(ctx, req.FollowupID)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func crmFollowupCommentList(ctx context.Context, _, _ string, params json.RawMes
 }
 
 func crmFollowupCommentCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func crmFollowupCommentCreate(ctx context.Context, _, _ string, params json.RawM
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	c, err := services.NewCrmFollowupComment().Create(t, req.FollowupID, u, req.Content)
+	c, err := services.NewCrmFollowupComment().Create(ctx, req.FollowupID, u, req.Content)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func crmFollowupCommentCreate(ctx context.Context, _, _ string, params json.RawM
 }
 
 func crmFollowupCommentDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,18 +63,18 @@ func crmFollowupCommentDelete(ctx context.Context, _, _ string, params json.RawM
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmFollowupComment().Delete(t, u, req.ID)
+	return ok, services.NewCrmFollowupComment().Delete(ctx, u, req.ID)
 }
 
 // ---- 常用备注 ----
 
 func crmQuickRemarkList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	u := identity.UserID(ctx)
-	items, err := services.NewCrmQuickRemark().List(t, u)
+	items, err := services.NewCrmQuickRemark().List(ctx, u)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func crmQuickRemarkList(ctx context.Context, _, _ string, _ json.RawMessage) (an
 }
 
 func crmQuickRemarkCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func crmQuickRemarkCreate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	r, err := services.NewCrmQuickRemark().Create(t, u, req.Content)
+	r, err := services.NewCrmQuickRemark().Create(ctx, u, req.Content)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func crmQuickRemarkCreate(ctx context.Context, _, _ string, params json.RawMessa
 }
 
 func crmQuickRemarkUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +113,11 @@ func crmQuickRemarkUpdate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuickRemark().Update(t, u, req.ID, req.Content)
+	return ok, services.NewCrmQuickRemark().Update(ctx, u, req.ID, req.Content)
 }
 
 func crmQuickRemarkDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -128,11 +128,11 @@ func crmQuickRemarkDelete(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuickRemark().Delete(t, u, req.ID)
+	return ok, services.NewCrmQuickRemark().Delete(ctx, u, req.ID)
 }
 
 func crmQuickRemarkSetSort(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -143,13 +143,13 @@ func crmQuickRemarkSetSort(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuickRemark().SetSort(t, req.ID, req.Sort)
+	return ok, services.NewCrmQuickRemark().SetSort(ctx, req.ID, req.Sort)
 }
 
 // ---- 跟进视图 ----
 
 func crmFollowupViewTodayTodo(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func crmFollowupViewTodayTodo(ctx context.Context, _, _ string, params json.RawM
 		return nil, err
 	}
 	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmFollowupView().ListTodayTodo(t, u, q)
+	items, total, err := services.NewCrmFollowupView().ListTodayTodo(ctx, u, q)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func crmFollowupViewTodayTodo(ctx context.Context, _, _ string, params json.RawM
 }
 
 func crmFollowupViewTodayDone(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func crmFollowupViewTodayDone(ctx context.Context, _, _ string, params json.RawM
 		return nil, err
 	}
 	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmFollowupView().ListTodayDone(t, u, q)
+	items, total, err := services.NewCrmFollowupView().ListTodayDone(ctx, u, q)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func crmFollowupViewTodayDone(ctx context.Context, _, _ string, params json.RawM
 }
 
 func crmFollowupViewNeverFollowup(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func crmFollowupViewNeverFollowup(ctx context.Context, _, _ string, params json.
 		return nil, err
 	}
 	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmFollowupView().ListNeverFollowup(t, u, q)
+	items, total, err := services.NewCrmFollowupView().ListNeverFollowup(ctx, u, q)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func crmFollowupViewNeverFollowup(ctx context.Context, _, _ string, params json.
 // ---------- 商机扩展 dispatch handlers ----------
 
 func crmOpportunityChangeStage(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -222,11 +222,11 @@ func crmOpportunityChangeStage(ctx context.Context, _, _ string, params json.Raw
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOpportunityExt().ChangeStage(t, req.ID, req.StageID)
+	return ok, services.NewCrmOpportunityExt().ChangeStage(ctx, req.ID, req.StageID)
 }
 
 func crmOpportunityWin(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -236,11 +236,11 @@ func crmOpportunityWin(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOpportunityExt().Win(t, req.ID)
+	return ok, services.NewCrmOpportunityExt().Win(ctx, req.ID)
 }
 
 func crmOpportunityLose(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -251,11 +251,11 @@ func crmOpportunityLose(ctx context.Context, _, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOpportunityExt().Lose(t, req.ID, req.LostReason)
+	return ok, services.NewCrmOpportunityExt().Lose(ctx, req.ID, req.LostReason)
 }
 
 func crmOpportunityBatchChangeStage(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -269,13 +269,13 @@ func crmOpportunityBatchChangeStage(ctx context.Context, _, _ string, params jso
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	return ok, services.NewCrmOpportunityExt().BatchChangeStage(t, req.IDs, req.StageID)
+	return ok, services.NewCrmOpportunityExt().BatchChangeStage(ctx, req.IDs, req.StageID)
 }
 
 // ---------- 合同扩展 dispatch handlers ----------
 
 func crmOrderRevoke(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -286,11 +286,11 @@ func crmOrderRevoke(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOrderExt().Revoke(t, req.ID, req.Reason)
+	return ok, services.NewCrmOrderExt().Revoke(ctx, req.ID, req.Reason)
 }
 
 func crmOrderChange(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -301,11 +301,11 @@ func crmOrderChange(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOrderExt().Change(t, req.ID, req.Updates)
+	return ok, services.NewCrmOrderExt().Change(ctx, req.ID, req.Updates)
 }
 
 func crmOrderLinkProject(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -316,11 +316,11 @@ func crmOrderLinkProject(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOrderExt().LinkProject(t, req.ID, req.ProjectID)
+	return ok, services.NewCrmOrderExt().LinkProject(ctx, req.ID, req.ProjectID)
 }
 
 func crmOrderLinkWorkorder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -331,13 +331,13 @@ func crmOrderLinkWorkorder(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOrderExt().LinkWorkorder(t, req.ID, req.WorkorderID)
+	return ok, services.NewCrmOrderExt().LinkWorkorder(ctx, req.ID, req.WorkorderID)
 }
 
 // ---------- 回款扩展 dispatch handlers ----------
 
 func crmReceivablesGeneratePlan(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -348,11 +348,11 @@ func crmReceivablesGeneratePlan(ctx context.Context, _, _ string, params json.Ra
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmReceivablesExt().GeneratePlan(t, req.OrderID, req.Periods)
+	return ok, services.NewCrmReceivablesExt().GeneratePlan(ctx, req.OrderID, req.Periods)
 }
 
 func crmReceivablesListExpiring(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func crmReceivablesListExpiring(ctx context.Context, _, _ string, params json.Ra
 		return nil, err
 	}
 	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmReceivablesExt().ListExpiring(t, req.Days, q)
+	items, total, err := services.NewCrmReceivablesExt().ListExpiring(ctx, req.Days, q)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func crmReceivablesListExpiring(ctx context.Context, _, _ string, params json.Ra
 }
 
 func crmReceivablesListOverdue(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +383,7 @@ func crmReceivablesListOverdue(ctx context.Context, _, _ string, params json.Raw
 		return nil, err
 	}
 	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmReceivablesExt().ListOverdue(t, q)
+	items, total, err := services.NewCrmReceivablesExt().ListOverdue(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func crmReceivablesListOverdue(ctx context.Context, _, _ string, params json.Raw
 }
 
 func crmReceivablesApprove(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -402,11 +402,11 @@ func crmReceivablesApprove(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmReceivablesExt().Approve(t, req.ID, u)
+	return ok, services.NewCrmReceivablesExt().Approve(ctx, req.ID, u)
 }
 
 func crmReceivablesReject(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -418,17 +418,17 @@ func crmReceivablesReject(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmReceivablesExt().Reject(t, req.ID, u, req.Remark)
+	return ok, services.NewCrmReceivablesExt().Reject(ctx, req.ID, u, req.Remark)
 }
 
 // ---------- 报价扩展 dispatch handlers ----------
 
 func crmQuoteGenerateNo(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	no, err := services.NewCrmQuoteExt().GenerateNo(t)
+	no, err := services.NewCrmQuoteExt().GenerateNo(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +436,7 @@ func crmQuoteGenerateNo(ctx context.Context, _, _ string, _ json.RawMessage) (an
 }
 
 func crmQuoteVoid(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -447,11 +447,11 @@ func crmQuoteVoid(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuoteExt().Void(t, req.ID, req.Reason)
+	return ok, services.NewCrmQuoteExt().Void(ctx, req.ID, req.Reason)
 }
 
 func crmQuoteExtTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -462,11 +462,11 @@ func crmQuoteExtTransfer(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuoteExt().Transfer(t, req.ID, req.ToUserID)
+	return ok, services.NewCrmQuoteExt().Transfer(ctx, req.ID, req.ToUserID)
 }
 
 func crmQuoteBatchTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -480,13 +480,13 @@ func crmQuoteBatchTransfer(ctx context.Context, _, _ string, params json.RawMess
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	return ok, services.NewCrmQuoteExt().BatchTransfer(t, req.IDs, req.ToUserID)
+	return ok, services.NewCrmQuoteExt().BatchTransfer(ctx, req.IDs, req.ToUserID)
 }
 
 // ---------- 联系人扩展 dispatch handlers ----------
 
 func crmContactConvertToCustomer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +497,7 @@ func crmContactConvertToCustomer(ctx context.Context, _, _ string, params json.R
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	c, err := services.NewCrmContactExt().ConvertToCustomer(t, u, req.ContactID)
+	c, err := services.NewCrmContactExt().ConvertToCustomer(ctx, u, req.ContactID)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +505,7 @@ func crmContactConvertToCustomer(ctx context.Context, _, _ string, params json.R
 }
 
 func crmContactListPool(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +516,7 @@ func crmContactListPool(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, err
 	}
 	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmContactExt().ListPool(t, q)
+	items, total, err := services.NewCrmContactExt().ListPool(ctx, q)
 	if err != nil {
 		return nil, err
 	}

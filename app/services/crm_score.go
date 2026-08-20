@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"time"
 
 	"core/app/models"
@@ -22,9 +26,12 @@ func NewCrmScore() *CrmScoreService { return &CrmScoreService{} }
 // - 客户等级（CrmCustomer.Level）：15分，Level 5=15, 4=12, 3=9, 2=6, 1=3, 0=0
 
 // RecalculateAll 重算所有客户评分（定时调用）。
-func (s CrmScoreService) RecalculateAll(tenantID string) error {
+func (s CrmScoreService) RecalculateAll(ctx context.Context) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	var customers []models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Find(&customers).Error; err != nil {
+	if err := models.MustFor(ctx).Find(&customers).Error; err != nil {
 		return err
 	}
 	for _, c := range customers {
@@ -82,12 +89,14 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 }
 
 // TopByScore 按评分排序返回 Top N 客户。
-func (s CrmScoreService) TopByScore(tenantID string, limit int) ([]models.CrmCustomer, error) {
+func (s CrmScoreService) TopByScore(ctx context.Context, limit int) ([]models.CrmCustomer, error) {
+
+
 	if limit <= 0 {
 		limit = 10
 	}
 	var items []models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Order("score desc").Limit(limit).Find(&items).Error
+	err := models.MustFor(ctx).Order("score desc").Limit(limit).Find(&items).Error
 	return items, err
 }
 

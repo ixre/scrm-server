@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"time"
 
@@ -16,7 +20,10 @@ type CrmOrderExtService struct{}
 func NewCrmOrderExt() *CrmOrderExtService { return &CrmOrderExtService{} }
 
 // Revoke 合同作废：Status=cancelled, RevokeReason, RevokeAt=now。
-func (s CrmOrderExtService) Revoke(tenantID, id, reason string) error {
+func (s CrmOrderExtService) Revoke(ctx context.Context, id, reason string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -34,7 +41,10 @@ func (s CrmOrderExtService) Revoke(tenantID, id, reason string) error {
 }
 
 // Change 合同变更：通用字段更新（仅 draft/signed 状态可变更）。
-func (s CrmOrderExtService) Change(tenantID, id string, updates map[string]any) error {
+func (s CrmOrderExtService) Change(ctx context.Context, id string, updates map[string]any) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -72,7 +82,10 @@ func (s CrmOrderExtService) Change(tenantID, id string, updates map[string]any) 
 }
 
 // LinkProject 关联项目。
-func (s CrmOrderExtService) LinkProject(tenantID, id, projectID string) error {
+func (s CrmOrderExtService) LinkProject(ctx context.Context, id, projectID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -91,7 +104,10 @@ func (s CrmOrderExtService) LinkProject(tenantID, id, projectID string) error {
 }
 
 // LinkWorkorder 关联工单。
-func (s CrmOrderExtService) LinkWorkorder(tenantID, id, workorderID string) error {
+func (s CrmOrderExtService) LinkWorkorder(ctx context.Context, id, workorderID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}

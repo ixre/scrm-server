@@ -1,10 +1,12 @@
 package callback
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"core/app/services"
+	"core/common/identity"
 	"core/common/log"
 
 	"github.com/gin-gonic/gin"
@@ -58,7 +60,8 @@ func gzhCallback(c *gin.Context) {
 			return
 		}
 		ev.AppID = appID
-		if err := customer.SyncFromGzh(tenantID, appID, ev); err != nil {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		if err := customer.SyncFromGzh(ctx, appID, ev); err != nil {
 			log.Sugar.Errorw("gzh callback: lead sync failed", "err", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 			return
@@ -72,7 +75,8 @@ func gzhCallback(c *gin.Context) {
 		}
 		ev.AppID = appID
 		ev.ActionType = body.EventType
-		if err := customer.SyncInteractionFromGzh(tenantID, appID, ev); err != nil {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		if err := customer.SyncInteractionFromGzh(ctx, appID, ev); err != nil {
 			log.Sugar.Errorw("gzh callback: interaction sync failed", "err", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 			return
@@ -130,7 +134,8 @@ func douyinCallback(c *gin.Context) {
 			return
 		}
 		ev.AppID = appID
-		if err := customer.SyncFromDouyin(tenantID, appID, ev); err != nil {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		if err := customer.SyncFromDouyin(ctx, appID, ev); err != nil {
 			log.Sugar.Errorw("douyin callback: lead sync failed", "err", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 			return
@@ -144,7 +149,8 @@ func douyinCallback(c *gin.Context) {
 		}
 		ev.AppID = appID
 		ev.ActionType = body.EventType
-		if err := customer.SyncInteractionFromDouyin(tenantID, appID, ev); err != nil {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		if err := customer.SyncInteractionFromDouyin(ctx, appID, ev); err != nil {
 			log.Sugar.Errorw("douyin callback: interaction sync failed", "err", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 			return

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"time"
@@ -17,7 +21,10 @@ type CrmQuoteExtService struct{}
 func NewCrmQuoteExt() *CrmQuoteExtService { return &CrmQuoteExtService{} }
 
 // GenerateNo 生成报价单号：Q + yyyyMMdd + 4位当日序号（租户内当日递增）。
-func (s CrmQuoteExtService) GenerateNo(tenantID string) (string, error) {
+func (s CrmQuoteExtService) GenerateNo(ctx context.Context) (string, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	day := time.Now().Format("20060102")
 	prefix := "Q" + day
 	var cnt int64
@@ -28,7 +35,10 @@ func (s CrmQuoteExtService) GenerateNo(tenantID string) (string, error) {
 }
 
 // Void 报价作废：Status=void, VoidReason, VoidAt=now。
-func (s CrmQuoteExtService) Void(tenantID, id, reason string) error {
+func (s CrmQuoteExtService) Void(ctx context.Context, id, reason string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -46,7 +56,10 @@ func (s CrmQuoteExtService) Void(tenantID, id, reason string) error {
 }
 
 // Transfer 报价转移：改 OwnerUserID。
-func (s CrmQuoteExtService) Transfer(tenantID, id, toUserID string) error {
+func (s CrmQuoteExtService) Transfer(ctx context.Context, id, toUserID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -65,7 +78,10 @@ func (s CrmQuoteExtService) Transfer(tenantID, id, toUserID string) error {
 }
 
 // BatchTransfer 批量转移报价。
-func (s CrmQuoteExtService) BatchTransfer(tenantID string, ids []string, toUserID string) error {
+func (s CrmQuoteExtService) BatchTransfer(ctx context.Context, ids []string, toUserID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,7 +41,10 @@ type LotteryPrize struct {
 }
 
 // Create 创建抽奖活动。
-func (s CrmLotteryService) Create(tenantID string, req models.CrmLottery) (models.CrmLottery, error) {
+func (s CrmLotteryService) Create(ctx context.Context, req models.CrmLottery) (models.CrmLottery, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -72,12 +79,14 @@ func (s CrmLotteryService) Create(tenantID string, req models.CrmLottery) (model
 }
 
 // Query 列出抽奖活动。
-func (s CrmLotteryService) Query(tenantID, status string, pager *app.Pager) ([]models.CrmLottery, int64, error) {
+func (s CrmLotteryService) Query(ctx context.Context, status string, pager *app.Pager) ([]models.CrmLottery, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -91,28 +100,36 @@ func (s CrmLotteryService) Query(tenantID, status string, pager *app.Pager) ([]m
 }
 
 // Get 查单个抽奖活动。
-func (s CrmLotteryService) Get(tenantID, id string) (models.CrmLottery, error) {
+func (s CrmLotteryService) Get(ctx context.Context, id string) (models.CrmLottery, error) {
+
+
 	var l models.CrmLottery
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&l).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&l).Error
 	return l, err
 }
 
 // Delete 删除抽奖活动。
-func (s CrmLotteryService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmLotteryService) Delete(ctx context.Context, ids []string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var cnt int64
 	models.DB.Model(&models.CrmLotteryRecord{}).Scopes(models.TenantScope(tenantID)).Where("lottery_id IN ?",  ids).Count(&cnt)
 	if cnt > 0 {
 		return 0, errors.New("有抽奖记录的活动不能删除")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmLottery{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmLottery{})
 	return res.RowsAffected, res.Error
 }
 
 // Draw 抽奖：权重随机 + 次数校验 + 库存校验。
-func (s CrmLotteryService) Draw(tenantID, lotteryID, customerID string) (models.CrmLotteryRecord, error) {
+func (s CrmLotteryService) Draw(ctx context.Context, lotteryID, customerID string) (models.CrmLotteryRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var rec models.CrmLotteryRecord
 	var l models.CrmLottery
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", lotteryID).First(&l).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", lotteryID).First(&l).Error; err != nil {
 		return rec, errors.New("抽奖活动不存在")
 	}
 	if l.Status != "active" {
@@ -127,7 +144,7 @@ func (s CrmLotteryService) Draw(tenantID, lotteryID, customerID string) (models.
 	}
 	// 校验客户
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", customerID).First(&c).Error; err != nil {
 		return rec, errors.New("客户不存在")
 	}
 	// 总次数校验
@@ -188,12 +205,14 @@ func (s CrmLotteryService) Draw(tenantID, lotteryID, customerID string) (models.
 }
 
 // ListRecords 抽奖记录列表。
-func (s CrmLotteryService) ListRecords(tenantID, lotteryID string, pager *app.Pager) ([]models.CrmLotteryRecord, int64, error) {
+func (s CrmLotteryService) ListRecords(ctx context.Context, lotteryID string, pager *app.Pager) ([]models.CrmLotteryRecord, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if lotteryID != "" {
 		db = db.Where("lottery_id = ?", lotteryID)
 	}

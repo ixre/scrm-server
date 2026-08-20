@@ -1,11 +1,13 @@
 package callback
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"core/app/services"
+	"core/common/identity"
 	"core/common/log"
 	"core/conf"
 	"core/pkg/easywework"
@@ -70,7 +72,8 @@ func dispatchWeComEvent(tenantID string, msg *workwx.RxMessage) {
 	logger := services.NewCrmWecomEventLog()
 	corpID := msg.ToUserID
 	if msg.MsgType != workwx.MessageTypeEvent {
-		logger.Record(tenantID, corpID, string(msg.MsgType), string(msg.ChangeType), "", "", false, "非事件消息，忽略")
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+		logger.Record(ctx, corpID, string(msg.MsgType), string(msg.ChangeType), "", "", false, "非事件消息，忽略")
 		return
 	}
 	handled := false
@@ -82,7 +85,8 @@ func dispatchWeComEvent(tenantID string, msg *workwx.RxMessage) {
 		if e, ok := msg.EventAddExternalContact(); ok {
 			extUser, extCustomer = e.GetUserID(), e.GetExternalUserID()
 			handled = true
-			if err := customer.SyncFromWeCom(tenantID, corpID, e.GetUserID(), e.GetExternalUserID(), ""); err != nil {
+			ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+			if err := customer.SyncFromWeCom(ctx, corpID, e.GetUserID(), e.GetExternalUserID(), ""); err != nil {
 				errMsg = err.Error()
 			}
 		}
@@ -90,7 +94,8 @@ func dispatchWeComEvent(tenantID string, msg *workwx.RxMessage) {
 		if e, ok := msg.EventEditExternalContact(); ok {
 			extUser, extCustomer = e.GetUserID(), e.GetExternalUserID()
 			handled = true
-			if err := customer.SyncFromWeCom(tenantID, corpID, e.GetUserID(), e.GetExternalUserID(), ""); err != nil {
+			ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+			if err := customer.SyncFromWeCom(ctx, corpID, e.GetUserID(), e.GetExternalUserID(), ""); err != nil {
 				errMsg = err.Error()
 			}
 		}
@@ -98,7 +103,8 @@ func dispatchWeComEvent(tenantID string, msg *workwx.RxMessage) {
 		if e, ok := msg.EventDelExternalContact(); ok {
 			extUser, extCustomer = e.GetUserID(), e.GetExternalUserID()
 			handled = true
-			if err := customer.MarkWecomCustomerLost(tenantID, corpID, e.GetExternalUserID()); err != nil {
+			ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+			if err := customer.MarkWecomCustomerLost(ctx, corpID, e.GetExternalUserID()); err != nil {
 				errMsg = err.Error()
 			}
 		}
@@ -106,7 +112,8 @@ func dispatchWeComEvent(tenantID string, msg *workwx.RxMessage) {
 		if e, ok := msg.EventDelFollowUser(); ok {
 			extUser, extCustomer = e.GetUserID(), e.GetExternalUserID()
 			handled = true
-			if err := customer.MarkWecomCustomerLost(tenantID, corpID, e.GetExternalUserID()); err != nil {
+			ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+			if err := customer.MarkWecomCustomerLost(ctx, corpID, e.GetExternalUserID()); err != nil {
 				errMsg = err.Error()
 			}
 		}
@@ -114,16 +121,19 @@ func dispatchWeComEvent(tenantID string, msg *workwx.RxMessage) {
 		if e, ok := msg.EventCreateUser(); ok {
 			extUser = e.GetUserID()
 			handled = true
-			if err := user.EnsureWecomLink(tenantID, corpID, e.GetUserID()); err != nil {
+			ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+			if err := user.EnsureWecomLink(ctx, corpID, e.GetUserID()); err != nil {
 				errMsg = err.Error()
 			}
 		} else if e, ok := msg.EventUpdateUser(); ok {
 			extUser = e.GetUserID()
 			handled = true
-			if err := user.EnsureWecomLink(tenantID, corpID, e.GetUserID()); err != nil {
+			ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+			if err := user.EnsureWecomLink(ctx, corpID, e.GetUserID()); err != nil {
 				errMsg = err.Error()
 			}
 		}
 	}
-	logger.Record(tenantID, corpID, string(msg.Event), string(msg.ChangeType), extUser, extCustomer, handled, errMsg)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	logger.Record(ctx, corpID, string(msg.Event), string(msg.ChangeType), extUser, extCustomer, handled, errMsg)
 }

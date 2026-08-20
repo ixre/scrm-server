@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -15,12 +19,14 @@ type CrmSmartCardService struct{}
 
 func NewCrmSmartCard() *CrmSmartCardService { return &CrmSmartCardService{} }
 
-func (s CrmSmartCardService) Query(tenantID, userID string, p *app.Pager) ([]models.CrmSmartCard, int64, error) {
+func (s CrmSmartCardService) Query(ctx context.Context, userID string, p *app.Pager) ([]models.CrmSmartCard, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if userID != "" {
 		db = db.Where("user_id = ?", userID)
 	}
@@ -33,7 +39,10 @@ func (s CrmSmartCardService) Query(tenantID, userID string, p *app.Pager) ([]mod
 	return items, total, err
 }
 
-func (s CrmSmartCardService) Get(tenantID, id string) (models.CrmSmartCard, error) {
+func (s CrmSmartCardService) Get(ctx context.Context, id string) (models.CrmSmartCard, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var item models.CrmSmartCard
 	db := models.DB.Where("id = ?", id)
 	if tenantID != "" {
@@ -53,7 +62,20 @@ func (s CrmSmartCardService) GetByShareCode(shareCode string) (models.CrmSmartCa
 	return item, err
 }
 
-func (s CrmSmartCardService) Create(tenantID string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
+// GetByID 按 ID 公开访问名片（无租户过滤，用于分享短链外的直接 ID 访问）。
+func (s CrmSmartCardService) GetByID(id string) (models.CrmSmartCard, error) {
+	if id == "" {
+		return models.CrmSmartCard{}, errors.New("id 不能为空")
+	}
+	var item models.CrmSmartCard
+	err := models.DB.Where("id = ? AND status = ?", id, "active").First(&item).Error
+	return item, err
+}
+
+func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard) (models.CrmSmartCard, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if strings.TrimSpace(req.Name) == "" {
 		return req, errors.New("姓名不能为空")
 	}
@@ -74,8 +96,10 @@ func (s CrmSmartCardService) Create(tenantID string, req models.CrmSmartCard) (m
 	return req, nil
 }
 
-func (s CrmSmartCardService) Update(tenantID, id string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(map[string]any{
+func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
+
+
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(map[string]any{
 		"name":     req.Name,
 		"title":    req.Title,
 		"company":  req.Company,
@@ -90,19 +114,24 @@ func (s CrmSmartCardService) Update(tenantID, id string, req models.CrmSmartCard
 	}).Error; err != nil {
 		return req, err
 	}
-	return s.Get(tenantID, id)
+	return s.Get(ctx, id)
 }
 
-func (s CrmSmartCardService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmSmartCardService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSmartCard{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSmartCard{})
 	return res.RowsAffected, res.Error
 }
 
 // RecordView 记录名片浏览（访客轨迹），事务保证浏览数+1和记录写入一致。
-func (s CrmSmartCardService) RecordView(tenantID, cardID, visitorID, ip, ua, source string, duration int) error {
+func (s CrmSmartCardService) RecordView(ctx context.Context, cardID, visitorID, ip, ua, source string, duration int) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	rec := models.CrmSmartCardView{
 		TenantID:  tenantID,
 		CardID:    cardID,
@@ -121,12 +150,14 @@ func (s CrmSmartCardService) RecordView(tenantID, cardID, visitorID, ip, ua, sou
 	})
 }
 
-func (s CrmSmartCardService) ListViews(tenantID, cardID string, p *app.Pager) ([]models.CrmSmartCardView, int64, error) {
+func (s CrmSmartCardService) ListViews(ctx context.Context, cardID string, p *app.Pager) ([]models.CrmSmartCardView, int64, error) {
+
+
 	if p == nil {
 		p = &app.Pager{}
 	}
 	p.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if cardID != "" {
 		db = db.Where("card_id = ?", cardID)
 	}

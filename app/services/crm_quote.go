@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"time"
@@ -44,7 +48,10 @@ func genQuoteNo(tenantID string) string {
 }
 
 // Create 创建报价单，自动生成 QuoteNo。
-func (s CrmQuoteService) Create(tenantID string, q *models.CrmQuote) error {
+func (s CrmQuoteService) Create(ctx context.Context, q *models.CrmQuote) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if q == nil {
 		return errors.New("报价单不能为空")
 	}
@@ -68,12 +75,15 @@ func (s CrmQuoteService) Create(tenantID string, q *models.CrmQuote) error {
 }
 
 // Update 更新报价单（仅 draft 状态可改业务字段）。
-func (s CrmQuoteService) Update(tenantID, id string, q *models.CrmQuote) error {
+func (s CrmQuoteService) Update(ctx context.Context, id string, q *models.CrmQuote) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if q == nil {
 		return errors.New("报价单不能为空")
 	}
 	var exist models.CrmQuote
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&exist).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&exist).Error; err != nil {
 		return errors.New("报价单不存在")
 	}
 	if exist.Status != "draft" {
@@ -105,29 +115,35 @@ func (s CrmQuoteService) Update(tenantID, id string, q *models.CrmQuote) error {
 }
 
 // Delete 删除报价单。
-func (s CrmQuoteService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmQuote{})
+func (s CrmQuoteService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmQuote{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 查单个报价单。
-func (s CrmQuoteService) Get(tenantID, id string) (*models.CrmQuote, error) {
+func (s CrmQuoteService) Get(ctx context.Context, id string) (*models.CrmQuote, error) {
+
+
 	var q models.CrmQuote
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&q).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&q).Error; err != nil {
 		return nil, err
 	}
 	return &q, nil
 }
 
 // Query 列出报价单，支持按 customer_id/status/keyword 筛选。
-func (s CrmQuoteService) Query(tenantID string, req QuoteQueryReq) ([]models.CrmQuote, int64, error) {
+func (s CrmQuoteService) Query(ctx context.Context, req QuoteQueryReq) ([]models.CrmQuote, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 10
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -150,12 +166,15 @@ func (s CrmQuoteService) Query(tenantID string, req QuoteQueryReq) ([]models.Crm
 
 // ChangeStatus 修改报价单状态，校验状态流转：
 // draft→sent→accepted/rejected, draft/sent→void。
-func (s CrmQuoteService) ChangeStatus(tenantID, id, status string) error {
+func (s CrmQuoteService) ChangeStatus(ctx context.Context, id, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if _, ok := quoteStatusFlow[status]; !ok {
 		return errors.New("无效的报价单状态")
 	}
 	var q models.CrmQuote
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&q).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&q).Error; err != nil {
 		return errors.New("报价单不存在")
 	}
 	if q.Status == status {
@@ -173,7 +192,10 @@ func (s CrmQuoteService) ChangeStatus(tenantID, id, status string) error {
 }
 
 // Transfer 转移报价单负责人。
-func (s CrmQuoteService) Transfer(tenantID, id, toUserID string) error {
+func (s CrmQuoteService) Transfer(ctx context.Context, id, toUserID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if toUserID == "" {
 		return errors.New("目标负责人不能为空")
 	}

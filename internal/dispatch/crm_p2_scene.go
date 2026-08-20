@@ -13,7 +13,7 @@ import (
 // ---------- P2: 场景 dispatch handlers ----------
 
 func crmSceneList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -24,11 +24,11 @@ func crmSceneList(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmScene().List(t, u, req.EntityType)
+	return services.NewCrmScene().List(ctx, u, req.EntityType)
 }
 
 func crmSceneCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -37,11 +37,11 @@ func crmSceneCreate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &sc); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmScene().Create(t, u, &sc)
+	return ok, services.NewCrmScene().Create(ctx, u, &sc)
 }
 
 func crmSceneUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -50,11 +50,11 @@ func crmSceneUpdate(ctx context.Context, _, id string, params json.RawMessage) (
 	if err := Bind(params, &sc); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmScene().Update(t, u, id, &sc)
+	return ok, services.NewCrmScene().Update(ctx, u, id, &sc)
 }
 
 func crmSceneDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,20 +68,20 @@ func crmSceneDelete(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmScene().Delete(t, u, req.IDs); return ok, e }
+	{ _, e := services.NewCrmScene().Delete(ctx, u, req.IDs); return ok, e }
 }
 
 func crmSceneSetDefault(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	u := identity.UserID(ctx)
-	return ok, services.NewCrmScene().SetDefault(t, u, id)
+	return ok, services.NewCrmScene().SetDefault(ctx, u, id)
 }
 
 func crmSceneDragSort(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +95,13 @@ func crmSceneDragSort(ctx context.Context, _, _ string, params json.RawMessage) 
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	return ok, services.NewCrmScene().DragSort(t, u, req.IDs)
+	return ok, services.NewCrmScene().DragSort(ctx, u, req.IDs)
 }
 
 // ---------- P2: 客户消费 dispatch handlers ----------
 
 func crmConsumeList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func crmConsumeList(ctx context.Context, _, _ string, params json.RawMessage) (a
 		Page: req.Page, PageSize: req.PageSize,
 		CustomerID: req.CustomerID, Type: req.Type, Status: req.Status,
 	}
-	items, total, err := services.NewCrmConsume().Query(t, q)
+	items, total, err := services.NewCrmConsume().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func crmConsumeList(ctx context.Context, _, _ string, params json.RawMessage) (a
 }
 
 func crmConsumeCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -134,11 +134,11 @@ func crmConsumeCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmConsume().Create(t, &c)
+	return ok, services.NewCrmConsume().Create(ctx, &c)
 }
 
 func crmConsumeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +146,11 @@ func crmConsumeUpdate(ctx context.Context, _, id string, params json.RawMessage)
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmConsume().Update(t, id, &c)
+	return ok, services.NewCrmConsume().Update(ctx, id, &c)
 }
 
 func crmConsumeDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -163,19 +163,19 @@ func crmConsumeDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmConsume().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmConsume().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmConsumeRevoke(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmConsume().Revoke(t, id)
+	return ok, services.NewCrmConsume().Revoke(ctx, id)
 }
 
 func crmConsumeSummary(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -185,5 +185,5 @@ func crmConsumeSummary(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmConsume().Summary(t, req.CustomerID)
+	return services.NewCrmConsume().Summary(ctx, req.CustomerID)
 }

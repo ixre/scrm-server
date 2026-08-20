@@ -796,7 +796,7 @@ func crmUserQuery(ctx context.Context, _, _ string, params json.RawMessage) (any
 }
 
 func crmUserSetPassword(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -814,7 +814,7 @@ func crmUserSetPassword(ctx context.Context, _, _ string, params json.RawMessage
 	if req.ID == "" {
 		return nil, errors.New("id 不能为空")
 	}
-	return nil, services.NewCrmAuth().SetPassword(t, req.ID, req.Password)
+	return nil, services.NewCrmAuth().SetPassword(ctx, req.ID, req.Password)
 }
 
 func crmUserUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
@@ -901,7 +901,7 @@ func crmAuthLogin(_ context.Context, _, _ string, params json.RawMessage) (any, 
 }
 
 func crmAuthChangePassword(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -916,13 +916,13 @@ func crmAuthChangePassword(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCrmAuth().ChangePassword(t, u, req.OldPassword, req.NewPassword)
+	return nil, services.NewCrmAuth().ChangePassword(ctx, u, req.OldPassword, req.NewPassword)
 }
 
 // ---------- crm_customer ----------
 
 func crmCustomerCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -930,11 +930,11 @@ func crmCustomerCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCustomer().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmCustomer().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmCustomerUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -945,11 +945,11 @@ func crmCustomerUpdate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCustomer().Update(t, req.ID, req.Req)
+	return services.NewCrmCustomer().Update(ctx, req.ID, req.Req)
 }
 
 func crmCustomerDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -959,11 +959,11 @@ func crmCustomerDelete(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCustomer().Delete(t, req.IDs)
+	return services.NewCrmCustomer().Delete(ctx, req.IDs)
 }
 
 func crmCustomerGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -973,11 +973,11 @@ func crmCustomerGet(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCustomer().Get(t, req.ID)
+	return services.NewCrmCustomer().Get(ctx, req.ID)
 }
 
 func crmCustomerGetDetail(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -987,11 +987,11 @@ func crmCustomerGetDetail(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCustomer().GetDetail(t, req.ID)
+	return services.NewCrmCustomer().GetDetail(ctx, req.ID)
 }
 
 func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1024,7 +1024,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 	case string:
 		poolStatus, _ = strconv.Atoi(v)
 	}
-	items, total, err := services.NewCrmCustomer().Query(t, req.Query.Keyword, req.Query.OwnerUserID, req.Query.Source, outFlow, poolStatus, req.Pager)
+	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, req.Query.OwnerUserID, req.Query.Source, outFlow, poolStatus, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1034,7 +1034,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 // ---------- crm_lead ----------
 
 func crmLeadCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1042,11 +1042,11 @@ func crmLeadCreate(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLead().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmLead().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmLeadUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1057,11 +1057,11 @@ func crmLeadUpdate(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLead().Update(t, req.ID, req.Req)
+	return services.NewCrmLead().Update(ctx, req.ID, req.Req)
 }
 
 func crmLeadDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1071,11 +1071,11 @@ func crmLeadDelete(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLead().Delete(t, req.IDs)
+	return services.NewCrmLead().Delete(ctx, req.IDs)
 }
 
 func crmLeadGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1085,11 +1085,11 @@ func crmLeadGet(ctx context.Context, _, _ string, params json.RawMessage) (any, 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLead().Get(t, req.ID)
+	return services.NewCrmLead().Get(ctx, req.ID)
 }
 
 func crmLeadQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1103,7 +1103,7 @@ func crmLeadQuery(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmLead().Query(t, req.Query.Status, req.Query.OwnerUserID, req.Pager)
+	items, total, err := services.NewCrmLead().Query(ctx, req.Query.Status, req.Query.OwnerUserID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1111,7 +1111,7 @@ func crmLeadQuery(ctx context.Context, _, _ string, params json.RawMessage) (any
 }
 
 func crmLeadConvert(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1121,7 +1121,7 @@ func crmLeadConvert(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLead().Convert(t, identity.UserID(ctx), req.ID)
+	return services.NewCrmLead().Convert(ctx, identity.UserID(ctx), req.ID)
 }
 
 // ---------- crm_pipeline ----------
@@ -1174,7 +1174,7 @@ func crmStageList(ctx context.Context, _, _ string, _ json.RawMessage) (any, err
 // ---------- crm_opportunity ----------
 
 func crmOpportunityCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1182,11 +1182,11 @@ func crmOpportunityCreate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOpportunity().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmOpportunity().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmOpportunityUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1197,11 +1197,11 @@ func crmOpportunityUpdate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOpportunity().Update(t, req.ID, req.Req)
+	return services.NewCrmOpportunity().Update(ctx, req.ID, req.Req)
 }
 
 func crmOpportunityDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1211,11 +1211,11 @@ func crmOpportunityDelete(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOpportunity().Delete(t, req.IDs)
+	return services.NewCrmOpportunity().Delete(ctx, req.IDs)
 }
 
 func crmOpportunityGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1225,11 +1225,11 @@ func crmOpportunityGet(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOpportunity().Get(t, req.ID)
+	return services.NewCrmOpportunity().Get(ctx, req.ID)
 }
 
 func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1244,7 +1244,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOpportunity().Query(t, req.Query.Status, req.Query.StageID, req.Query.OwnerUserID, req.Pager)
+	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, req.Query.OwnerUserID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1252,7 +1252,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func crmOpportunityMoveStage(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1263,13 +1263,13 @@ func crmOpportunityMoveStage(ctx context.Context, _, _ string, params json.RawMe
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOpportunity().MoveStage(t, req.ID, req.StageID)
+	return services.NewCrmOpportunity().MoveStage(ctx, req.ID, req.StageID)
 }
 
 // ---------- crm_followup ----------
 
 func crmFollowupCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1277,11 +1277,11 @@ func crmFollowupCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFollowup().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmFollowup().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmFollowupDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1291,11 +1291,11 @@ func crmFollowupDelete(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFollowup().Delete(t, req.IDs)
+	return services.NewCrmFollowup().Delete(ctx, req.IDs)
 }
 
 func crmFollowupListByCustomer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1305,11 +1305,11 @@ func crmFollowupListByCustomer(ctx context.Context, _, _ string, params json.Raw
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFollowup().ListByCustomer(t, req.CustomerID)
+	return services.NewCrmFollowup().ListByCustomer(ctx, req.CustomerID)
 }
 
 func crmFollowupListByOpportunity(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1319,13 +1319,13 @@ func crmFollowupListByOpportunity(ctx context.Context, _, _ string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFollowup().ListByOpportunity(t, req.OpportunityID)
+	return services.NewCrmFollowup().ListByOpportunity(ctx, req.OpportunityID)
 }
 
 // ---------- crm_order ----------
 
 func crmOrderCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1333,11 +1333,11 @@ func crmOrderCreate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOrder().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmOrder().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmOrderUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1348,11 +1348,11 @@ func crmOrderUpdate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOrder().Update(t, req.ID, req.Req)
+	return services.NewCrmOrder().Update(ctx, req.ID, req.Req)
 }
 
 func crmOrderDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1362,11 +1362,11 @@ func crmOrderDelete(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOrder().Delete(t, req.IDs)
+	return services.NewCrmOrder().Delete(ctx, req.IDs)
 }
 
 func crmOrderQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1379,7 +1379,7 @@ func crmOrderQuery(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOrder().Query(t, req.Query.Status, req.Pager)
+	items, total, err := services.NewCrmOrder().Query(ctx, req.Query.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1389,11 +1389,11 @@ func crmOrderQuery(ctx context.Context, _, _ string, params json.RawMessage) (an
 // ---------- crm_report ----------
 
 func crmReportSalesSummary(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().SalesSummary(t)
+	return services.NewCrmReport().SalesSummary(ctx)
 }
 
 func crmReportPipelineFunnel(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
@@ -1404,17 +1404,17 @@ func crmReportPipelineFunnel(ctx context.Context, _, _ string, _ json.RawMessage
 }
 
 func crmReportChannelSummary(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().ChannelSummary(t)
+	return services.NewCrmReport().ChannelSummary(ctx)
 }
 
 // ---------- crm_activity ----------
 
 func crmActivityCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1422,11 +1422,11 @@ func crmActivityCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmActivity().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmActivityUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1437,11 +1437,11 @@ func crmActivityUpdate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().Update(t, req.ID, req.Req)
+	return services.NewCrmActivity().Update(ctx, req.ID, req.Req)
 }
 
 func crmActivitySetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1452,11 +1452,11 @@ func crmActivitySetStatus(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCrmActivity().SetStatus(t, req.ID, req.Status)
+	return nil, services.NewCrmActivity().SetStatus(ctx, req.ID, req.Status)
 }
 
 func crmActivityDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1466,11 +1466,11 @@ func crmActivityDelete(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().Delete(t, req.IDs)
+	return services.NewCrmActivity().Delete(ctx, req.IDs)
 }
 
 func crmActivityGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1480,11 +1480,11 @@ func crmActivityGet(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().Get(t, req.ID)
+	return services.NewCrmActivity().Get(ctx, req.ID)
 }
 
 func crmActivityQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1501,7 +1501,7 @@ func crmActivityQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmActivity().Query(t, req.Query.Keyword, req.Query.ActivityType, req.Query.Status, req.Query.OwnerUserID, req.Query.Channel, req.Pager)
+	items, total, err := services.NewCrmActivity().Query(ctx, req.Query.Keyword, req.Query.ActivityType, req.Query.Status, req.Query.OwnerUserID, req.Query.Channel, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1511,7 +1511,7 @@ func crmActivityQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 // ---------- crm_channel_tag ----------
 
 func crmChannelTagList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1523,7 +1523,7 @@ func crmChannelTagList(ctx context.Context, _, _ string, params json.RawMessage)
 			return nil, err
 		}
 	}
-	tags, err := services.NewCrmChannelTag().List(t, req.Channel)
+	tags, err := services.NewCrmChannelTag().List(ctx, req.Channel)
 	if err != nil {
 		return nil, err
 	}
@@ -1531,7 +1531,7 @@ func crmChannelTagList(ctx context.Context, _, _ string, params json.RawMessage)
 }
 
 func crmChannelTagCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1539,11 +1539,11 @@ func crmChannelTagCreate(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelTag().Create(t, req)
+	return services.NewCrmChannelTag().Create(ctx, req)
 }
 
 func crmChannelTagDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1553,7 +1553,7 @@ func crmChannelTagDelete(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelTag().Delete(t, req.IDs)
+	return services.NewCrmChannelTag().Delete(ctx, req.IDs)
 }
 
 // crmDictAddWay 下发各渠道的添加/承接方式字典（crm_customer.add_way 展示）。
@@ -1567,7 +1567,7 @@ func crmDictAddWay(ctx context.Context, _, _ string, _ json.RawMessage) (any, er
 // ---------- crm_activity 参与明细 ----------
 
 func crmActivityRecord(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1575,11 +1575,11 @@ func crmActivityRecord(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().Record(t, identity.UserID(ctx), req)
+	return services.NewCrmActivity().Record(ctx, identity.UserID(ctx), req)
 }
 
 func crmActivityDeleteRecord(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1589,11 +1589,11 @@ func crmActivityDeleteRecord(ctx context.Context, _, _ string, params json.RawMe
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().DeleteRecord(t, req.IDs)
+	return services.NewCrmActivity().DeleteRecord(ctx, req.IDs)
 }
 
 func crmActivityListRecords(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1607,7 +1607,7 @@ func crmActivityListRecords(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmActivity().ListRecords(t, req.Query.ActivityID, req.Query.RecordType, req.Pager)
+	items, total, err := services.NewCrmActivity().ListRecords(ctx, req.Query.ActivityID, req.Query.RecordType, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1615,7 +1615,7 @@ func crmActivityListRecords(ctx context.Context, _, _ string, params json.RawMes
 }
 
 func crmActivityListByCustomer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1625,13 +1625,13 @@ func crmActivityListByCustomer(ctx context.Context, _, _ string, params json.Raw
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmActivity().ListByCustomer(t, req.CustomerID)
+	return services.NewCrmActivity().ListByCustomer(ctx, req.CustomerID)
 }
 
 // ---------- crm_channel_interaction ----------
 
 func crmChannelInteractionCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1639,11 +1639,11 @@ func crmChannelInteractionCreate(ctx context.Context, _, _ string, params json.R
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelInteraction().Create(t, identity.UserID(ctx), req)
+	return services.NewCrmChannelInteraction().Create(ctx, identity.UserID(ctx), req)
 }
 
 func crmChannelInteractionDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1653,11 +1653,11 @@ func crmChannelInteractionDelete(ctx context.Context, _, _ string, params json.R
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelInteraction().Delete(t, req.IDs)
+	return services.NewCrmChannelInteraction().Delete(ctx, req.IDs)
 }
 
 func crmChannelInteractionQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1671,7 +1671,7 @@ func crmChannelInteractionQuery(ctx context.Context, _, _ string, params json.Ra
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmChannelInteraction().Query(t, req.Query.CustomerID, req.Query.Channel, req.Pager)
+	items, total, err := services.NewCrmChannelInteraction().Query(ctx, req.Query.CustomerID, req.Query.Channel, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1681,7 +1681,7 @@ func crmChannelInteractionQuery(ctx context.Context, _, _ string, params json.Ra
 // ---------- channel config（渠道接入配置）----------
 
 func crmChannelConfigCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1689,11 +1689,11 @@ func crmChannelConfigCreate(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelConfig().Create(t, req)
+	return services.NewCrmChannelConfig().Create(ctx, req)
 }
 
 func crmChannelConfigUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1704,11 +1704,11 @@ func crmChannelConfigUpdate(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelConfig().Update(t, req.ID, req.ChannelConfigReq)
+	return services.NewCrmChannelConfig().Update(ctx, req.ID, req.ChannelConfigReq)
 }
 
 func crmChannelConfigQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1716,7 +1716,7 @@ func crmChannelConfigQuery(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmChannelConfig().Query(t, p.Pager)
+	items, total, err := services.NewCrmChannelConfig().Query(ctx, p.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1724,7 +1724,7 @@ func crmChannelConfigQuery(ctx context.Context, _, _ string, params json.RawMess
 }
 
 func crmChannelConfigDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1734,11 +1734,11 @@ func crmChannelConfigDelete(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmChannelConfig().Delete(t, req.IDs)
+	return services.NewCrmChannelConfig().Delete(ctx, req.IDs)
 }
 
 func crmWecomEventLogQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1748,7 +1748,7 @@ func crmWecomEventLogQuery(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmWecomEventLog().Query(t, p.Query.CorpID, p.Pager)
+	items, total, err := services.NewCrmWecomEventLog().Query(ctx, p.Query.CorpID, p.Pager)
 	if err != nil {
 		return nil, err
 	}

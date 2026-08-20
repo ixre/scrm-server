@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -20,7 +24,10 @@ type CrmContactService struct{}
 
 func NewCrmContact() *CrmContactService { return &CrmContactService{} }
 
-func (s CrmContactService) Create(tenantID string, c *models.CrmContact) error {
+func (s CrmContactService) Create(ctx context.Context, c *models.CrmContact) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if c == nil {
 		return errors.New("联系人不能为空")
 	}
@@ -36,7 +43,9 @@ func (s CrmContactService) Create(tenantID string, c *models.CrmContact) error {
 	return createCRM(models.DB, c, "CustomerID")
 }
 
-func (s CrmContactService) Update(tenantID, id string, c *models.CrmContact) error {
+func (s CrmContactService) Update(ctx context.Context, id string, c *models.CrmContact) error {
+
+
 	if c == nil {
 		return errors.New("联系人不能为空")
 	}
@@ -52,37 +61,43 @@ func (s CrmContactService) Update(tenantID, id string, c *models.CrmContact) err
 		"remark":             c.Remark,
 	}
 	updatesCRM(m, "CustomerID")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s CrmContactService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmContactService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmContact{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmContact{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmContactService) Get(tenantID, id string) (*models.CrmContact, error) {
+func (s CrmContactService) Get(ctx context.Context, id string) (*models.CrmContact, error) {
+
+
 	var item models.CrmContact
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
 	return &item, nil
 }
 
-func (s CrmContactService) Query(tenantID string, req QueryReq) ([]models.CrmContact, int64, error) {
+func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]models.CrmContact, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -99,9 +114,11 @@ func (s CrmContactService) Query(tenantID string, req QueryReq) ([]models.CrmCon
 	return items, total, err
 }
 
-func (s CrmContactService) ListByCustomer(tenantID, customerID string) ([]models.CrmContact, error) {
+func (s CrmContactService) ListByCustomer(ctx context.Context, customerID string) ([]models.CrmContact, error) {
+
+
 	var items []models.CrmContact
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID).
+	err := models.MustFor(ctx).Where("customer_id = ?",  customerID).
 		Order("is_primary desc, id desc").Find(&items).Error
 	return items, err
 }

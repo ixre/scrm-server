@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +31,10 @@ type CrmKnowledgeService struct{}
 func NewCrmKnowledge() *CrmKnowledgeService { return &CrmKnowledgeService{} }
 
 // Create 创建知识库文章。
-func (s CrmKnowledgeService) Create(tenantID string, k *models.CrmKnowledge) error {
+func (s CrmKnowledgeService) Create(ctx context.Context, k *models.CrmKnowledge) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if k == nil {
 		return errors.New("知识库文章不能为空")
 	}
@@ -44,7 +51,9 @@ func (s CrmKnowledgeService) Create(tenantID string, k *models.CrmKnowledge) err
 }
 
 // Update 更新知识库文章。
-func (s CrmKnowledgeService) Update(tenantID, id string, k *models.CrmKnowledge) error {
+func (s CrmKnowledgeService) Update(ctx context.Context, id string, k *models.CrmKnowledge) error {
+
+
 	if k == nil {
 		return errors.New("知识库文章不能为空")
 	}
@@ -56,27 +65,31 @@ func (s CrmKnowledgeService) Update(tenantID, id string, k *models.CrmKnowledge)
 		"status":      k.Status,
 	}
 	updatesCRM(m, "category_id", "author_id")
-	return models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
 }
 
 // Delete 删除知识库文章。
-func (s CrmKnowledgeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmKnowledgeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmKnowledge{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmKnowledge{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询知识库文章。
-func (s CrmKnowledgeService) Query(tenantID string, req KnowledgeQueryReq) ([]models.CrmKnowledge, int64, error) {
+func (s CrmKnowledgeService) Query(ctx context.Context, req KnowledgeQueryReq) ([]models.CrmKnowledge, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.CategoryID != "" {
 		db = db.Where("category_id = ?", req.CategoryID)
 	}
@@ -113,7 +126,10 @@ type CrmNoticeService struct{}
 func NewCrmNotice() *CrmNoticeService { return &CrmNoticeService{} }
 
 // Create 创建公告。
-func (s CrmNoticeService) Create(tenantID string, n *models.CrmNotice) error {
+func (s CrmNoticeService) Create(ctx context.Context, n *models.CrmNotice) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if n == nil {
 		return errors.New("公告不能为空")
 	}
@@ -134,7 +150,9 @@ func (s CrmNoticeService) Create(tenantID string, n *models.CrmNotice) error {
 }
 
 // Update 更新公告。
-func (s CrmNoticeService) Update(tenantID, id string, n *models.CrmNotice) error {
+func (s CrmNoticeService) Update(ctx context.Context, id string, n *models.CrmNotice) error {
+
+
 	if n == nil {
 		return errors.New("公告不能为空")
 	}
@@ -149,27 +167,31 @@ func (s CrmNoticeService) Update(tenantID, id string, n *models.CrmNotice) error
 		now := time.Now()
 		m["publish_at"] = &now
 	}
-	return models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
 }
 
 // Delete 删除公告。
-func (s CrmNoticeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmNoticeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmNotice{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmNotice{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询公告。
-func (s CrmNoticeService) Query(tenantID string, req NoticeQueryReq) ([]models.CrmNotice, int64, error) {
+func (s CrmNoticeService) Query(ctx context.Context, req NoticeQueryReq) ([]models.CrmNotice, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if st := strings.TrimSpace(req.Status); st != "" {
 		db = db.Where("status = ?", st)
 	}
@@ -205,7 +227,10 @@ type CrmWorkReportService struct{}
 func NewCrmWorkReport() *CrmWorkReportService { return &CrmWorkReportService{} }
 
 // Create 创建工作报告。
-func (s CrmWorkReportService) Create(tenantID string, r *models.CrmWorkReport) error {
+func (s CrmWorkReportService) Create(ctx context.Context, r *models.CrmWorkReport) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("工作报告不能为空")
 	}
@@ -221,7 +246,9 @@ func (s CrmWorkReportService) Create(tenantID string, r *models.CrmWorkReport) e
 }
 
 // Update 更新工作报告。
-func (s CrmWorkReportService) Update(tenantID, id string, r *models.CrmWorkReport) error {
+func (s CrmWorkReportService) Update(ctx context.Context, id string, r *models.CrmWorkReport) error {
+
+
 	if r == nil {
 		return errors.New("工作报告不能为空")
 	}
@@ -232,27 +259,31 @@ func (s CrmWorkReportService) Update(tenantID, id string, r *models.CrmWorkRepor
 		"plan":        r.Plan,
 	}
 	updatesCRM(m, "user_id", "reviewer_id")
-	return models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
 }
 
 // Delete 删除工作报告。
-func (s CrmWorkReportService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmWorkReportService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmWorkReport{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmWorkReport{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询工作报告。
-func (s CrmWorkReportService) Query(tenantID string, req WorkReportQueryReq) ([]models.CrmWorkReport, int64, error) {
+func (s CrmWorkReportService) Query(ctx context.Context, req WorkReportQueryReq) ([]models.CrmWorkReport, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.UserID != "" {
 		db = db.Where("user_id = ?", req.UserID)
 	}
@@ -272,7 +303,10 @@ func (s CrmWorkReportService) Query(tenantID string, req WorkReportQueryReq) ([]
 }
 
 // Review 审阅工作报告。
-func (s CrmWorkReportService) Review(tenantID, id, reviewerID string) error {
+func (s CrmWorkReportService) Review(ctx context.Context, id, reviewerID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if reviewerID == "" {
 		return errors.New("审阅人不能为空")
 	}

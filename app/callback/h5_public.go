@@ -1,10 +1,12 @@
 package callback
 
 import (
+	"context"
 	"net/http"
 
 	"core/app/models"
 	"core/app/services"
+	"core/common/identity"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,7 +36,7 @@ func smartCardView(c *gin.Context) {
 	if len(idOrCode) <= 8 {
 		card, err = services.NewCrmSmartCard().GetByShareCode(idOrCode)
 	} else {
-		card, err = services.NewCrmSmartCard().Get("", idOrCode)
+		card, err = services.NewCrmSmartCard().GetByID(idOrCode)
 	}
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": 1, "msg": "名片不存在"})
@@ -43,7 +45,8 @@ func smartCardView(c *gin.Context) {
 	// 记录浏览
 	go func() {
 		defer func() { recover() }()
-		services.NewCrmSmartCard().RecordView(card.TenantID, card.ID, "", c.ClientIP(), c.GetHeader("User-Agent"), "share", 0)
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: card.TenantID})
+		services.NewCrmSmartCard().RecordView(ctx, card.ID, "", c.ClientIP(), c.GetHeader("User-Agent"), "share", 0)
 	}()
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": card})
 }
@@ -64,7 +67,8 @@ func h5GroupBuyOpen(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": "invalid app_id"})
 		return
 	}
-	rec, err := services.NewCrmGroupBuy().OpenGroup(tenantID, req.GroupBuyID, req.LeaderID)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	rec, err := services.NewCrmGroupBuy().OpenGroup(ctx, req.GroupBuyID, req.LeaderID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return
@@ -88,7 +92,8 @@ func h5GroupBuyJoin(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": "invalid app_id"})
 		return
 	}
-	rec, err := services.NewCrmGroupBuy().JoinGroup(tenantID, req.RecordID, req.MemberID)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	rec, err := services.NewCrmGroupBuy().JoinGroup(ctx, req.RecordID, req.MemberID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return
@@ -112,7 +117,8 @@ func h5BargainStart(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": "invalid app_id"})
 		return
 	}
-	rec, err := services.NewCrmBargain().Start(tenantID, req.BargainID, req.CustomerID)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	rec, err := services.NewCrmBargain().Start(ctx, req.BargainID, req.CustomerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return
@@ -136,7 +142,8 @@ func h5BargainHelp(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": "invalid app_id"})
 		return
 	}
-	rec, err := services.NewCrmBargain().Help(tenantID, req.RecordID, req.HelperID)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	rec, err := services.NewCrmBargain().Help(ctx, req.RecordID, req.HelperID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return
@@ -160,7 +167,8 @@ func h5RedPacketClaim(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": "invalid app_id"})
 		return
 	}
-	rec, err := services.NewCrmRedPacket().Claim(tenantID, req.RedPacketID, req.CustomerID)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	rec, err := services.NewCrmRedPacket().Claim(ctx, req.RedPacketID, req.CustomerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return
@@ -184,7 +192,8 @@ func h5SignInCheck(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": "invalid app_id"})
 		return
 	}
-	rec, err := services.NewCrmSignIn().CheckIn(tenantID, req.SignInID, req.CustomerID)
+	ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID})
+	rec, err := services.NewCrmSignIn().CheckIn(ctx, req.SignInID, req.CustomerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return

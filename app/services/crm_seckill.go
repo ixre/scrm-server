@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"time"
@@ -25,7 +29,10 @@ type SeckillCreateReq struct {
 }
 
 // Create 创建秒杀活动。
-func (s CrmSeckillService) Create(tenantID string, req models.CrmSeckill) (models.CrmSeckill, error) {
+func (s CrmSeckillService) Create(ctx context.Context, req models.CrmSeckill) (models.CrmSeckill, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -48,12 +55,14 @@ func (s CrmSeckillService) Create(tenantID string, req models.CrmSeckill) (model
 }
 
 // Query 列出秒杀活动。
-func (s CrmSeckillService) Query(tenantID, status string, pager *app.Pager) ([]models.CrmSeckill, int64, error) {
+func (s CrmSeckillService) Query(ctx context.Context, status string, pager *app.Pager) ([]models.CrmSeckill, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -67,28 +76,36 @@ func (s CrmSeckillService) Query(tenantID, status string, pager *app.Pager) ([]m
 }
 
 // Get 查单个秒杀活动。
-func (s CrmSeckillService) Get(tenantID, id string) (models.CrmSeckill, error) {
+func (s CrmSeckillService) Get(ctx context.Context, id string) (models.CrmSeckill, error) {
+
+
 	var sk models.CrmSeckill
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&sk).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&sk).Error
 	return sk, err
 }
 
 // Delete 删除秒杀活动（有记录的不能删）。
-func (s CrmSeckillService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmSeckillService) Delete(ctx context.Context, ids []string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var cnt int64
 	models.DB.Model(&models.CrmSeckillRecord{}).Scopes(models.TenantScope(tenantID)).Where("seckill_id IN ?",  ids).Count(&cnt)
 	if cnt > 0 {
 		return 0, errors.New("有抢购记录的秒杀活动不能删除")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSeckill{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSeckill{})
 	return res.RowsAffected, res.Error
 }
 
 // Grab 抢购：事务性扣库存 + 每人限购校验 + 有效期校验。
-func (s CrmSeckillService) Grab(tenantID, seckillID, customerID string) (models.CrmSeckillRecord, error) {
+func (s CrmSeckillService) Grab(ctx context.Context, seckillID, customerID string) (models.CrmSeckillRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var rec models.CrmSeckillRecord
 	var sk models.CrmSeckill
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", seckillID).First(&sk).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", seckillID).First(&sk).Error; err != nil {
 		return rec, errors.New("秒杀活动不存在")
 	}
 	if sk.Status != "active" {
@@ -103,7 +120,7 @@ func (s CrmSeckillService) Grab(tenantID, seckillID, customerID string) (models.
 	}
 	// 校验客户存在
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", customerID).First(&c).Error; err != nil {
 		return rec, errors.New("客户不存在")
 	}
 	// 每人限购校验
@@ -145,12 +162,14 @@ func (s CrmSeckillService) Grab(tenantID, seckillID, customerID string) (models.
 }
 
 // ListRecords 秒杀记录列表。
-func (s CrmSeckillService) ListRecords(tenantID, seckillID, status string, pager *app.Pager) ([]models.CrmSeckillRecord, int64, error) {
+func (s CrmSeckillService) ListRecords(ctx context.Context, seckillID, status string, pager *app.Pager) ([]models.CrmSeckillRecord, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if seckillID != "" {
 		db = db.Where("seckill_id = ?", seckillID)
 	}

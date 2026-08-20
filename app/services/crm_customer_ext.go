@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 	"time"
@@ -31,7 +35,10 @@ type CrmCustomerExtService struct{}
 func NewCrmCustomerExt() *CrmCustomerExtService { return &CrmCustomerExtService{} }
 
 // Lock 批量锁客：设 IsLocked=true, LockReason, LockAt=now。
-func (s CrmCustomerExtService) Lock(tenantID string, ids []string, reason string) error {
+func (s CrmCustomerExtService) Lock(ctx context.Context, ids []string, reason string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -45,7 +52,10 @@ func (s CrmCustomerExtService) Lock(tenantID string, ids []string, reason string
 }
 
 // Unlock 批量解锁。
-func (s CrmCustomerExtService) Unlock(tenantID string, ids []string) error {
+func (s CrmCustomerExtService) Unlock(ctx context.Context, ids []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -58,7 +68,10 @@ func (s CrmCustomerExtService) Unlock(tenantID string, ids []string) error {
 }
 
 // Blacklist 批量拉黑。
-func (s CrmCustomerExtService) Blacklist(tenantID string, ids []string, reason string) error {
+func (s CrmCustomerExtService) Blacklist(ctx context.Context, ids []string, reason string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -72,7 +85,10 @@ func (s CrmCustomerExtService) Blacklist(tenantID string, ids []string, reason s
 }
 
 // RemoveBlacklist 移出黑名单。
-func (s CrmCustomerExtService) RemoveBlacklist(tenantID string, ids []string) error {
+func (s CrmCustomerExtService) RemoveBlacklist(ctx context.Context, ids []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -85,7 +101,10 @@ func (s CrmCustomerExtService) RemoveBlacklist(tenantID string, ids []string) er
 }
 
 // SetKey 设置/取消重点客户。
-func (s CrmCustomerExtService) SetKey(tenantID string, ids []string, isKey bool) error {
+func (s CrmCustomerExtService) SetKey(ctx context.Context, ids []string, isKey bool) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -98,7 +117,10 @@ func (s CrmCustomerExtService) SetKey(tenantID string, ids []string, isKey bool)
 }
 
 // Share 设置共享可见人。
-func (s CrmCustomerExtService) Share(tenantID, customerID string, staffIDs []string) error {
+func (s CrmCustomerExtService) Share(ctx context.Context, customerID string, staffIDs []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerID == "" {
 		return errors.New("customer_id 不能为空")
 	}
@@ -111,9 +133,11 @@ func (s CrmCustomerExtService) Share(tenantID, customerID string, staffIDs []str
 }
 
 // ListBlacklist 黑名单列表。
-func (s CrmCustomerExtService) ListBlacklist(tenantID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerExtService) ListBlacklist(ctx context.Context, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("is_blacklist = ?",  true)
+	db := models.MustFor(ctx).Where("is_blacklist = ?",  true)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -128,9 +152,11 @@ func (s CrmCustomerExtService) ListBlacklist(tenantID string, req CustomerPoolQu
 }
 
 // ListKey 重点客户列表。
-func (s CrmCustomerExtService) ListKey(tenantID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerExtService) ListKey(ctx context.Context, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("is_key = ?",  true)
+	db := models.MustFor(ctx).Where("is_key = ?",  true)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -145,9 +171,11 @@ func (s CrmCustomerExtService) ListKey(tenantID string, req CustomerPoolQueryReq
 }
 
 // ListShared 共享客户列表（当前用户在 shared_staff_ids 中）。
-func (s CrmCustomerExtService) ListShared(tenantID, userID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerExtService) ListShared(ctx context.Context, userID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("shared_staff_ids @> ?",  constants.StringArrayField{userID})
+	db := models.MustFor(ctx).Where("shared_staff_ids @> ?",  constants.StringArrayField{userID})
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -162,9 +190,11 @@ func (s CrmCustomerExtService) ListShared(tenantID, userID string, req CustomerP
 }
 
 // ListUnreceive 待分配客户（OwnerUserID 为空）。
-func (s CrmCustomerExtService) ListUnreceive(tenantID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerExtService) ListUnreceive(ctx context.Context, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("(owner_user_id IS NULL OR owner_user_id = '')", )
+	db := models.MustFor(ctx).Where("(owner_user_id IS NULL OR owner_user_id = '')", )
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -179,9 +209,11 @@ func (s CrmCustomerExtService) ListUnreceive(tenantID string, req CustomerPoolQu
 }
 
 // ListReassign 再分配客户（ReassignStatus=1 且 ReassignFrom=userID）。
-func (s CrmCustomerExtService) ListReassign(tenantID, userID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerExtService) ListReassign(ctx context.Context, userID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("reassign_status = ? AND reassign_from = ?",  1,  userID)
+	db := models.MustFor(ctx).Where("reassign_status = ? AND reassign_from = ?",  1,  userID)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -196,7 +228,10 @@ func (s CrmCustomerExtService) ListReassign(tenantID, userID string, req Custome
 }
 
 // AcceptReassign 确认接收再分配：归属改为当前用户，清空再分配状态。
-func (s CrmCustomerExtService) AcceptReassign(tenantID, userID, id string) error {
+func (s CrmCustomerExtService) AcceptReassign(ctx context.Context, userID, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -213,12 +248,15 @@ func (s CrmCustomerExtService) AcceptReassign(tenantID, userID, id string) error
 }
 
 // RejectReassign 拒绝再分配：清空再分配状态，归属恢复为原转出人。
-func (s CrmCustomerExtService) RejectReassign(tenantID, id string) error {
+func (s CrmCustomerExtService) RejectReassign(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).First(&c).Error; err != nil {
 		return err
 	}
 	if c.ReassignStatus != 1 {
@@ -235,7 +273,10 @@ func (s CrmCustomerExtService) RejectReassign(tenantID, id string) error {
 
 // ReassignByTransfer 触发再分配：由批量转移服务调用，将客户标记为待接收。
 // owner 变为 toUserID，reassign_status=1，reassign_from=原 owner。
-func (s CrmCustomerExtService) ReassignByTransfer(tenantID, fromUserID, toUserID string, customerIDs []string) (int64, error) {
+func (s CrmCustomerExtService) ReassignByTransfer(ctx context.Context, fromUserID, toUserID string, customerIDs []string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(customerIDs) == 0 || toUserID == "" {
 		return 0, nil
 	}

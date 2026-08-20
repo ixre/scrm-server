@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"time"
 
@@ -17,9 +21,11 @@ type CrmSalesRuleService struct{}
 func NewCrmSalesRule() *CrmSalesRuleService { return &CrmSalesRuleService{} }
 
 // GetRule 读取租户销售规则，不存在则返回默认（不强制校验）。
-func (s CrmSalesRuleService) GetRule(tenantID string) (models.CrmSalesRule, error) {
+func (s CrmSalesRuleService) GetRule(ctx context.Context) (models.CrmSalesRule, error) {
+
+
 	var r models.CrmSalesRule
-	err := models.DB.Scopes(models.TenantScope(tenantID)).First(&r).Error
+	err := models.MustFor(ctx).First(&r).Error
 	if err == nil {
 		return r, nil
 	}
@@ -30,12 +36,15 @@ func (s CrmSalesRuleService) GetRule(tenantID string) (models.CrmSalesRule, erro
 }
 
 // SetRule 设置租户销售规则（upsert）。
-func (s CrmSalesRuleService) SetRule(tenantID string, requireFollowup bool, followupDays int) (models.CrmSalesRule, error) {
+func (s CrmSalesRuleService) SetRule(ctx context.Context, requireFollowup bool, followupDays int) (models.CrmSalesRule, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if followupDays < 1 {
 		followupDays = 3
 	}
 	var r models.CrmSalesRule
-	err := models.DB.Scopes(models.TenantScope(tenantID)).First(&r).Error
+	err := models.MustFor(ctx).First(&r).Error
 	if err == nil {
 		r.RequireFollowup = requireFollowup
 		r.FollowupDays = followupDays
@@ -71,13 +80,13 @@ func hasRecentFollowup(followupTimes []time.Time, days int, now time.Time) bool 
 
 // checkMoveStageGuard 校验商机移动阶段的前置条件（跟进强制）。
 // 返回 nil 表示通过，返回 error 表示拒绝。
-func checkMoveStageGuard(tenantID, opportunityID string) error {
-	rule, err := NewCrmSalesRule().GetRule(tenantID)
+func checkMoveStageGuard(ctx context.Context, opportunityID string) error {
+	rule, err := NewCrmSalesRule().GetRule(ctx)
 	if err != nil || !rule.RequireFollowup {
 		return nil
 	}
 	var fs []models.CrmFollowup
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("opportunity_id = ?",  opportunityID).
+	if err := models.MustFor(ctx).Where("opportunity_id = ?",  opportunityID).
 		Order("created_at desc").Find(&fs).Error; err != nil {
 		return err
 	}

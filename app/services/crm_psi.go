@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -25,7 +29,10 @@ type CrmProductService struct{}
 func NewCrmProduct() *CrmProductService { return &CrmProductService{} }
 
 // Create 新增产品档案。
-func (s CrmProductService) Create(tenantID string, p *models.CrmProduct) error {
+func (s CrmProductService) Create(ctx context.Context, p *models.CrmProduct) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if p == nil {
 		return errors.New("产品不能为空")
 	}
@@ -45,7 +52,10 @@ func (s CrmProductService) Create(tenantID string, p *models.CrmProduct) error {
 }
 
 // Update 更新产品档案。
-func (s CrmProductService) Update(tenantID, id string, p *models.CrmProduct) error {
+func (s CrmProductService) Update(ctx context.Context, id string, p *models.CrmProduct) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if p == nil {
 		return errors.New("产品不能为空")
 	}
@@ -72,18 +82,22 @@ func (s CrmProductService) Update(tenantID, id string, p *models.CrmProduct) err
 }
 
 // Delete 删除产品档案。
-func (s CrmProductService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmProductService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmProduct{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmProduct{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 读取单条产品档案。
-func (s CrmProductService) Get(tenantID, id string) (*models.CrmProduct, error) {
+func (s CrmProductService) Get(ctx context.Context, id string) (*models.CrmProduct, error) {
+
+
 	var item models.CrmProduct
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -91,14 +105,16 @@ func (s CrmProductService) Get(tenantID, id string) (*models.CrmProduct, error) 
 }
 
 // Query 分页查询产品档案，支持按 category/status/keyword 筛选。
-func (s CrmProductService) Query(tenantID string, req ProductQueryReq) ([]models.CrmProduct, int64, error) {
+func (s CrmProductService) Query(ctx context.Context, req ProductQueryReq) ([]models.CrmProduct, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.Category != "" {
 		db = db.Where("category = ?", req.Category)
 	}
@@ -134,7 +150,10 @@ type CrmWarehouseService struct{}
 func NewCrmWarehouse() *CrmWarehouseService { return &CrmWarehouseService{} }
 
 // Create 新增仓库。
-func (s CrmWarehouseService) Create(tenantID string, w *models.CrmWarehouse) error {
+func (s CrmWarehouseService) Create(ctx context.Context, w *models.CrmWarehouse) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if w == nil {
 		return errors.New("仓库不能为空")
 	}
@@ -154,7 +173,10 @@ func (s CrmWarehouseService) Create(tenantID string, w *models.CrmWarehouse) err
 }
 
 // Update 更新仓库。
-func (s CrmWarehouseService) Update(tenantID, id string, w *models.CrmWarehouse) error {
+func (s CrmWarehouseService) Update(ctx context.Context, id string, w *models.CrmWarehouse) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if w == nil {
 		return errors.New("仓库不能为空")
 	}
@@ -176,23 +198,27 @@ func (s CrmWarehouseService) Update(tenantID, id string, w *models.CrmWarehouse)
 }
 
 // Delete 删除仓库。
-func (s CrmWarehouseService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmWarehouseService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmWarehouse{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmWarehouse{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询仓库。
-func (s CrmWarehouseService) Query(tenantID string, req WarehouseQueryReq) ([]models.CrmWarehouse, int64, error) {
+func (s CrmWarehouseService) Query(ctx context.Context, req WarehouseQueryReq) ([]models.CrmWarehouse, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status := strings.TrimSpace(req.Status); status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -225,7 +251,10 @@ type CrmStockRecordService struct{}
 func NewCrmStockRecord() *CrmStockRecordService { return &CrmStockRecordService{} }
 
 // Create 新增库存流水记录。
-func (s CrmStockRecordService) Create(tenantID string, r *models.CrmStockRecord) error {
+func (s CrmStockRecordService) Create(ctx context.Context, r *models.CrmStockRecord) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("库存记录不能为空")
 	}
@@ -242,23 +271,27 @@ func (s CrmStockRecordService) Create(tenantID string, r *models.CrmStockRecord)
 }
 
 // Delete 删除库存流水记录。
-func (s CrmStockRecordService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmStockRecordService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmStockRecord{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmStockRecord{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询库存流水，支持按 warehouse_id/product_id/type 筛选。
-func (s CrmStockRecordService) Query(tenantID string, req StockRecordQueryReq) ([]models.CrmStockRecord, int64, error) {
+func (s CrmStockRecordService) Query(ctx context.Context, req StockRecordQueryReq) ([]models.CrmStockRecord, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.WarehouseID != "" {
 		db = db.Where("warehouse_id = ?", req.WarehouseID)
 	}
@@ -279,9 +312,11 @@ func (s CrmStockRecordService) Query(tenantID string, req StockRecordQueryReq) (
 }
 
 // ListByWarehouse 按仓库列出库存流水（不分页）。
-func (s CrmStockRecordService) ListByWarehouse(tenantID, warehouseID string) ([]models.CrmStockRecord, error) {
+func (s CrmStockRecordService) ListByWarehouse(ctx context.Context, warehouseID string) ([]models.CrmStockRecord, error) {
+
+
 	var items []models.CrmStockRecord
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("warehouse_id = ?",  warehouseID).
+	err := models.MustFor(ctx).Where("warehouse_id = ?",  warehouseID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }

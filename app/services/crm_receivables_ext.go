@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"time"
@@ -24,7 +28,10 @@ type CrmReceivablesExtService struct{}
 func NewCrmReceivablesExt() *CrmReceivablesExtService { return &CrmReceivablesExtService{} }
 
 // GeneratePlan 按合同生成回款计划：批量创建 CrmReceivablesPlan，CustomerID 取自合同。
-func (s CrmReceivablesExtService) GeneratePlan(tenantID, orderID string, periods []PlanPeriod) error {
+func (s CrmReceivablesExtService) GeneratePlan(ctx context.Context, orderID string, periods []PlanPeriod) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if orderID == "" {
 		return errors.New("order_id 不能为空")
 	}
@@ -32,7 +39,7 @@ func (s CrmReceivablesExtService) GeneratePlan(tenantID, orderID string, periods
 		return errors.New("periods 不能为空")
 	}
 	var order models.CrmOrder
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", orderID).First(&order).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", orderID).First(&order).Error; err != nil {
 		return errors.New("合同不存在")
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
@@ -73,7 +80,9 @@ func parsePlanDate(s string) (*time.Time, error) {
 }
 
 // ListExpiring 即将到期的回款计划：PlanDate 在未来 days 天内且 Status 未完成（pending）。
-func (s CrmReceivablesExtService) ListExpiring(tenantID string, days int, req PageReq) ([]models.CrmReceivablesPlan, int64, error) {
+func (s CrmReceivablesExtService) ListExpiring(ctx context.Context, days int, req PageReq) ([]models.CrmReceivablesPlan, int64, error) {
+
+
 	if days <= 0 {
 		days = 7
 	}
@@ -81,7 +90,7 @@ func (s CrmReceivablesExtService) ListExpiring(tenantID string, days int, req Pa
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	end := start.AddDate(0, 0, days)
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("status = ? AND plan_date >= ? AND plan_date <= ?",  "pending",  start,  end)
+	db := models.MustFor(ctx).Where("status = ? AND plan_date >= ? AND plan_date <= ?",  "pending",  start,  end)
 	var total int64
 	if err := db.Model(&models.CrmReceivablesPlan{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -93,11 +102,13 @@ func (s CrmReceivablesExtService) ListExpiring(tenantID string, days int, req Pa
 }
 
 // ListOverdue 已逾期计划：PlanDate < today 且 Status 未完成（pending/overdue）。
-func (s CrmReceivablesExtService) ListOverdue(tenantID string, req PageReq) ([]models.CrmReceivablesPlan, int64, error) {
+func (s CrmReceivablesExtService) ListOverdue(ctx context.Context, req PageReq) ([]models.CrmReceivablesPlan, int64, error) {
+
+
 	p := req.pager()
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("status IN ? AND plan_date < ?",  []string{"pending", "overdue"},  today)
+	db := models.MustFor(ctx).Where("status IN ? AND plan_date < ?",  []string{"pending", "overdue"},  today)
 	var total int64
 	if err := db.Model(&models.CrmReceivablesPlan{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -109,7 +120,10 @@ func (s CrmReceivablesExtService) ListOverdue(tenantID string, req PageReq) ([]m
 }
 
 // Approve 回款审批通过：ApproveStatus=approved, ApproverID, ApproveAt=now, Status=confirmed。
-func (s CrmReceivablesExtService) Approve(tenantID, id, approverID string) error {
+func (s CrmReceivablesExtService) Approve(ctx context.Context, id, approverID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -127,7 +141,10 @@ func (s CrmReceivablesExtService) Approve(tenantID, id, approverID string) error
 }
 
 // Reject 回款审批驳回：ApproveStatus=rejected, ApproverID, ApproveAt=now, ApproveRemark。
-func (s CrmReceivablesExtService) Reject(tenantID, id, approverID, remark string) error {
+func (s CrmReceivablesExtService) Reject(ctx context.Context, id, approverID, remark string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}

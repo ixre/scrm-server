@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -25,7 +29,10 @@ type CrmAutoAllocationService struct{}
 func NewCrmAutoAllocation() *CrmAutoAllocationService { return &CrmAutoAllocationService{} }
 
 // Create 创建自动分配规则。
-func (s CrmAutoAllocationService) Create(tenantID string, a *models.CrmAutoAllocation) error {
+func (s CrmAutoAllocationService) Create(ctx context.Context, a *models.CrmAutoAllocation) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if a == nil {
 		return errors.New("规则不能为空")
 	}
@@ -42,7 +49,9 @@ func (s CrmAutoAllocationService) Create(tenantID string, a *models.CrmAutoAlloc
 }
 
 // Update 更新自动分配规则。
-func (s CrmAutoAllocationService) Update(tenantID, id string, a *models.CrmAutoAllocation) error {
+func (s CrmAutoAllocationService) Update(ctx context.Context, id string, a *models.CrmAutoAllocation) error {
+
+
 	if a == nil {
 		return errors.New("规则不能为空")
 	}
@@ -55,30 +64,34 @@ func (s CrmAutoAllocationService) Update(tenantID, id string, a *models.CrmAutoA
 		"is_enabled":  a.IsEnabled,
 		"priority":    a.Priority,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除自动分配规则。
-func (s CrmAutoAllocationService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmAutoAllocationService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmAutoAllocation{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmAutoAllocation{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询自动分配规则。
-func (s CrmAutoAllocationService) Query(tenantID string, req AutoAllocationQueryReq) ([]models.CrmAutoAllocation, int64, error) {
+func (s CrmAutoAllocationService) Query(ctx context.Context, req AutoAllocationQueryReq) ([]models.CrmAutoAllocation, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if et := strings.TrimSpace(req.EntityType); et != "" {
 		db = db.Where("entity_type = ?", et)
 	}
@@ -93,7 +106,10 @@ func (s CrmAutoAllocationService) Query(tenantID string, req AutoAllocationQuery
 }
 
 // ToggleStatus 启用/停用自动分配规则。
-func (s CrmAutoAllocationService) ToggleStatus(tenantID, id string, enabled bool) error {
+func (s CrmAutoAllocationService) ToggleStatus(ctx context.Context, id string, enabled bool) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmAutoAllocation{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
 		Update("is_enabled", enabled).Error
 }
@@ -113,7 +129,10 @@ type CrmSeasTypeService struct{}
 func NewCrmSeasType() *CrmSeasTypeService { return &CrmSeasTypeService{} }
 
 // Create 创建公海类型。
-func (s CrmSeasTypeService) Create(tenantID string, st *models.CrmSeasType) error {
+func (s CrmSeasTypeService) Create(ctx context.Context, st *models.CrmSeasType) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if st == nil {
 		return errors.New("公海类型不能为空")
 	}
@@ -127,7 +146,9 @@ func (s CrmSeasTypeService) Create(tenantID string, st *models.CrmSeasType) erro
 }
 
 // Update 更新公海类型。
-func (s CrmSeasTypeService) Update(tenantID, id string, st *models.CrmSeasType) error {
+func (s CrmSeasTypeService) Update(ctx context.Context, id string, st *models.CrmSeasType) error {
+
+
 	if st == nil {
 		return errors.New("公海类型不能为空")
 	}
@@ -138,30 +159,34 @@ func (s CrmSeasTypeService) Update(tenantID, id string, st *models.CrmSeasType) 
 		"staff_ids": st.StaffIDs,
 		"remark":    st.Remark,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除公海类型。
-func (s CrmSeasTypeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmSeasTypeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSeasType{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSeasType{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询公海类型。
-func (s CrmSeasTypeService) Query(tenantID string, req SeasTypeQueryReq) ([]models.CrmSeasType, int64, error) {
+func (s CrmSeasTypeService) Query(ctx context.Context, req SeasTypeQueryReq) ([]models.CrmSeasType, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		db = db.Where("name LIKE ?", "%"+kw+"%")
 	}
@@ -175,9 +200,12 @@ func (s CrmSeasTypeService) Query(tenantID string, req SeasTypeQueryReq) ([]mode
 }
 
 // SetDefault 设为默认公海（同租户其他取消默认）。
-func (s CrmSeasTypeService) SetDefault(tenantID, id string) error {
+func (s CrmSeasTypeService) SetDefault(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	var st models.CrmSeasType
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&st).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).First(&st).Error; err != nil {
 		return err
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
@@ -198,9 +226,12 @@ type CrmCustomerSettingService struct{}
 func NewCrmCustomerSetting() *CrmCustomerSettingService { return &CrmCustomerSettingService{} }
 
 // Get 获取客户设置（不存在返回零值默认）。
-func (s CrmCustomerSettingService) Get(tenantID string) (*models.CrmCustomerSetting, error) {
+func (s CrmCustomerSettingService) Get(ctx context.Context) (*models.CrmCustomerSetting, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var item models.CrmCustomerSetting
-	err := models.DB.Scopes(models.TenantScope(tenantID)).First(&item).Error
+	err := models.MustFor(ctx).First(&item).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return &models.CrmCustomerSetting{TenantID: tenantID}, nil
@@ -211,13 +242,16 @@ func (s CrmCustomerSettingService) Get(tenantID string) (*models.CrmCustomerSett
 }
 
 // Save 保存客户设置（upsert：存在则更新，不存在则新建）。
-func (s CrmCustomerSettingService) Save(tenantID string, cs *models.CrmCustomerSetting) error {
+func (s CrmCustomerSettingService) Save(ctx context.Context, cs *models.CrmCustomerSetting) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if cs == nil {
 		return errors.New("设置不能为空")
 	}
 	cs.TenantID = tenantID
 	var existing models.CrmCustomerSetting
-	err := models.DB.Scopes(models.TenantScope(tenantID)).First(&existing).Error
+	err := models.MustFor(ctx).First(&existing).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
 	}

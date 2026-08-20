@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 
 	"core/app/models"
@@ -23,7 +27,10 @@ type FissionCreateReq struct {
 }
 
 // Create 创建裂变活动。
-func (s CrmFissionService) Create(tenantID string, req models.CrmFission) (models.CrmFission, error) {
+func (s CrmFissionService) Create(ctx context.Context, req models.CrmFission) (models.CrmFission, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -43,12 +50,14 @@ func (s CrmFissionService) Create(tenantID string, req models.CrmFission) (model
 }
 
 // Query 列出裂变活动。
-func (s CrmFissionService) Query(tenantID, status string, pager *app.Pager) ([]models.CrmFission, int64, error) {
+func (s CrmFissionService) Query(ctx context.Context, status string, pager *app.Pager) ([]models.CrmFission, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -62,22 +71,29 @@ func (s CrmFissionService) Query(tenantID, status string, pager *app.Pager) ([]m
 }
 
 // Get 查单个裂变活动。
-func (s CrmFissionService) Get(tenantID, id string) (models.CrmFission, error) {
+func (s CrmFissionService) Get(ctx context.Context, id string) (models.CrmFission, error) {
+
+
 	var f models.CrmFission
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&f).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&f).Error
 	return f, err
 }
 
 // Delete 删除裂变活动。
-func (s CrmFissionService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmFission{})
+func (s CrmFissionService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmFission{})
 	return res.RowsAffected, res.Error
 }
 
 // RecordInvite 记录邀请关系：邀请人邀请新客户。
 // 幂等：同 (fission, inviter, invitee) 不重复。
 // 自动检测是否达到奖励阈值，达到则标记 reward_triggered。
-func (s CrmFissionService) RecordInvite(tenantID, fissionID, inviterCustomerID, inviteeCustomerID string) (models.CrmFissionInvite, error) {
+func (s CrmFissionService) RecordInvite(ctx context.Context, fissionID, inviterCustomerID, inviteeCustomerID string) (models.CrmFissionInvite, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var rec models.CrmFissionInvite
 	if inviterCustomerID == "" || inviteeCustomerID == "" {
 		return rec, errors.New("inviter/invitee 不能为空")
@@ -86,7 +102,7 @@ func (s CrmFissionService) RecordInvite(tenantID, fissionID, inviterCustomerID, 
 		return rec, errors.New("不能邀请自己")
 	}
 	var f models.CrmFission
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", fissionID).First(&f).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", fissionID).First(&f).Error; err != nil {
 		return rec, errors.New("裂变活动不存在")
 	}
 	if f.Status != "active" {
@@ -137,12 +153,14 @@ func (s CrmFissionService) RecordInvite(tenantID, fissionID, inviterCustomerID, 
 }
 
 // ListInvites 列出邀请关系。
-func (s CrmFissionService) ListInvites(tenantID, fissionID, inviterCustomerID string, pager *app.Pager) ([]models.CrmFissionInvite, int64, error) {
+func (s CrmFissionService) ListInvites(ctx context.Context, fissionID, inviterCustomerID string, pager *app.Pager) ([]models.CrmFissionInvite, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if fissionID != "" {
 		db = db.Where("fission_id = ?", fissionID)
 	}
@@ -166,7 +184,10 @@ type FissionInviteStats struct {
 }
 
 // StatsByInviter 某邀请人的邀请统计。
-func (s CrmFissionService) StatsByInviter(tenantID, fissionID, inviterCustomerID string) (FissionInviteStats, error) {
+func (s CrmFissionService) StatsByInviter(ctx context.Context, fissionID, inviterCustomerID string) (FissionInviteStats, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var stats FissionInviteStats
 	stats.InviterCustomerID = inviterCustomerID
 	models.DB.Model(&models.CrmFissionInvite{}).Scopes(models.TenantScope(tenantID)).Where("fission_id = ? AND inviter_customer_id = ?",  fissionID,  inviterCustomerID).

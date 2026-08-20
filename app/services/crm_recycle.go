@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 
@@ -28,9 +32,11 @@ type CrmRecycleService struct{}
 func NewCrmRecycle() *CrmRecycleService { return &CrmRecycleService{} }
 
 // List 按实体类型分页查询回收站记录。
-func (s CrmRecycleService) List(tenantID, entityType string, req RecycleQueryReq) ([]models.CrmRecycle, int64, error) {
+func (s CrmRecycleService) List(ctx context.Context, entityType string, req RecycleQueryReq) ([]models.CrmRecycle, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if entityType != "" {
 		db = db.Where("entity_type = ?", entityType)
 	}
@@ -44,12 +50,15 @@ func (s CrmRecycleService) List(tenantID, entityType string, req RecycleQueryReq
 }
 
 // Restore 恢复：把对应实体的 deleted_at 清空，删除回收站记录。
-func (s CrmRecycleService) Restore(tenantID, id string) error {
+func (s CrmRecycleService) Restore(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
 	var rec models.CrmRecycle
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&rec).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&rec).Error; err != nil {
 		return err
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
@@ -63,12 +72,15 @@ func (s CrmRecycleService) Restore(tenantID, id string) error {
 }
 
 // Clear 彻底删除：物理删除对应实体，删除回收站记录。
-func (s CrmRecycleService) Clear(tenantID, id string) error {
+func (s CrmRecycleService) Clear(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
 	var rec models.CrmRecycle
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&rec).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&rec).Error; err != nil {
 		return err
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
@@ -82,11 +94,13 @@ func (s CrmRecycleService) Clear(tenantID, id string) error {
 }
 
 // DeleteRecord 从回收站删除记录（仅删回收站记录，不影响实体）。
-func (s CrmRecycleService) DeleteRecord(tenantID string, ids []string) (int64, error) {
+func (s CrmRecycleService) DeleteRecord(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmRecycle{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmRecycle{})
 	if res.Error != nil {
 		log.Sugar.Errorw("crm recycle delete record failed", "err", res.Error)
 	}

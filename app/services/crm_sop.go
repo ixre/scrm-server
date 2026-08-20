@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"time"
@@ -25,7 +29,10 @@ type SopRuleCreateReq struct {
 }
 
 // CreateRule 创建 SOP 规则。
-func (s CrmSopService) CreateRule(tenantID string, req models.CrmSopRule) (models.CrmSopRule, error) {
+func (s CrmSopService) CreateRule(ctx context.Context, req models.CrmSopRule) (models.CrmSopRule, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -42,7 +49,10 @@ func (s CrmSopService) CreateRule(tenantID string, req models.CrmSopRule) (model
 }
 
 // UpdateRule 更新 SOP 规则。
-func (s CrmSopService) UpdateRule(tenantID, id string, req models.CrmSopRule) (models.CrmSopRule, error) {
+func (s CrmSopService) UpdateRule(ctx context.Context, id string, req models.CrmSopRule) (models.CrmSopRule, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	updates := map[string]any{
 		"name": req.Name, "trigger_type": req.TriggerType, "trigger_cond": req.TriggerCond,
 		"action_type": req.ActionType, "action_content": req.ActionContent,
@@ -56,12 +66,14 @@ func (s CrmSopService) UpdateRule(tenantID, id string, req models.CrmSopRule) (m
 }
 
 // QueryRules 列出 SOP 规则。
-func (s CrmSopService) QueryRules(tenantID, status string, pager *app.Pager) ([]models.CrmSopRule, int64, error) {
+func (s CrmSopService) QueryRules(ctx context.Context, status string, pager *app.Pager) ([]models.CrmSopRule, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -75,18 +87,22 @@ func (s CrmSopService) QueryRules(tenantID, status string, pager *app.Pager) ([]
 }
 
 // DeleteRules 删除 SOP 规则。
-func (s CrmSopService) DeleteRules(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSopRule{})
+func (s CrmSopService) DeleteRules(ctx context.Context, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSopRule{})
 	return res.RowsAffected, res.Error
 }
 
 // ListTasks 列出 SOP 任务。
-func (s CrmSopService) ListTasks(tenantID, status, assignUserID string, pager *app.Pager) ([]models.CrmSopTask, int64, error) {
+func (s CrmSopService) ListTasks(ctx context.Context, status, assignUserID string, pager *app.Pager) ([]models.CrmSopTask, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -103,23 +119,31 @@ func (s CrmSopService) ListTasks(tenantID, status, assignUserID string, pager *a
 }
 
 // MarkTaskDone 标记 SOP 任务完成。
-func (s CrmSopService) MarkTaskDone(tenantID, taskID string) error {
+func (s CrmSopService) MarkTaskDone(ctx context.Context, taskID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Updates(map[string]any{"status": "done", "done_at": &now}).Error
 }
 
 // MarkTaskSkipped 标记 SOP 任务跳过。
-func (s CrmSopService) MarkTaskSkipped(tenantID, taskID string) error {
+func (s CrmSopService) MarkTaskSkipped(ctx context.Context, taskID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Update("status", "skipped").Error
 }
 
 // Trigger 触发 SOP 规则：根据触发类型和条件，查找匹配的规则并创建任务。
 // triggerData 包含 customer_id/opportunity_id/stage_id/tag_name 等。
-func (s CrmSopService) Trigger(tenantID, triggerType string, triggerData map[string]string) {
+func (s CrmSopService) Trigger(ctx context.Context, triggerType string, triggerData map[string]string) {
+
+
 	var rules []models.CrmSopRule
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("trigger_type = ? AND status = ?",  triggerType,  "active").Find(&rules)
+	models.MustFor(ctx).Where("trigger_type = ? AND status = ?",  triggerType,  "active").Find(&rules)
 	for _, rule := range rules {
 		// 检查触发条件
 		if !s.matchTriggerCond(rule, triggerData) {
@@ -129,7 +153,7 @@ func (s CrmSopService) Trigger(tenantID, triggerType string, triggerData map[str
 		if customerID == "" {
 			continue
 		}
-		s.createSopTask(tenantID, rule, triggerData)
+		s.createSopTask(ctx, rule, triggerData)
 	}
 }
 
@@ -149,7 +173,10 @@ func (s CrmSopService) matchTriggerCond(rule models.CrmSopRule, data map[string]
 }
 
 // createSopTask 创建 SOP 任务实例（幂等：同规则+同客户 pending 状态不重复建）。
-func (s CrmSopService) createSopTask(tenantID string, rule models.CrmSopRule, data map[string]string) {
+func (s CrmSopService) createSopTask(ctx context.Context, rule models.CrmSopRule, data map[string]string) {
+	tenantID := identity.TenantID(ctx)
+
+
 	customerID := data["customer_id"]
 	// 幂等
 	var cnt int64
@@ -221,7 +248,10 @@ func (s CrmSopService) executeTask(task models.CrmSopTask) {
 }
 
 // PendingTaskCountByUser 某销售的待处理 SOP 任务数（工作台用）。
-func (s CrmSopService) PendingTaskCountByUser(tenantID, userID string) int64 {
+func (s CrmSopService) PendingTaskCountByUser(ctx context.Context, userID string) int64 {
+	tenantID := identity.TenantID(ctx)
+
+
 	var cnt int64
 	models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("assign_user_id = ? AND status = ?",  userID,  "pending").Count(&cnt)
 	return cnt

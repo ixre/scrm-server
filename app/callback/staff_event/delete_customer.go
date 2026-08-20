@@ -1,11 +1,13 @@
 package staff_event
 
 import (
+	"context"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/services"
 	"core/common/delay_queue"
 	"core/common/id_generator"
+	"core/common/identity"
 	"core/common/log"
 	"core/common/util"
 	"core/common/we_work"
@@ -88,7 +90,7 @@ func EventDelExternalContactHandler(msg *gowx.RxMessage) (err error) {
 			if models.DB.Where("id = ?", link.EntityID).First(&cust).Error == nil {
 				custName = cust.Name
 			}
-			_ = services.NewCrmCustomerLoss().RecordLoss(link.TenantID, link.EntityID, custName, "", "deleted", 0)
+			_ = services.NewCrmCustomerLoss().RecordLoss(identity.WithIdentity(context.Background(), identity.Identity{TenantID: link.TenantID}), link.EntityID, custName, "", "deleted", 0)
 		}
 	}()
 

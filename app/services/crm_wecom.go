@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 
 	"core/app/constants"
@@ -18,12 +22,15 @@ import (
 // SyncFromWeCom 企微外部联系人事件落 CRM：按 (corp, ext_customer) 幂等 upsert
 // CrmCustomer(source=wecom) + ChannelLink，并把跟进员工(企微 staff)映射到本地 User 作为 owner。
 // 回调不带客户名，name 为空时用 EnrichFromWeCom 走 API 补名（失败仅 log 不阻塞）。
-func (s CrmCustomerService) SyncFromWeCom(tenantID, corpID, staffExtID, customerExtID, name string) error {
+func (s CrmCustomerService) SyncFromWeCom(ctx context.Context, corpID, staffExtID, customerExtID, name string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerExtID == "" {
 		return errors.New("external_user_id 不能为空")
 	}
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelWecom,  corpID,  customerExtID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelWecom,  corpID,  customerExtID).First(&c).Error
 	switch {
 	case err == nil:
 		// 已存在：更新名称并复位流失态
@@ -52,18 +59,18 @@ func (s CrmCustomerService) SyncFromWeCom(tenantID, corpID, staffExtID, customer
 	}
 
 	// 归属：企微 staff → 本地 User（若已建映射）
-	if ownerID, ok := resolveWecomStaffUserID(tenantID, staffExtID); ok {
+	if ownerID, ok := resolveWecomStaffUserID(ctx, staffExtID); ok {
 		if oerr := models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Update("owner_user_id", ownerID).Error; oerr != nil {
 			log.Sugar.Errorw("wecom customer owner assign failed", "err", oerr)
 		}
 	}
 
-	if lerr := upsertCustomerChannelLink(tenantID, c); lerr != nil {
+	if lerr := upsertCustomerChannelLink(ctx, c); lerr != nil {
 		log.Sugar.Errorw("sync wecom customer channel link failed", "corp_id", corpID, "err", lerr)
 	}
 	if name == "" {
 		// 回调不带客户名，走 API 补名（失败仅记日志，不阻塞事件处理）
-		if perr := s.EnrichFromWeCom(tenantID, corpID, customerExtID); perr != nil {
+		if perr := s.EnrichFromWeCom(ctx, corpID, customerExtID); perr != nil {
 			log.Sugar.Warnw("wecom customer enrich failed", "corp_id", corpID, "ext_customer", customerExtID, "err", perr)
 		}
 	}
@@ -72,7 +79,10 @@ func (s CrmCustomerService) SyncFromWeCom(tenantID, corpID, staffExtID, customer
 
 // EnrichFromWeCom 用企微 API 拉取外部联系人详情补全 CrmCustomer（name/gender/company/position）。
 // 幂等：仅覆盖非空字段。客户端未注册或 API 失败时返回错误（调用方仅 log）。
-func (s CrmCustomerService) EnrichFromWeCom(tenantID, corpID, customerExtID string) error {
+func (s CrmCustomerService) EnrichFromWeCom(ctx context.Context, corpID, customerExtID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerExtID == "" {
 		return nil
 	}
@@ -119,7 +129,10 @@ func buildWecomEnrichUpdates(name string, gender int, corpName, position string)
 }
 
 // MarkWecomCustomerLost 企微删除外部联系人/删除跟进成员 → 置流失，不硬删（保留主档与活动史）。
-func (s CrmCustomerService) MarkWecomCustomerLost(tenantID, corpID, customerExtID string) error {
+func (s CrmCustomerService) MarkWecomCustomerLost(ctx context.Context, corpID, customerExtID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if customerExtID == "" {
 		return nil
 	}
@@ -128,12 +141,12 @@ func (s CrmCustomerService) MarkWecomCustomerLost(tenantID, corpID, customerExtI
 }
 
 // resolveWecomStaffUserID 由企微 staff_ext_id 解析本地 User（经 ChannelLink entity_type=user）。
-func resolveWecomStaffUserID(tenantID, staffExtID string) (string, bool) {
+func resolveWecomStaffUserID(ctx context.Context, staffExtID string) (string, bool) {
 	if staffExtID == "" {
 		return "", false
 	}
 	var link models.ChannelLink
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom,  "user",  staffExtID).First(&link).Error; err != nil {
+	if err := models.MustFor(ctx).Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom,  "user",  staffExtID).First(&link).Error; err != nil {
 		return "", false
 	}
 	return link.EntityID, true
@@ -141,12 +154,15 @@ func resolveWecomStaffUserID(tenantID, staffExtID string) (string, bool) {
 
 // EnsureWecomLink 企微员工事件：若租户内存在 username=staff_ext_id 的本地用户，则建立
 // ChannelLink(entity_type=user)。不自动开户——账户由管理员在用户管理创建后，企微员工以 username 对齐。
-func (s UserService) EnsureWecomLink(tenantID, corpID, staffExtID string) error {
+func (s UserService) EnsureWecomLink(ctx context.Context, corpID, staffExtID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if staffExtID == "" {
 		return nil
 	}
 	var u models.User
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("username = ?",  staffExtID).First(&u).Error; err != nil {
+	if err := models.MustFor(ctx).Where("username = ?",  staffExtID).First(&u).Error; err != nil {
 		return nil
 	}
 	var link models.ChannelLink
@@ -176,7 +192,10 @@ type CrmWecomEventLogService struct{}
 func NewCrmWecomEventLog() *CrmWecomEventLogService { return &CrmWecomEventLogService{} }
 
 // Record 记录一条回调事件（best-effort：写失败仅 log，不阻塞回调主流程）。
-func (s CrmWecomEventLogService) Record(tenantID, corpID, event, changeType, extUserID, extCustomerID string, handled bool, errMsg string) {
+func (s CrmWecomEventLogService) Record(ctx context.Context, corpID, event, changeType, extUserID, extCustomerID string, handled bool, errMsg string) {
+	tenantID := identity.TenantID(ctx)
+
+
 	entry := models.CrmWecomEventLog{
 		Model:         models.Model{ID: id_generator.StringID()},
 		TenantID:      tenantID,
@@ -194,12 +213,14 @@ func (s CrmWecomEventLogService) Record(tenantID, corpID, event, changeType, ext
 }
 
 // Query 按租户分页查事件日志，可按 corp_id 过滤（排障用）。
-func (s CrmWecomEventLogService) Query(tenantID, corpID string, pager *app.Pager) ([]models.CrmWecomEventLog, int64, error) {
+func (s CrmWecomEventLogService) Query(ctx context.Context, corpID string, pager *app.Pager) ([]models.CrmWecomEventLog, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if corpID != "" {
 		db = db.Where("corp_id = ?", corpID)
 	}

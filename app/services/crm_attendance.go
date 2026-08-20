@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -24,7 +28,10 @@ type CrmAttendanceService struct{}
 func NewCrmAttendance() *CrmAttendanceService { return &CrmAttendanceService{} }
 
 // Create 创建考勤记录。
-func (s CrmAttendanceService) Create(tenantID, userID string, a *models.CrmAttendance) error {
+func (s CrmAttendanceService) Create(ctx context.Context, userID string, a *models.CrmAttendance) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if a == nil {
 		return errors.New("考勤记录不能为空")
 	}
@@ -38,14 +45,16 @@ func (s CrmAttendanceService) Create(tenantID, userID string, a *models.CrmAtten
 }
 
 // Query 分页查询考勤记录。
-func (s CrmAttendanceService) Query(tenantID string, req AttendanceQueryReq) ([]models.CrmAttendance, int64, error) {
+func (s CrmAttendanceService) Query(ctx context.Context, req AttendanceQueryReq) ([]models.CrmAttendance, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.UserID != "" {
 		db = db.Where("user_id = ?", req.UserID)
 	}
@@ -62,9 +71,11 @@ func (s CrmAttendanceService) Query(tenantID string, req AttendanceQueryReq) ([]
 }
 
 // ListByUser 按用户列出考勤记录。
-func (s CrmAttendanceService) ListByUser(tenantID, userID string) ([]models.CrmAttendance, error) {
+func (s CrmAttendanceService) ListByUser(ctx context.Context, userID string) ([]models.CrmAttendance, error) {
+
+
 	var items []models.CrmAttendance
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ?",  userID).
+	err := models.MustFor(ctx).Where("user_id = ?",  userID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }
@@ -85,7 +96,10 @@ type CrmLeaveService struct{}
 func NewCrmLeave() *CrmLeaveService { return &CrmLeaveService{} }
 
 // Create 创建请假记录。
-func (s CrmLeaveService) Create(tenantID, userID string, l *models.CrmLeave) error {
+func (s CrmLeaveService) Create(ctx context.Context, userID string, l *models.CrmLeave) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if l == nil {
 		return errors.New("请假记录不能为空")
 	}
@@ -102,7 +116,9 @@ func (s CrmLeaveService) Create(tenantID, userID string, l *models.CrmLeave) err
 }
 
 // Update 更新请假记录。
-func (s CrmLeaveService) Update(tenantID, id string, l *models.CrmLeave) error {
+func (s CrmLeaveService) Update(ctx context.Context, id string, l *models.CrmLeave) error {
+
+
 	if l == nil {
 		return errors.New("请假记录不能为空")
 	}
@@ -114,30 +130,34 @@ func (s CrmLeaveService) Update(tenantID, id string, l *models.CrmLeave) error {
 		"reason":   l.Reason,
 		"status":   l.Status,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除请假记录。
-func (s CrmLeaveService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmLeaveService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmLeave{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmLeave{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询请假记录。
-func (s CrmLeaveService) Query(tenantID string, req LeaveQueryReq) ([]models.CrmLeave, int64, error) {
+func (s CrmLeaveService) Query(ctx context.Context, req LeaveQueryReq) ([]models.CrmLeave, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.UserID != "" {
 		db = db.Where("user_id = ?", req.UserID)
 	}
@@ -154,13 +174,19 @@ func (s CrmLeaveService) Query(tenantID string, req LeaveQueryReq) ([]models.Crm
 }
 
 // Approve 批准请假。
-func (s CrmLeaveService) Approve(tenantID, id string) error {
+func (s CrmLeaveService) Approve(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmLeave{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
 		Update("status", "approved").Error
 }
 
 // Reject 驳回请假。
-func (s CrmLeaveService) Reject(tenantID, id string) error {
+func (s CrmLeaveService) Reject(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmLeave{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
 		Update("status", "rejected").Error
 }

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 	"time"
@@ -24,7 +28,10 @@ type CrmCallListService struct{}
 func NewCrmCallList() *CrmCallListService { return &CrmCallListService{} }
 
 // Create 创建待拨电话记录。
-func (s CrmCallListService) Create(tenantID string, c *models.CrmCallList) error {
+func (s CrmCallListService) Create(ctx context.Context, c *models.CrmCallList) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if c == nil {
 		return errors.New("记录不能为空")
 	}
@@ -41,7 +48,9 @@ func (s CrmCallListService) Create(tenantID string, c *models.CrmCallList) error
 }
 
 // Update 更新待拨电话记录。
-func (s CrmCallListService) Update(tenantID, id string, c *models.CrmCallList) error {
+func (s CrmCallListService) Update(ctx context.Context, id string, c *models.CrmCallList) error {
+
+
 	if c == nil {
 		return errors.New("记录不能为空")
 	}
@@ -54,30 +63,34 @@ func (s CrmCallListService) Update(tenantID, id string, c *models.CrmCallList) e
 		"remark":       c.Remark,
 	}
 	updatesCRM(m, "user_id", "customer_id")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除待拨电话记录。
-func (s CrmCallListService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmCallListService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmCallList{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmCallList{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询待拨电话列表（按 user_id/status）。
-func (s CrmCallListService) Query(tenantID string, req CallListQueryReq) ([]models.CrmCallList, int64, error) {
+func (s CrmCallListService) Query(ctx context.Context, req CallListQueryReq) ([]models.CrmCallList, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.UserID != "" {
 		db = db.Where("user_id = ?", req.UserID)
 	}
@@ -94,7 +107,10 @@ func (s CrmCallListService) Query(tenantID string, req CallListQueryReq) ([]mode
 }
 
 // BatchCreate 批量创建待拨电话记录。
-func (s CrmCallListService) BatchCreate(tenantID string, items []models.CrmCallList) error {
+func (s CrmCallListService) BatchCreate(ctx context.Context, items []models.CrmCallList) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(items) == 0 {
 		return errors.New("记录不能为空")
 	}
@@ -117,7 +133,10 @@ func (s CrmCallListService) BatchCreate(tenantID string, items []models.CrmCallL
 }
 
 // BatchAssign 批量分配待拨电话给指定员工。
-func (s CrmCallListService) BatchAssign(tenantID, userID string, ids []string) error {
+func (s CrmCallListService) BatchAssign(ctx context.Context, userID string, ids []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -129,14 +148,20 @@ func (s CrmCallListService) BatchAssign(tenantID, userID string, ids []string) e
 }
 
 // MarkDialed 标记为已拨打。
-func (s CrmCallListService) MarkDialed(tenantID, id string) error {
+func (s CrmCallListService) MarkDialed(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
 		Updates(map[string]any{"status": "dialed", "dialed_at": &now}).Error
 }
 
 // MarkSkipped 标记为已跳过。
-func (s CrmCallListService) MarkSkipped(tenantID, id string) error {
+func (s CrmCallListService) MarkSkipped(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
 		Update("status", "skipped").Error
 }

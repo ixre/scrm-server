@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"fmt"
 	"time"
 
@@ -28,7 +32,10 @@ type TodoQueryReq struct {
 }
 
 // Create 创建一条待办。
-func (s CrmTodoService) Create(tenantID string, t *models.CrmTodo) error {
+func (s CrmTodoService) Create(ctx context.Context, t *models.CrmTodo) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if t.ID == "" {
 		t.ID = id_generator.StringID()
 	}
@@ -44,7 +51,10 @@ func (s CrmTodoService) Create(tenantID string, t *models.CrmTodo) error {
 }
 
 // Query 分页查询待办（按用户+类型+状态筛选）。
-func (s CrmTodoService) Query(tenantID, userID string, req TodoQueryReq) ([]models.CrmTodo, int64, error) {
+func (s CrmTodoService) Query(ctx context.Context, userID string, req TodoQueryReq) ([]models.CrmTodo, int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
@@ -69,7 +79,10 @@ func (s CrmTodoService) Query(tenantID, userID string, req TodoQueryReq) ([]mode
 }
 
 // Handle 批量处理待办（done/ignored）。
-func (s CrmTodoService) Handle(tenantID string, ids []string, status string) error {
+func (s CrmTodoService) Handle(ctx context.Context, ids []string, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if status != "done" && status != "ignored" {
 		return fmt.Errorf("invalid status: %s", status)
 	}
@@ -81,7 +94,10 @@ func (s CrmTodoService) Handle(tenantID string, ids []string, status string) err
 }
 
 // Count 按类型统计某用户的 pending 待办数量，返回 map[type]count。
-func (s CrmTodoService) Count(tenantID, userID string) (map[string]int64, error) {
+func (s CrmTodoService) Count(ctx context.Context, userID string) (map[string]int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	type row struct {
 		Type  string
 		Count int64
@@ -103,10 +119,13 @@ func (s CrmTodoService) Count(tenantID, userID string) (map[string]int64, error)
 
 // GenerateFollowupTodos 扫描需要跟进的客户生成待办。
 // 条件：CrmCustomer.next_followup_at 已过期且非公海，且该客户尚无 pending 的 followup 待办。
-func (s CrmTodoService) GenerateFollowupTodos(tenantID string) error {
+func (s CrmTodoService) GenerateFollowupTodos(ctx context.Context) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	var customers []models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("next_followup_at IS NOT NULL AND next_followup_at < ? AND pool_status = 0",  now).Limit(500).Find(&customers).Error
+	err := models.MustFor(ctx).Where("next_followup_at IS NOT NULL AND next_followup_at < ? AND pool_status = 0",  now).Limit(500).Find(&customers).Error
 	if err != nil {
 		return err
 	}
@@ -138,11 +157,14 @@ func (s CrmTodoService) GenerateFollowupTodos(tenantID string) error {
 
 // GenerateExpireTodos 扫描即将到期/已逾期的回款计划生成待办。
 // 条件：CrmReceivablesPlan.plan_date 在未来 7 天内或已逾期，且状态为 pending。
-func (s CrmTodoService) GenerateExpireTodos(tenantID string) error {
+func (s CrmTodoService) GenerateExpireTodos(ctx context.Context) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	deadline := now.Add(7 * 24 * time.Hour)
 	var plans []models.CrmReceivablesPlan
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("status = ? AND plan_date IS NOT NULL AND plan_date <= ?",  "pending",  deadline).Limit(500).Find(&plans).Error
+	err := models.MustFor(ctx).Where("status = ? AND plan_date IS NOT NULL AND plan_date <= ?",  "pending",  deadline).Limit(500).Find(&plans).Error
 	if err != nil {
 		return err
 	}

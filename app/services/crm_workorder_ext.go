@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -24,7 +28,10 @@ type CrmWorkorderTypeService struct{}
 func NewCrmWorkorderType() *CrmWorkorderTypeService { return &CrmWorkorderTypeService{} }
 
 // Create 创建工单类型。
-func (s CrmWorkorderTypeService) Create(tenantID string, t *models.CrmWorkorderType) error {
+func (s CrmWorkorderTypeService) Create(ctx context.Context, t *models.CrmWorkorderType) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if t == nil {
 		return errors.New("工单类型不能为空")
 	}
@@ -38,7 +45,9 @@ func (s CrmWorkorderTypeService) Create(tenantID string, t *models.CrmWorkorderT
 }
 
 // Update 更新工单类型。
-func (s CrmWorkorderTypeService) Update(tenantID, id string, t *models.CrmWorkorderType) error {
+func (s CrmWorkorderTypeService) Update(ctx context.Context, id string, t *models.CrmWorkorderType) error {
+
+
 	if t == nil {
 		return errors.New("工单类型不能为空")
 	}
@@ -48,30 +57,34 @@ func (s CrmWorkorderTypeService) Update(tenantID, id string, t *models.CrmWorkor
 		"status": t.Status,
 		"remark": t.Remark,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除工单类型。
-func (s CrmWorkorderTypeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmWorkorderTypeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmWorkorderType{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmWorkorderType{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询工单类型。
-func (s CrmWorkorderTypeService) Query(tenantID string, req WorkorderTypeQueryReq) ([]models.CrmWorkorderType, int64, error) {
+func (s CrmWorkorderTypeService) Query(ctx context.Context, req WorkorderTypeQueryReq) ([]models.CrmWorkorderType, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	db = db.Where("status = ?", req.Status)
 	var total int64
 	if err := db.Model(&models.CrmWorkorderType{}).Count(&total).Error; err != nil {
@@ -96,7 +109,10 @@ type CrmWorkorderPoolService struct{}
 func NewCrmWorkorderPool() *CrmWorkorderPoolService { return &CrmWorkorderPoolService{} }
 
 // MoveToPool 批量入工单池：为每个工单创建池记录（幂等：已存在则跳过）。
-func (s CrmWorkorderPoolService) MoveToPool(tenantID string, ids []string) error {
+func (s CrmWorkorderPoolService) MoveToPool(ctx context.Context, ids []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -121,11 +137,14 @@ func (s CrmWorkorderPoolService) MoveToPool(tenantID string, ids []string) error
 }
 
 // Receive 从工单池领取单个工单：删除池记录，将工单 assignee_id 设为 userID。
-func (s CrmWorkorderPoolService) Receive(tenantID, userID, id string) error {
+func (s CrmWorkorderPoolService) Receive(ctx context.Context, userID, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("workorder_id = ?",  id).
+	res := models.MustFor(ctx).Where("workorder_id = ?",  id).
 		Delete(&models.CrmWorkorderPool{})
 	if res.Error != nil {
 		return res.Error
@@ -138,12 +157,14 @@ func (s CrmWorkorderPoolService) Receive(tenantID, userID, id string) error {
 }
 
 // BatchReceive 批量领取工单。
-func (s CrmWorkorderPoolService) BatchReceive(tenantID, userID string, ids []string) error {
+func (s CrmWorkorderPoolService) BatchReceive(ctx context.Context, userID string, ids []string) error {
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
 	for _, id := range ids {
-		if err := s.Receive(tenantID, userID, id); err != nil {
+		if err := s.Receive(ctx, userID, id); err != nil {
 			log.Sugar.Errorw("crm workorder batch receive failed", "err", err, "workorder_id", id)
 		}
 	}
@@ -151,14 +172,16 @@ func (s CrmWorkorderPoolService) BatchReceive(tenantID, userID string, ids []str
 }
 
 // ListPool 工单池列表（分页）。
-func (s CrmWorkorderPoolService) ListPool(tenantID string, req WorkorderPoolQueryReq) ([]models.CrmWorkorderPool, int64, error) {
+func (s CrmWorkorderPoolService) ListPool(ctx context.Context, req WorkorderPoolQueryReq) ([]models.CrmWorkorderPool, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	var total int64
 	if err := db.Model(&models.CrmWorkorderPool{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -176,15 +199,20 @@ type CrmWorkorderLogService struct{}
 func NewCrmWorkorderLog() *CrmWorkorderLogService { return &CrmWorkorderLogService{} }
 
 // ListByWorkorder 按工单列出日志。
-func (s CrmWorkorderLogService) ListByWorkorder(tenantID, workorderID string) ([]models.CrmWorkorderLog, error) {
+func (s CrmWorkorderLogService) ListByWorkorder(ctx context.Context, workorderID string) ([]models.CrmWorkorderLog, error) {
+
+
 	var items []models.CrmWorkorderLog
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("workorder_id = ?",  workorderID).
+	err := models.MustFor(ctx).Where("workorder_id = ?",  workorderID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }
 
 // Add 新增工单日志。
-func (s CrmWorkorderLogService) Add(tenantID, workorderID, userID, action, content string) error {
+func (s CrmWorkorderLogService) Add(ctx context.Context, workorderID, userID, action, content string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if workorderID == "" {
 		return errors.New("workorder_id 不能为空")
 	}

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"time"
 
 	"core/app/models"
@@ -38,7 +42,10 @@ type CrmStatisticsService struct{}
 func NewCrmStatistics() *CrmStatisticsService { return &CrmStatisticsService{} }
 
 // CustomerAnalysis 客户分析：按来源/员工分布统计。
-func (s CrmStatisticsService) CustomerAnalysis(tenantID string, req StatsReq) (map[string]any, error) {
+func (s CrmStatisticsService) CustomerAnalysis(ctx context.Context, req StatsReq) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, has := req.dateRange()
 
 	// 按来源分布
@@ -78,7 +85,10 @@ func (s CrmStatisticsService) CustomerAnalysis(tenantID string, req StatsReq) (m
 }
 
 // LeadAnalysis 线索转化漏斗：各状态计数 + 转化率。
-func (s CrmStatisticsService) LeadAnalysis(tenantID string, req StatsReq) (map[string]any, error) {
+func (s CrmStatisticsService) LeadAnalysis(ctx context.Context, req StatsReq) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, has := req.dateRange()
 
 	type stRow struct {
@@ -119,7 +129,10 @@ func (s CrmStatisticsService) LeadAnalysis(tenantID string, req StatsReq) (map[s
 }
 
 // ContractStats 合同统计：数量/金额/回款按月统计。
-func (s CrmStatisticsService) ContractStats(tenantID string, req StatsReq) (map[string]any, error) {
+func (s CrmStatisticsService) ContractStats(ctx context.Context, req StatsReq) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, has := req.dateRange()
 
 	type monthRow struct {
@@ -159,7 +172,10 @@ func (s CrmStatisticsService) ContractStats(tenantID string, req StatsReq) (map[
 }
 
 // WorkorderStats 工单统计：按状态/类型统计。
-func (s CrmStatisticsService) WorkorderStats(tenantID string, req StatsReq) (map[string]any, error) {
+func (s CrmStatisticsService) WorkorderStats(ctx context.Context, req StatsReq) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, has := req.dateRange()
 
 	type dimRow struct {
@@ -198,7 +214,10 @@ func (s CrmStatisticsService) WorkorderStats(tenantID string, req StatsReq) (map
 }
 
 // ProductStats 产品统计：产品销量/金额统计（基于订单产品明细）。
-func (s CrmStatisticsService) ProductStats(tenantID string, req StatsReq) (map[string]any, error) {
+func (s CrmStatisticsService) ProductStats(ctx context.Context, req StatsReq) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, has := req.dateRange()
 
 	type prodRow struct {
@@ -224,7 +243,10 @@ func (s CrmStatisticsService) ProductStats(tenantID string, req StatsReq) (map[s
 }
 
 // CallStats 话务统计：通话次数/时长按员工排行。
-func (s CrmStatisticsService) CallStats(tenantID string, req StatsReq) (map[string]any, error) {
+func (s CrmStatisticsService) CallStats(ctx context.Context, req StatsReq) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, has := req.dateRange()
 
 	type callRow struct {

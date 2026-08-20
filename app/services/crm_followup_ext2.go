@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 	"time"
@@ -32,7 +36,10 @@ type CrmFollowupCommentService struct{}
 func NewCrmFollowupComment() *CrmFollowupCommentService { return &CrmFollowupCommentService{} }
 
 // Create 创建跟进评论。
-func (s CrmFollowupCommentService) Create(tenantID, followupID, userID, content string) (*models.CrmFollowupComment, error) {
+func (s CrmFollowupCommentService) Create(ctx context.Context, followupID, userID, content string) (*models.CrmFollowupComment, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if followupID == "" {
 		return nil, errors.New("followup_id 不能为空")
 	}
@@ -54,19 +61,23 @@ func (s CrmFollowupCommentService) Create(tenantID, followupID, userID, content 
 }
 
 // ListByFollowup 按跟进记录列出评论。
-func (s CrmFollowupCommentService) ListByFollowup(tenantID, followupID string) ([]models.CrmFollowupComment, error) {
+func (s CrmFollowupCommentService) ListByFollowup(ctx context.Context, followupID string) ([]models.CrmFollowupComment, error) {
+
+
 	var items []models.CrmFollowupComment
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("followup_id = ?",  followupID).
+	err := models.MustFor(ctx).Where("followup_id = ?",  followupID).
 		Order("created_at asc, id asc").Find(&items).Error
 	return items, err
 }
 
 // Delete 删除跟进评论（仅评论人可删）。
-func (s CrmFollowupCommentService) Delete(tenantID, userID, id string) error {
+func (s CrmFollowupCommentService) Delete(ctx context.Context, userID, id string) error {
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ? AND user_id = ?",  id,  userID).
+	res := models.MustFor(ctx).Where("id = ? AND user_id = ?",  id,  userID).
 		Delete(&models.CrmFollowupComment{})
 	if res.Error != nil {
 		log.Sugar.Errorw("followup comment delete failed", "err", res.Error)
@@ -85,7 +96,10 @@ type CrmQuickRemarkService struct{}
 func NewCrmQuickRemark() *CrmQuickRemarkService { return &CrmQuickRemarkService{} }
 
 // Create 创建常用备注。UserID 为空表示全员共用。
-func (s CrmQuickRemarkService) Create(tenantID, userID, content string) (*models.CrmQuickRemark, error) {
+func (s CrmQuickRemarkService) Create(ctx context.Context, userID, content string) (*models.CrmQuickRemark, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if strings.TrimSpace(content) == "" {
 		return nil, errors.New("备注内容不能为空")
 	}
@@ -103,7 +117,10 @@ func (s CrmQuickRemarkService) Create(tenantID, userID, content string) (*models
 }
 
 // Update 更新常用备注（仅本人可改自己的备注；全员共用备注需管理员，此处简化为创建人/空归属可改）。
-func (s CrmQuickRemarkService) Update(tenantID, userID, id, content string) error {
+func (s CrmQuickRemarkService) Update(ctx context.Context, userID, id, content string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -127,11 +144,13 @@ func (s CrmQuickRemarkService) Update(tenantID, userID, id, content string) erro
 }
 
 // Delete 删除常用备注。
-func (s CrmQuickRemarkService) Delete(tenantID, userID, id string) error {
+func (s CrmQuickRemarkService) Delete(ctx context.Context, userID, id string) error {
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
-	q := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id)
+	q := models.MustFor(ctx).Where("id = ?",  id)
 	if userID != "" {
 		q = q.Where("user_id = ? OR user_id = ''", userID)
 	}
@@ -147,15 +166,20 @@ func (s CrmQuickRemarkService) Delete(tenantID, userID, id string) error {
 }
 
 // List 列出常用备注：返回个人 + 全员共用的备注（user_id = userID OR user_id = ''）。
-func (s CrmQuickRemarkService) List(tenantID, userID string) ([]models.CrmQuickRemark, error) {
+func (s CrmQuickRemarkService) List(ctx context.Context, userID string) ([]models.CrmQuickRemark, error) {
+
+
 	var items []models.CrmQuickRemark
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("(user_id = ? OR user_id = '')",  userID).
+	err := models.MustFor(ctx).Where("(user_id = ? OR user_id = '')",  userID).
 		Order("sort desc, id desc").Find(&items).Error
 	return items, err
 }
 
 // SetSort 设置常用备注排序。
-func (s CrmQuickRemarkService) SetSort(tenantID, id string, sort int) error {
+func (s CrmQuickRemarkService) SetSort(ctx context.Context, id string, sort int) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -177,7 +201,10 @@ type CrmFollowupViewService struct{}
 func NewCrmFollowupView() *CrmFollowupViewService { return &CrmFollowupViewService{} }
 
 // ListTodayTodo 今日待跟进客户：归属当前用户、NextFollowupAt <= today 且今日尚无跟进记录。
-func (s CrmFollowupViewService) ListTodayTodo(tenantID, userID string, req PageReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmFollowupViewService) ListTodayTodo(ctx context.Context, userID string, req PageReq) ([]models.CrmCustomer, int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	p := req.pager()
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -185,7 +212,7 @@ func (s CrmFollowupViewService) ListTodayTodo(tenantID, userID string, req PageR
 	var doneIDs []string
 	models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND created_at >= ?",  userID,  start).
 		Distinct("customer_id").Pluck("customer_id", &doneIDs)
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("owner_user_id = ? AND next_followup_at <= ?",  userID,  start)
+	db := models.MustFor(ctx).Where("owner_user_id = ? AND next_followup_at <= ?",  userID,  start)
 	if len(doneIDs) > 0 {
 		db = db.Where("id NOT IN ?", doneIDs)
 	}
@@ -200,11 +227,13 @@ func (s CrmFollowupViewService) ListTodayTodo(tenantID, userID string, req PageR
 }
 
 // ListTodayDone 今日已跟进：当前用户今日创建的跟进记录。
-func (s CrmFollowupViewService) ListTodayDone(tenantID, userID string, req PageReq) ([]models.CrmFollowup, int64, error) {
+func (s CrmFollowupViewService) ListTodayDone(ctx context.Context, userID string, req PageReq) ([]models.CrmFollowup, int64, error) {
+
+
 	p := req.pager()
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND created_at >= ?",  userID,  start)
+	db := models.MustFor(ctx).Where("user_id = ? AND created_at >= ?",  userID,  start)
 	var total int64
 	if err := db.Model(&models.CrmFollowup{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -216,12 +245,15 @@ func (s CrmFollowupViewService) ListTodayDone(tenantID, userID string, req PageR
 }
 
 // ListNeverFollowup 从未跟进的客户：归属当前用户且无任何跟进记录。
-func (s CrmFollowupViewService) ListNeverFollowup(tenantID, userID string, req PageReq) ([]models.CrmCustomer, int64, error) {
+func (s CrmFollowupViewService) ListNeverFollowup(ctx context.Context, userID string, req PageReq) ([]models.CrmCustomer, int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	p := req.pager()
 	// 有跟进记录的客户 ID 集合。
 	var hasIDs []string
 	models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tenantID)).Distinct("customer_id").Pluck("customer_id", &hasIDs)
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("owner_user_id = ?",  userID)
+	db := models.MustFor(ctx).Where("owner_user_id = ?",  userID)
 	if len(hasIDs) > 0 {
 		db = db.Where("id NOT IN ?", hasIDs)
 	}

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"strings"
@@ -20,8 +24,10 @@ type CrmSensitiveWordService struct{}
 
 func NewCrmSensitiveWord() *CrmSensitiveWordService { return &CrmSensitiveWordService{} }
 
-func (s CrmSensitiveWordService) List(tenantID, category string, p *app.Pager) ([]models.CrmSensitiveWord, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmSensitiveWordService) List(ctx context.Context, category string, p *app.Pager) ([]models.CrmSensitiveWord, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	if category != "" {
 		db = db.Where("category = ?", category)
 	}
@@ -34,7 +40,10 @@ func (s CrmSensitiveWordService) List(tenantID, category string, p *app.Pager) (
 	return items, total, err
 }
 
-func (s CrmSensitiveWordService) Create(tenantID string, req models.CrmSensitiveWord) (models.CrmSensitiveWord, error) {
+func (s CrmSensitiveWordService) Create(ctx context.Context, req models.CrmSensitiveWord) (models.CrmSensitiveWord, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if strings.TrimSpace(req.Word) == "" {
 		return req, errors.New("敏感词不能为空")
 	}
@@ -71,21 +80,26 @@ func (s CrmSensitiveWordService) Create(tenantID string, req models.CrmSensitive
 	return req, nil
 }
 
-func (s CrmSensitiveWordService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmSensitiveWordService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSensitiveWord{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSensitiveWord{})
 	return res.RowsAffected, res.Error
 }
 
 // Check 检查文本是否命中敏感词，命中则产生告警。
-func (s CrmSensitiveWordService) Check(tenantID, userID, customerID, content string) ([]models.CrmSensitiveAlert, error) {
+func (s CrmSensitiveWordService) Check(ctx context.Context, userID, customerID, content string) ([]models.CrmSensitiveAlert, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if content == "" {
 		return nil, nil
 	}
 	var words []models.CrmSensitiveWord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("status = ?",  "active").Find(&words).Error; err != nil {
+	if err := models.MustFor(ctx).Where("status = ?",  "active").Find(&words).Error; err != nil {
 		return nil, err
 	}
 	if len(words) == 0 {
@@ -127,8 +141,10 @@ type CrmSensitiveAlertService struct{}
 
 func NewCrmSensitiveAlert() *CrmSensitiveAlertService { return &CrmSensitiveAlertService{} }
 
-func (s CrmSensitiveAlertService) List(tenantID, status string, p *app.Pager) ([]models.CrmSensitiveAlert, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmSensitiveAlertService) List(ctx context.Context, status string, p *app.Pager) ([]models.CrmSensitiveAlert, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -141,14 +157,16 @@ func (s CrmSensitiveAlertService) List(tenantID, status string, p *app.Pager) ([
 	return items, total, err
 }
 
-func (s CrmSensitiveAlertService) Handle(tenantID string, ids []string, status string) (int64, error) {
+func (s CrmSensitiveAlertService) Handle(ctx context.Context, ids []string, status string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
 	if status != "handled" && status != "ignored" {
 		return 0, errors.New("status 只能为 handled 或 ignored")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ? AND status = ?",  ids,  "pending").Update("status", status)
+	res := models.MustFor(ctx).Where("id IN ? AND status = ?",  ids,  "pending").Update("status", status)
 	return res.RowsAffected, res.Error
 }
 
@@ -160,7 +178,10 @@ func NewCrmInheritance() *CrmInheritanceService { return &CrmInheritanceService{
 
 // Execute 执行客户继承：把 fromUser 的客户批量转移给 toUser，并记录继承日志。
 // 同时转移客户归属、跟进记录、商机归属。
-func (s CrmInheritanceService) Execute(tenantID, fromUserID, toUserID, inheritType, remark string) (models.CrmInheritance, error) {
+func (s CrmInheritanceService) Execute(ctx context.Context, fromUserID, toUserID, inheritType, remark string) (models.CrmInheritance, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if fromUserID == "" || toUserID == "" {
 		return models.CrmInheritance{}, errors.New("from_user_id 和 to_user_id 不能为空")
 	}
@@ -175,7 +196,7 @@ func (s CrmInheritanceService) Execute(tenantID, fromUserID, toUserID, inheritTy
 	}
 	// 查询原归属客户
 	var customers []models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("owner_user_id = ? AND deleted_at IS NULL",  fromUserID).Find(&customers).Error; err != nil {
+	if err := models.MustFor(ctx).Where("owner_user_id = ? AND deleted_at IS NULL",  fromUserID).Find(&customers).Error; err != nil {
 		return models.CrmInheritance{}, err
 	}
 	if len(customers) == 0 {
@@ -215,8 +236,10 @@ func (s CrmInheritanceService) Execute(tenantID, fromUserID, toUserID, inheritTy
 	return rec, err
 }
 
-func (s CrmInheritanceService) List(tenantID string, p *app.Pager) ([]models.CrmInheritance, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmInheritanceService) List(ctx context.Context, p *app.Pager) ([]models.CrmInheritance, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	var total int64
 	if err := db.Model(&models.CrmInheritance{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -232,8 +255,10 @@ type CrmCustomerLossService struct{}
 
 func NewCrmCustomerLoss() *CrmCustomerLossService { return &CrmCustomerLossService{} }
 
-func (s CrmCustomerLossService) List(tenantID, lossType, status string, p *app.Pager) ([]models.CrmCustomerLoss, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmCustomerLossService) List(ctx context.Context, lossType, status string, p *app.Pager) ([]models.CrmCustomerLoss, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	if lossType != "" {
 		db = db.Where("loss_type = ?", lossType)
 	}
@@ -249,20 +274,25 @@ func (s CrmCustomerLossService) List(tenantID, lossType, status string, p *app.P
 	return items, total, err
 }
 
-func (s CrmCustomerLossService) Handle(tenantID string, ids []string, status string) (int64, error) {
+func (s CrmCustomerLossService) Handle(ctx context.Context, ids []string, status string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
 	if status != "handled" && status != "ignored" {
 		return 0, errors.New("status 只能为 handled 或 ignored")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ? AND status = ?",  ids,  "pending").Update("status", status)
+	res := models.MustFor(ctx).Where("id IN ? AND status = ?",  ids,  "pending").Update("status", status)
 	return res.RowsAffected, res.Error
 }
 
 // RecordLoss 记录客户流失事件（供回调/定时任务调用）。
 // 去重：同一客户同一类型且状态为 pending 时不重复记录。
-func (s CrmCustomerLossService) RecordLoss(tenantID, customerID, customerName, userID, lossType string, days int) error {
+func (s CrmCustomerLossService) RecordLoss(ctx context.Context, customerID, customerName, userID, lossType string, days int) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if tenantID == "" || customerID == "" {
 		return errors.New("tenant_id 和 customer_id 不能为空")
 	}
@@ -292,8 +322,10 @@ type CrmReplyTimeoutService struct{}
 
 func NewCrmReplyTimeout() *CrmReplyTimeoutService { return &CrmReplyTimeoutService{} }
 
-func (s CrmReplyTimeoutService) List(tenantID, status string, p *app.Pager) ([]models.CrmReplyTimeout, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmReplyTimeoutService) List(ctx context.Context, status string, p *app.Pager) ([]models.CrmReplyTimeout, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -306,20 +338,25 @@ func (s CrmReplyTimeoutService) List(tenantID, status string, p *app.Pager) ([]m
 	return items, total, err
 }
 
-func (s CrmReplyTimeoutService) Handle(tenantID string, ids []string, status string) (int64, error) {
+func (s CrmReplyTimeoutService) Handle(ctx context.Context, ids []string, status string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
 	if status != "replied" && status != "escalated" {
 		return 0, errors.New("status 只能为 replied 或 escalated")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ? AND status = ?",  ids,  "pending").Update("status", status)
+	res := models.MustFor(ctx).Where("id IN ? AND status = ?",  ids,  "pending").Update("status", status)
 	return res.RowsAffected, res.Error
 }
 
 // RecordTimeout 记录超时未回复事件。
 // 去重：同一客户同一渠道且状态为 pending 时不重复记录。
-func (s CrmReplyTimeoutService) RecordTimeout(tenantID, userID, customerID, channel string, lastMsgAt time.Time, timeoutMins int) error {
+func (s CrmReplyTimeoutService) RecordTimeout(ctx context.Context, userID, customerID, channel string, lastMsgAt time.Time, timeoutMins int) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if tenantID == "" || customerID == "" {
 		return errors.New("tenant_id 和 customer_id 不能为空")
 	}
@@ -352,8 +389,10 @@ type CrmGroupSopService struct{}
 
 func NewCrmGroupSop() *CrmGroupSopService { return &CrmGroupSopService{} }
 
-func (s CrmGroupSopService) List(tenantID string, p *app.Pager) ([]models.CrmGroupSop, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmGroupSopService) List(ctx context.Context, p *app.Pager) ([]models.CrmGroupSop, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	var total int64
 	if err := db.Model(&models.CrmGroupSop{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -363,13 +402,18 @@ func (s CrmGroupSopService) List(tenantID string, p *app.Pager) ([]models.CrmGro
 	return items, total, err
 }
 
-func (s CrmGroupSopService) Get(tenantID, id string) (models.CrmGroupSop, error) {
+func (s CrmGroupSopService) Get(ctx context.Context, id string) (models.CrmGroupSop, error) {
+
+
 	var item models.CrmGroupSop
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	return item, err
 }
 
-func (s CrmGroupSopService) Create(tenantID string, req models.CrmGroupSop) (models.CrmGroupSop, error) {
+func (s CrmGroupSopService) Create(ctx context.Context, req models.CrmGroupSop) (models.CrmGroupSop, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if strings.TrimSpace(req.Name) == "" {
 		return req, errors.New("规则名称不能为空")
 	}
@@ -394,14 +438,16 @@ func (s CrmGroupSopService) Create(tenantID string, req models.CrmGroupSop) (mod
 	return req, nil
 }
 
-func (s CrmGroupSopService) Update(tenantID, id string, req models.CrmGroupSop) (models.CrmGroupSop, error) {
+func (s CrmGroupSopService) Update(ctx context.Context, id string, req models.CrmGroupSop) (models.CrmGroupSop, error) {
+
+
 	if !validTriggerTypes[req.TriggerType] {
 		return req, errors.New("trigger_type 只能为 daily/new_member/keyword")
 	}
 	if !validActionTypes[req.ActionType] {
 		return req, errors.New("action_type 只能为 send_message/send_material")
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(map[string]any{
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(map[string]any{
 		"name":         req.Name,
 		"group_ids":    req.GroupIDs,
 		"trigger_type": req.TriggerType,
@@ -412,19 +458,23 @@ func (s CrmGroupSopService) Update(tenantID, id string, req models.CrmGroupSop) 
 	}).Error; err != nil {
 		return req, err
 	}
-	return s.Get(tenantID, id)
+	return s.Get(ctx, id)
 }
 
-func (s CrmGroupSopService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmGroupSopService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmGroupSop{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmGroupSop{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmGroupSopService) ListTasks(tenantID, status string, p *app.Pager) ([]models.CrmGroupSopTask, int64, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmGroupSopService) ListTasks(ctx context.Context, status string, p *app.Pager) ([]models.CrmGroupSopTask, int64, error) {
+
+
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -437,10 +487,12 @@ func (s CrmGroupSopService) ListTasks(tenantID, status string, p *app.Pager) ([]
 	return items, total, err
 }
 
-func (s CrmGroupSopService) DoneTask(tenantID, id string) error {
+func (s CrmGroupSopService) DoneTask(ctx context.Context, id string) error {
+
+
 	// 校验状态：只允许 pending 标记为 done
 	now := time.Now()
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ? AND status = ?",  id,  "pending").
+	res := models.MustFor(ctx).Where("id = ? AND status = ?",  id,  "pending").
 		Updates(map[string]any{"status": "done", "done_at": &now})
 	if res.Error != nil {
 		return res.Error

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"strings"
@@ -44,7 +48,10 @@ type CrmAftersalesService struct{}
 func NewCrmAftersales() *CrmAftersalesService { return &CrmAftersalesService{} }
 
 // Create 创建售后单，自动生成 No。
-func (s CrmAftersalesService) Create(tenantID string, a *models.CrmAftersales) error {
+func (s CrmAftersalesService) Create(ctx context.Context, a *models.CrmAftersales) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if a == nil {
 		return errors.New("售后单不能为空")
 	}
@@ -68,12 +75,15 @@ func (s CrmAftersalesService) Create(tenantID string, a *models.CrmAftersales) e
 }
 
 // Update 更新售后单。
-func (s CrmAftersalesService) Update(tenantID, id string, a *models.CrmAftersales) error {
+func (s CrmAftersalesService) Update(ctx context.Context, id string, a *models.CrmAftersales) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if a == nil {
 		return errors.New("售后单不能为空")
 	}
 	var exist models.CrmAftersales
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&exist).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&exist).Error; err != nil {
 		return errors.New("售后单不存在")
 	}
 	upd := updatesCRM(map[string]any{
@@ -94,23 +104,27 @@ func (s CrmAftersalesService) Update(tenantID, id string, a *models.CrmAftersale
 }
 
 // Delete 删除售后单。
-func (s CrmAftersalesService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmAftersalesService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmAftersales{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmAftersales{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询售后单。
-func (s CrmAftersalesService) Query(tenantID string, req AftersalesQueryReq) ([]models.CrmAftersales, int64, error) {
+func (s CrmAftersalesService) Query(ctx context.Context, req AftersalesQueryReq) ([]models.CrmAftersales, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 10
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.Status != "" {
 		db = db.Where("status = ?", req.Status)
 	}
@@ -135,12 +149,15 @@ func (s CrmAftersalesService) Query(tenantID string, req AftersalesQueryReq) ([]
 }
 
 // ChangeStatus 修改售后单状态，校验状态流转。
-func (s CrmAftersalesService) ChangeStatus(tenantID, id, status string) error {
+func (s CrmAftersalesService) ChangeStatus(ctx context.Context, id, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if _, ok := aftersalesStatusFlow[status]; !ok {
 		return errors.New("无效的售后状态")
 	}
 	var a models.CrmAftersales
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&a).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&a).Error; err != nil {
 		return errors.New("售后单不存在")
 	}
 	if a.Status == status {

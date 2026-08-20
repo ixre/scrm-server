@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"strings"
@@ -25,7 +29,10 @@ type CrmAiAnalysisService struct{}
 func NewCrmAiAnalysis() *CrmAiAnalysisService { return &CrmAiAnalysisService{} }
 
 // Create 创建分析结果。
-func (s CrmAiAnalysisService) Create(tenantID string, a *models.CrmAiAnalysis) error {
+func (s CrmAiAnalysisService) Create(ctx context.Context, a *models.CrmAiAnalysis) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if a == nil {
 		return errors.New("分析记录不能为空")
 	}
@@ -44,23 +51,27 @@ func (s CrmAiAnalysisService) Create(tenantID string, a *models.CrmAiAnalysis) e
 }
 
 // Delete 删除分析记录。
-func (s CrmAiAnalysisService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmAiAnalysisService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmAiAnalysis{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmAiAnalysis{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询分析记录。
-func (s CrmAiAnalysisService) Query(tenantID string, req AiQueryReq) ([]models.CrmAiAnalysis, int64, error) {
+func (s CrmAiAnalysisService) Query(ctx context.Context, req AiQueryReq) ([]models.CrmAiAnalysis, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -81,33 +92,37 @@ func (s CrmAiAnalysisService) Query(tenantID string, req AiQueryReq) ([]models.C
 }
 
 // GetByCustomer 列出客户的所有分析记录。
-func (s CrmAiAnalysisService) GetByCustomer(tenantID, customerID string) ([]models.CrmAiAnalysis, error) {
+func (s CrmAiAnalysisService) GetByCustomer(ctx context.Context, customerID string) ([]models.CrmAiAnalysis, error) {
+
+
 	var items []models.CrmAiAnalysis
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID).
+	err := models.MustFor(ctx).Where("customer_id = ?",  customerID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }
 
 // AnalyzeCustomer 触发客户分析（简化版：基于跟进记录+消费记录生成摘要，创建分析结果）。
-func (s CrmAiAnalysisService) AnalyzeCustomer(tenantID, customerID string) error {
+func (s CrmAiAnalysisService) AnalyzeCustomer(ctx context.Context, customerID string) error {
+
+
 	if customerID == "" {
 		return errors.New("customer_id 不能为空")
 	}
 	// 校验客户存在。
 	var cust models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  customerID).First(&cust).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  customerID).First(&cust).Error; err != nil {
 		return fmt.Errorf("客户不存在: %w", err)
 	}
 
 	// 汇总跟进记录。
 	var followups []models.CrmFollowup
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID).
+	models.MustFor(ctx).Where("customer_id = ?",  customerID).
 		Order("id desc").Limit(20).Find(&followups)
 	followupCount := len(followups)
 
 	// 汇总消费记录。
 	var consumes []models.CrmConsume
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ? AND status = ?",  customerID,  "normal").
+	models.MustFor(ctx).Where("customer_id = ? AND status = ?",  customerID,  "normal").
 		Order("id desc").Limit(20).Find(&consumes)
 	var totalAmount float64
 	for _, c := range consumes {
@@ -147,11 +162,14 @@ func (s CrmAiAnalysisService) AnalyzeCustomer(tenantID, customerID string) error
 		Score:      score,
 		Status:     "completed",
 	}
-	return s.Create(tenantID, a)
+	return s.Create(ctx, a)
 }
 
 // Stats 按类型统计分析数量。
-func (s CrmAiAnalysisService) Stats(tenantID string) (map[string]int64, error) {
+func (s CrmAiAnalysisService) Stats(ctx context.Context) (map[string]int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	type row struct {
 		Type  string
 		Count int64

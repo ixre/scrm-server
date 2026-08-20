@@ -15,7 +15,7 @@ import (
 // ---- 秒杀 ----
 
 func crmSeckillCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -23,11 +23,11 @@ func crmSeckillCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmSeckill().Create(t, req)
+	return services.NewCrmSeckill().Create(ctx, req)
 }
 
 func crmSeckillQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func crmSeckillQuery(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmSeckill().Query(t, req.Status, req.Pager)
+	items, total, err := services.NewCrmSeckill().Query(ctx, req.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func crmSeckillQuery(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmSeckillGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +56,11 @@ func crmSeckillGet(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmSeckill().Get(t, req.ID)
+	return services.NewCrmSeckill().Get(ctx, req.ID)
 }
 
 func crmSeckillDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +70,11 @@ func crmSeckillDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmSeckill().Delete(t, req.IDs)
+	return services.NewCrmSeckill().Delete(ctx, req.IDs)
 }
 
 func crmSeckillGrab(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +85,11 @@ func crmSeckillGrab(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmSeckill().Grab(t, req.SeckillID, req.CustomerID)
+	return services.NewCrmSeckill().Grab(ctx, req.SeckillID, req.CustomerID)
 }
 
 func crmSeckillListRecords(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func crmSeckillListRecords(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmSeckill().ListRecords(t, req.SeckillID, req.Status, req.Pager)
+	items, total, err := services.NewCrmSeckill().ListRecords(ctx, req.SeckillID, req.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func crmSeckillListRecords(ctx context.Context, _, _ string, params json.RawMess
 // ---- 抽奖 ----
 
 func crmLotteryCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +119,11 @@ func crmLotteryCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLottery().Create(t, req)
+	return services.NewCrmLottery().Create(ctx, req)
 }
 
 func crmLotteryQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func crmLotteryQuery(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmLottery().Query(t, req.Status, req.Pager)
+	items, total, err := services.NewCrmLottery().Query(ctx, req.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func crmLotteryQuery(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmLotteryGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +152,11 @@ func crmLotteryGet(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLottery().Get(t, req.ID)
+	return services.NewCrmLottery().Get(ctx, req.ID)
 }
 
 func crmLotteryDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +166,11 @@ func crmLotteryDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLottery().Delete(t, req.IDs)
+	return services.NewCrmLottery().Delete(ctx, req.IDs)
 }
 
 func crmLotteryDraw(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -181,11 +181,11 @@ func crmLotteryDraw(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLottery().Draw(t, req.LotteryID, req.CustomerID)
+	return services.NewCrmLottery().Draw(ctx, req.LotteryID, req.CustomerID)
 }
 
 func crmLotteryListRecords(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func crmLotteryListRecords(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmLottery().ListRecords(t, req.LotteryID, req.Pager)
+	items, total, err := services.NewCrmLottery().ListRecords(ctx, req.LotteryID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func crmLotteryListRecords(ctx context.Context, _, _ string, params json.RawMess
 // ---- Phase 6 报表扩展 ----
 
 func crmReportSalesRanking(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -214,33 +214,33 @@ func crmReportSalesRanking(ctx context.Context, _, _ string, params json.RawMess
 		YearMonth string `json:"year_month"`
 	}
 	_ = Bind(params, &req)
-	return services.NewCrmReport().SalesRanking(t, req.YearMonth)
+	return services.NewCrmReport().SalesRanking(ctx, req.YearMonth)
 }
 
 func crmReportCustomerLifecycle(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().CustomerLifecycle(t)
+	return services.NewCrmReport().CustomerLifecycle(ctx)
 }
 
 func crmReportChannelCAC(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().ChannelCAC(t)
+	return services.NewCrmReport().ChannelCAC(ctx)
 }
 
 // ---- Phase 6 客户导入导出 ----
 
 func crmCustomerExport(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	buf, filename, err := services.NewCrmCustomer().Export(t)
+	buf, filename, err := services.NewCrmCustomer().Export(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func crmCustomerExport(ctx context.Context, _, _ string, _ json.RawMessage) (any
 }
 
 func crmCustomerBatchImport(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func crmCustomerBatchImport(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	success, fail, err := services.NewCrmCustomer().BatchImport(t, uid, req.Rows)
+	success, fail, err := services.NewCrmCustomer().BatchImport(ctx, uid, req.Rows)
 	if err != nil {
 		return nil, err
 	}

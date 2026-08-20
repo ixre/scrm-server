@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 	"time"
@@ -25,7 +29,10 @@ type CrmCallRecordService struct{}
 func NewCrmCallRecord() *CrmCallRecordService { return &CrmCallRecordService{} }
 
 // Create 创建通话记录。
-func (s CrmCallRecordService) Create(tenantID string, r *models.CrmCallRecord) error {
+func (s CrmCallRecordService) Create(ctx context.Context, r *models.CrmCallRecord) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("通话记录不能为空")
 	}
@@ -39,7 +46,9 @@ func (s CrmCallRecordService) Create(tenantID string, r *models.CrmCallRecord) e
 }
 
 // Update 更新通话记录。
-func (s CrmCallRecordService) Update(tenantID, id string, r *models.CrmCallRecord) error {
+func (s CrmCallRecordService) Update(ctx context.Context, id string, r *models.CrmCallRecord) error {
+
+
 	if r == nil {
 		return errors.New("通话记录不能为空")
 	}
@@ -52,27 +61,31 @@ func (s CrmCallRecordService) Update(tenantID, id string, r *models.CrmCallRecor
 		"remark":        r.Remark,
 	}
 	updatesCRM(m, "user_id", "customer_id", "contact_id")
-	return models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
 }
 
 // Delete 删除通话记录。
-func (s CrmCallRecordService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmCallRecordService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmCallRecord{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmCallRecord{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询通话记录。
-func (s CrmCallRecordService) Query(tenantID string, req CallRecordQueryReq) ([]models.CrmCallRecord, int64, error) {
+func (s CrmCallRecordService) Query(ctx context.Context, req CallRecordQueryReq) ([]models.CrmCallRecord, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.UserID != "" {
 		db = db.Where("user_id = ?", req.UserID)
 	}
@@ -95,7 +108,10 @@ func (s CrmCallRecordService) Query(tenantID string, req CallRecordQueryReq) ([]
 }
 
 // Stats 通话统计（总通话数、总时长、已接通数）。
-func (s CrmCallRecordService) Stats(tenantID string) (map[string]any, error) {
+func (s CrmCallRecordService) Stats(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var totalCount int64
 	if err := models.DB.Model(&models.CrmCallRecord{}).Scopes(models.TenantScope(tenantID)).Count(&totalCount).Error; err != nil {
 		return nil, err

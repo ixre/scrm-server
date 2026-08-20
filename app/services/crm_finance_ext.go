@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"strings"
@@ -28,7 +32,10 @@ type CrmIncomeCategoryService struct{}
 func NewCrmIncomeCategory() *CrmIncomeCategoryService { return &CrmIncomeCategoryService{} }
 
 // Create 创建收支类别。
-func (s CrmIncomeCategoryService) Create(tenantID string, c *models.CrmIncomeCategory) error {
+func (s CrmIncomeCategoryService) Create(ctx context.Context, c *models.CrmIncomeCategory) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if c == nil {
 		return errors.New("类别不能为空")
 	}
@@ -45,7 +52,9 @@ func (s CrmIncomeCategoryService) Create(tenantID string, c *models.CrmIncomeCat
 }
 
 // Update 更新收支类别。
-func (s CrmIncomeCategoryService) Update(tenantID, id string, c *models.CrmIncomeCategory) error {
+func (s CrmIncomeCategoryService) Update(ctx context.Context, id string, c *models.CrmIncomeCategory) error {
+
+
 	if c == nil {
 		return errors.New("类别不能为空")
 	}
@@ -54,30 +63,34 @@ func (s CrmIncomeCategoryService) Update(tenantID, id string, c *models.CrmIncom
 		"type":   c.Type,
 		"status": c.Status,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除收支类别。
-func (s CrmIncomeCategoryService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmIncomeCategoryService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmIncomeCategory{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmIncomeCategory{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询收支类别（按 type）。
-func (s CrmIncomeCategoryService) Query(tenantID string, req IncomeCategoryQueryReq) ([]models.CrmIncomeCategory, int64, error) {
+func (s CrmIncomeCategoryService) Query(ctx context.Context, req IncomeCategoryQueryReq) ([]models.CrmIncomeCategory, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if t := strings.TrimSpace(req.Type); t != "" {
 		db = db.Where("type = ?", t)
 	}
@@ -118,7 +131,10 @@ func genOtherIncomeNo(tenantID string) string {
 }
 
 // Create 创建其他收入单（自动生成 No）。
-func (s CrmOtherIncomeService) Create(tenantID string, r *models.CrmOtherIncome) error {
+func (s CrmOtherIncomeService) Create(ctx context.Context, r *models.CrmOtherIncome) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("收入单不能为空")
 	}
@@ -138,7 +154,9 @@ func (s CrmOtherIncomeService) Create(tenantID string, r *models.CrmOtherIncome)
 }
 
 // Update 更新其他收入单。
-func (s CrmOtherIncomeService) Update(tenantID, id string, r *models.CrmOtherIncome) error {
+func (s CrmOtherIncomeService) Update(ctx context.Context, id string, r *models.CrmOtherIncome) error {
+
+
 	if r == nil {
 		return errors.New("收入单不能为空")
 	}
@@ -152,30 +170,34 @@ func (s CrmOtherIncomeService) Update(tenantID, id string, r *models.CrmOtherInc
 		"status":      r.Status,
 	}
 	updatesCRM(m, "category_id", "account_id", "customer_id")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除其他收入单。
-func (s CrmOtherIncomeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmOtherIncomeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmOtherIncome{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmOtherIncome{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询其他收入单（按 status/category_id）。
-func (s CrmOtherIncomeService) Query(tenantID string, req OtherIncomeQueryReq) ([]models.CrmOtherIncome, int64, error) {
+func (s CrmOtherIncomeService) Query(ctx context.Context, req OtherIncomeQueryReq) ([]models.CrmOtherIncome, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if st := strings.TrimSpace(req.Status); st != "" {
 		db = db.Where("status = ?", st)
 	}
@@ -192,7 +214,10 @@ func (s CrmOtherIncomeService) Query(tenantID string, req OtherIncomeQueryReq) (
 }
 
 // ChangeStatus 修改其他收入单状态；confirmed 时增加账户余额，cancelled 时回滚。
-func (s CrmOtherIncomeService) ChangeStatus(tenantID, id, status string) error {
+func (s CrmOtherIncomeService) ChangeStatus(ctx context.Context, id, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}
@@ -248,7 +273,10 @@ func genOtherExpenseNo(tenantID string) string {
 }
 
 // Create 创建其他支出单（自动生成 No）。
-func (s CrmOtherExpenseService) Create(tenantID string, r *models.CrmOtherExpense) error {
+func (s CrmOtherExpenseService) Create(ctx context.Context, r *models.CrmOtherExpense) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("支出单不能为空")
 	}
@@ -268,7 +296,9 @@ func (s CrmOtherExpenseService) Create(tenantID string, r *models.CrmOtherExpens
 }
 
 // Update 更新其他支出单。
-func (s CrmOtherExpenseService) Update(tenantID, id string, r *models.CrmOtherExpense) error {
+func (s CrmOtherExpenseService) Update(ctx context.Context, id string, r *models.CrmOtherExpense) error {
+
+
 	if r == nil {
 		return errors.New("支出单不能为空")
 	}
@@ -282,30 +312,34 @@ func (s CrmOtherExpenseService) Update(tenantID, id string, r *models.CrmOtherEx
 		"status":      r.Status,
 	}
 	updatesCRM(m, "category_id", "account_id", "customer_id")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除其他支出单。
-func (s CrmOtherExpenseService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmOtherExpenseService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmOtherExpense{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmOtherExpense{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询其他支出单（按 status/category_id）。
-func (s CrmOtherExpenseService) Query(tenantID string, req OtherExpenseQueryReq) ([]models.CrmOtherExpense, int64, error) {
+func (s CrmOtherExpenseService) Query(ctx context.Context, req OtherExpenseQueryReq) ([]models.CrmOtherExpense, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if st := strings.TrimSpace(req.Status); st != "" {
 		db = db.Where("status = ?", st)
 	}
@@ -322,7 +356,10 @@ func (s CrmOtherExpenseService) Query(tenantID string, req OtherExpenseQueryReq)
 }
 
 // ChangeStatus 修改其他支出单状态；confirmed 时扣减账户余额，cancelled 时回滚。
-func (s CrmOtherExpenseService) ChangeStatus(tenantID, id, status string) error {
+func (s CrmOtherExpenseService) ChangeStatus(ctx context.Context, id, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}
@@ -375,7 +412,10 @@ func genFundTransferNo(tenantID string) string {
 }
 
 // Create 创建资金转账单（自动生成 No）。
-func (s CrmFundTransferService) Create(tenantID string, r *models.CrmFundTransfer) error {
+func (s CrmFundTransferService) Create(ctx context.Context, r *models.CrmFundTransfer) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("转账单不能为空")
 	}
@@ -398,7 +438,9 @@ func (s CrmFundTransferService) Create(tenantID string, r *models.CrmFundTransfe
 }
 
 // Update 更新资金转账单。
-func (s CrmFundTransferService) Update(tenantID, id string, r *models.CrmFundTransfer) error {
+func (s CrmFundTransferService) Update(ctx context.Context, id string, r *models.CrmFundTransfer) error {
+
+
 	if r == nil {
 		return errors.New("转账单不能为空")
 	}
@@ -411,30 +453,34 @@ func (s CrmFundTransferService) Update(tenantID, id string, r *models.CrmFundTra
 		"status":       r.Status,
 	}
 	updatesCRM(m, "from_account", "to_account")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除资金转账单。
-func (s CrmFundTransferService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmFundTransferService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmFundTransfer{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmFundTransfer{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询资金转账单。
-func (s CrmFundTransferService) Query(tenantID string, req FundTransferQueryReq) ([]models.CrmFundTransfer, int64, error) {
+func (s CrmFundTransferService) Query(ctx context.Context, req FundTransferQueryReq) ([]models.CrmFundTransfer, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if st := strings.TrimSpace(req.Status); st != "" {
 		db = db.Where("status = ?", st)
 	}
@@ -448,7 +494,10 @@ func (s CrmFundTransferService) Query(tenantID string, req FundTransferQueryReq)
 }
 
 // ChangeStatus 修改资金转账单状态；confirmed 时扣减 FromAccount 余额、增加 ToAccount 余额。
-func (s CrmFundTransferService) ChangeStatus(tenantID, id, status string) error {
+func (s CrmFundTransferService) ChangeStatus(ctx context.Context, id, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}

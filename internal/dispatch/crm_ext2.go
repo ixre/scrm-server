@@ -13,7 +13,7 @@ import (
 // ---------- 项目事件 ----------
 
 func crmProjectEventList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -23,11 +23,11 @@ func crmProjectEventList(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmProjectEvent().ListByProject(t, req.ProjectID)
+	return services.NewCrmProjectEvent().ListByProject(ctx, req.ProjectID)
 }
 
 func crmProjectEventCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -35,11 +35,11 @@ func crmProjectEventCreate(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &e); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmProjectEvent().Create(t, &e)
+	return ok, services.NewCrmProjectEvent().Create(ctx, &e)
 }
 
 func crmProjectEventUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,11 +47,11 @@ func crmProjectEventUpdate(ctx context.Context, _, id string, params json.RawMes
 	if err := Bind(params, &e); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmProjectEvent().Update(t, id, &e)
+	return ok, services.NewCrmProjectEvent().Update(ctx, id, &e)
 }
 
 func crmProjectEventDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -65,23 +65,23 @@ func crmProjectEventDelete(ctx context.Context, _, _ string, params json.RawMess
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmProjectEvent().Delete(t, req.IDs)
+		_, e := services.NewCrmProjectEvent().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
 
 func crmProjectEventCompleteEvent(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmProjectEvent().CompleteEvent(t, id)
+	return ok, services.NewCrmProjectEvent().CompleteEvent(ctx, id)
 }
 
 // ---------- 项目文档 ----------
 
 func crmProjectFileList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,11 +91,11 @@ func crmProjectFileList(ctx context.Context, _, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmProjectFile().ListByProject(t, req.ProjectID)
+	return services.NewCrmProjectFile().ListByProject(ctx, req.ProjectID)
 }
 
 func crmProjectFileCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,11 +104,11 @@ func crmProjectFileCreate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &f); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmProjectFile().Create(t, u, &f)
+	return ok, services.NewCrmProjectFile().Create(ctx, u, &f)
 }
 
 func crmProjectFileDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func crmProjectFileDelete(ctx context.Context, _, _ string, params json.RawMessa
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmProjectFile().Delete(t, req.IDs)
+		_, e := services.NewCrmProjectFile().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
@@ -130,7 +130,7 @@ func crmProjectFileDelete(ctx context.Context, _, _ string, params json.RawMessa
 // ---------- 供应商 ----------
 
 func crmSupplierList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func crmSupplierList(ctx context.Context, _, _ string, params json.RawMessage) (
 		return nil, err
 	}
 	q := services.SupplierQueryReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
-	items, total, err := services.NewCrmSupplier().Query(t, q)
+	items, total, err := services.NewCrmSupplier().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func crmSupplierList(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmSupplierCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -158,11 +158,11 @@ func crmSupplierCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &sup); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmSupplier().Create(t, &sup)
+	return ok, services.NewCrmSupplier().Create(ctx, &sup)
 }
 
 func crmSupplierUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -170,11 +170,11 @@ func crmSupplierUpdate(ctx context.Context, _, id string, params json.RawMessage
 	if err := Bind(params, &sup); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmSupplier().Update(t, id, &sup)
+	return ok, services.NewCrmSupplier().Update(ctx, id, &sup)
 }
 
 func crmSupplierDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func crmSupplierDelete(ctx context.Context, _, _ string, params json.RawMessage)
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmSupplier().Delete(t, req.IDs)
+		_, e := services.NewCrmSupplier().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
@@ -196,7 +196,7 @@ func crmSupplierDelete(ctx context.Context, _, _ string, params json.RawMessage)
 // ---------- 采购订单 ----------
 
 func crmPurchaseOrderList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func crmPurchaseOrderList(ctx context.Context, _, _ string, params json.RawMessa
 		return nil, err
 	}
 	q := services.PurchaseOrderQueryReq{Page: req.Page, PageSize: req.PageSize, SupplierID: req.SupplierID, Status: req.Status, Keyword: req.Keyword}
-	items, total, err := services.NewCrmPurchaseOrder().Query(t, q)
+	items, total, err := services.NewCrmPurchaseOrder().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func crmPurchaseOrderList(ctx context.Context, _, _ string, params json.RawMessa
 }
 
 func crmPurchaseOrderCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -226,11 +226,11 @@ func crmPurchaseOrderCreate(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &o); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmPurchaseOrder().Create(t, &o)
+	return ok, services.NewCrmPurchaseOrder().Create(ctx, &o)
 }
 
 func crmPurchaseOrderUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -238,11 +238,11 @@ func crmPurchaseOrderUpdate(ctx context.Context, _, id string, params json.RawMe
 	if err := Bind(params, &o); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmPurchaseOrder().Update(t, id, &o)
+	return ok, services.NewCrmPurchaseOrder().Update(ctx, id, &o)
 }
 
 func crmPurchaseOrderDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -256,13 +256,13 @@ func crmPurchaseOrderDelete(ctx context.Context, _, _ string, params json.RawMes
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmPurchaseOrder().Delete(t, req.IDs)
+		_, e := services.NewCrmPurchaseOrder().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
 
 func crmPurchaseOrderChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -272,13 +272,13 @@ func crmPurchaseOrderChangeStatus(ctx context.Context, _, id string, params json
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmPurchaseOrder().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmPurchaseOrder().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---------- 考勤 ----------
 
 func crmAttendanceList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func crmAttendanceList(ctx context.Context, _, _ string, params json.RawMessage)
 		return nil, err
 	}
 	q := services.AttendanceQueryReq{Page: req.Page, PageSize: req.PageSize, UserID: req.UserID, Type: req.Type}
-	items, total, err := services.NewCrmAttendance().Query(t, q)
+	items, total, err := services.NewCrmAttendance().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func crmAttendanceList(ctx context.Context, _, _ string, params json.RawMessage)
 }
 
 func crmAttendanceCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -308,13 +308,13 @@ func crmAttendanceCreate(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &a); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmAttendance().Create(t, u, &a)
+	return ok, services.NewCrmAttendance().Create(ctx, u, &a)
 }
 
 // ---------- 请假 ----------
 
 func crmLeaveList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +327,7 @@ func crmLeaveList(ctx context.Context, _, _ string, params json.RawMessage) (any
 		return nil, err
 	}
 	q := services.LeaveQueryReq{Page: req.Page, PageSize: req.PageSize, UserID: req.UserID, Status: req.Status}
-	items, total, err := services.NewCrmLeave().Query(t, q)
+	items, total, err := services.NewCrmLeave().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +335,7 @@ func crmLeaveList(ctx context.Context, _, _ string, params json.RawMessage) (any
 }
 
 func crmLeaveCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -344,11 +344,11 @@ func crmLeaveCreate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &l); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmLeave().Create(t, u, &l)
+	return ok, services.NewCrmLeave().Create(ctx, u, &l)
 }
 
 func crmLeaveUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -356,11 +356,11 @@ func crmLeaveUpdate(ctx context.Context, _, id string, params json.RawMessage) (
 	if err := Bind(params, &l); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmLeave().Update(t, id, &l)
+	return ok, services.NewCrmLeave().Update(ctx, id, &l)
 }
 
 func crmLeaveDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -374,31 +374,31 @@ func crmLeaveDelete(ctx context.Context, _, _ string, params json.RawMessage) (a
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmLeave().Delete(t, req.IDs)
+		_, e := services.NewCrmLeave().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
 
 func crmLeaveApprove(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmLeave().Approve(t, id)
+	return ok, services.NewCrmLeave().Approve(ctx, id)
 }
 
 func crmLeaveReject(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmLeave().Reject(t, id)
+	return ok, services.NewCrmLeave().Reject(ctx, id)
 }
 
 // ---------- 自动分配规则 ----------
 
 func crmAutoAllocationList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +410,7 @@ func crmAutoAllocationList(ctx context.Context, _, _ string, params json.RawMess
 		return nil, err
 	}
 	q := services.AutoAllocationQueryReq{Page: req.Page, PageSize: req.PageSize, EntityType: req.EntityType}
-	items, total, err := services.NewCrmAutoAllocation().Query(t, q)
+	items, total, err := services.NewCrmAutoAllocation().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +418,7 @@ func crmAutoAllocationList(ctx context.Context, _, _ string, params json.RawMess
 }
 
 func crmAutoAllocationCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,11 +426,11 @@ func crmAutoAllocationCreate(ctx context.Context, _, _ string, params json.RawMe
 	if err := Bind(params, &a); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmAutoAllocation().Create(t, &a)
+	return ok, services.NewCrmAutoAllocation().Create(ctx, &a)
 }
 
 func crmAutoAllocationUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -438,11 +438,11 @@ func crmAutoAllocationUpdate(ctx context.Context, _, id string, params json.RawM
 	if err := Bind(params, &a); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmAutoAllocation().Update(t, id, &a)
+	return ok, services.NewCrmAutoAllocation().Update(ctx, id, &a)
 }
 
 func crmAutoAllocationDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -456,13 +456,13 @@ func crmAutoAllocationDelete(ctx context.Context, _, _ string, params json.RawMe
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmAutoAllocation().Delete(t, req.IDs)
+		_, e := services.NewCrmAutoAllocation().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
 
 func crmAutoAllocationToggleStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -472,13 +472,13 @@ func crmAutoAllocationToggleStatus(ctx context.Context, _, id string, params jso
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmAutoAllocation().ToggleStatus(t, id, req.Enabled)
+	return ok, services.NewCrmAutoAllocation().ToggleStatus(ctx, id, req.Enabled)
 }
 
 // ---------- 公海类型 ----------
 
 func crmSeasTypeList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +490,7 @@ func crmSeasTypeList(ctx context.Context, _, _ string, params json.RawMessage) (
 		return nil, err
 	}
 	q := services.SeasTypeQueryReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
-	items, total, err := services.NewCrmSeasType().Query(t, q)
+	items, total, err := services.NewCrmSeasType().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func crmSeasTypeList(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmSeasTypeCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -506,11 +506,11 @@ func crmSeasTypeCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &st); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmSeasType().Create(t, &st)
+	return ok, services.NewCrmSeasType().Create(ctx, &st)
 }
 
 func crmSeasTypeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -518,11 +518,11 @@ func crmSeasTypeUpdate(ctx context.Context, _, id string, params json.RawMessage
 	if err := Bind(params, &st); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmSeasType().Update(t, id, &st)
+	return ok, services.NewCrmSeasType().Update(ctx, id, &st)
 }
 
 func crmSeasTypeDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -536,31 +536,31 @@ func crmSeasTypeDelete(ctx context.Context, _, _ string, params json.RawMessage)
 		return nil, errNeedIdentity
 	}
 	{
-		_, e := services.NewCrmSeasType().Delete(t, req.IDs)
+		_, e := services.NewCrmSeasType().Delete(ctx, req.IDs)
 		return ok, e
 	}
 }
 
 func crmSeasTypeSetDefault(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmSeasType().SetDefault(t, id)
+	return ok, services.NewCrmSeasType().SetDefault(ctx, id)
 }
 
 // ---------- 客户设置 ----------
 
 func crmCustomerSettingGet(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmCustomerSetting().Get(t)
+	return services.NewCrmCustomerSetting().Get(ctx)
 }
 
 func crmCustomerSettingSave(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -568,5 +568,5 @@ func crmCustomerSettingSave(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &cs); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmCustomerSetting().Save(t, &cs)
+	return ok, services.NewCrmCustomerSetting().Save(ctx, &cs)
 }

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 	"time"
@@ -28,7 +32,10 @@ type CrmReceivablesPlanService struct{}
 func NewCrmReceivablesPlan() *CrmReceivablesPlanService { return &CrmReceivablesPlanService{} }
 
 // Create 创建单期回款计划。
-func (s CrmReceivablesPlanService) Create(tenantID string, p *models.CrmReceivablesPlan) error {
+func (s CrmReceivablesPlanService) Create(ctx context.Context, p *models.CrmReceivablesPlan) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if p == nil {
 		return errors.New("回款计划不能为空")
 	}
@@ -44,7 +51,9 @@ func (s CrmReceivablesPlanService) Create(tenantID string, p *models.CrmReceivab
 }
 
 // Update 更新回款计划。
-func (s CrmReceivablesPlanService) Update(tenantID, id string, p *models.CrmReceivablesPlan) error {
+func (s CrmReceivablesPlanService) Update(ctx context.Context, id string, p *models.CrmReceivablesPlan) error {
+
+
 	if p == nil {
 		return errors.New("回款计划不能为空")
 	}
@@ -58,25 +67,29 @@ func (s CrmReceivablesPlanService) Update(tenantID, id string, p *models.CrmRece
 		"remark":      p.Remark,
 	}
 	updatesCRM(m, "OrderID", "CustomerID")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除回款计划（软删除）。
-func (s CrmReceivablesPlanService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmReceivablesPlanService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmReceivablesPlan{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmReceivablesPlan{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 读取单条回款计划。
-func (s CrmReceivablesPlanService) Get(tenantID, id string) (*models.CrmReceivablesPlan, error) {
+func (s CrmReceivablesPlanService) Get(ctx context.Context, id string) (*models.CrmReceivablesPlan, error) {
+
+
 	var item models.CrmReceivablesPlan
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +97,16 @@ func (s CrmReceivablesPlanService) Get(tenantID, id string) (*models.CrmReceivab
 }
 
 // Query 分页查询回款计划，支持按 order_id/customer_id/status 筛选。
-func (s CrmReceivablesPlanService) Query(tenantID string, req PlanQueryReq) ([]models.CrmReceivablesPlan, int64, error) {
+func (s CrmReceivablesPlanService) Query(ctx context.Context, req PlanQueryReq) ([]models.CrmReceivablesPlan, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.OrderID != "" {
 		db = db.Where("order_id = ?", req.OrderID)
 	}
@@ -112,7 +127,10 @@ func (s CrmReceivablesPlanService) Query(tenantID string, req PlanQueryReq) ([]m
 }
 
 // BatchCreate 批量创建多期回款计划（事务）。
-func (s CrmReceivablesPlanService) BatchCreate(tenantID string, plans []models.CrmReceivablesPlan) error {
+func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []models.CrmReceivablesPlan) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(plans) == 0 {
 		return errors.New("plans 不能为空")
 	}
@@ -132,7 +150,10 @@ func (s CrmReceivablesPlanService) BatchCreate(tenantID string, plans []models.C
 }
 
 // MarkOverdue 标记逾期：PlanDate < now 且 status=pending → overdue。
-func (s CrmReceivablesPlanService) MarkOverdue(tenantID string) error {
+func (s CrmReceivablesPlanService) MarkOverdue(ctx context.Context) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	res := models.DB.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("status = ? AND plan_date < ?",  "pending",  now).
 		Update("status", "overdue")
@@ -163,7 +184,10 @@ type CrmReceivablesService struct{}
 func NewCrmReceivables() *CrmReceivablesService { return &CrmReceivablesService{} }
 
 // Create 创建回款登记。若指定 PlanID，事务内将计划状态置为 received。
-func (s CrmReceivablesService) Create(tenantID string, r *models.CrmReceivables) error {
+func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivables) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if r == nil {
 		return errors.New("回款登记不能为空")
 	}
@@ -190,7 +214,9 @@ func (s CrmReceivablesService) Create(tenantID string, r *models.CrmReceivables)
 }
 
 // Update 更新回款登记。
-func (s CrmReceivablesService) Update(tenantID, id string, r *models.CrmReceivables) error {
+func (s CrmReceivablesService) Update(ctx context.Context, id string, r *models.CrmReceivables) error {
+
+
 	if r == nil {
 		return errors.New("回款登记不能为空")
 	}
@@ -208,25 +234,29 @@ func (s CrmReceivablesService) Update(tenantID, id string, r *models.CrmReceivab
 		"remark":      r.Remark,
 	}
 	updatesCRM(m, "OrderID", "CustomerID", "PlanID")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除回款登记（软删除）。
-func (s CrmReceivablesService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmReceivablesService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmReceivables{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmReceivables{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 读取单条回款登记。
-func (s CrmReceivablesService) Get(tenantID, id string) (*models.CrmReceivables, error) {
+func (s CrmReceivablesService) Get(ctx context.Context, id string) (*models.CrmReceivables, error) {
+
+
 	var item models.CrmReceivables
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -234,14 +264,16 @@ func (s CrmReceivablesService) Get(tenantID, id string) (*models.CrmReceivables,
 }
 
 // Query 分页查询回款登记，支持按 order_id/customer_id/plan_id/status 筛选。
-func (s CrmReceivablesService) Query(tenantID string, req RecvQueryReq) ([]models.CrmReceivables, int64, error) {
+func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]models.CrmReceivables, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.OrderID != "" {
 		db = db.Where("order_id = ?", req.OrderID)
 	}
@@ -265,7 +297,10 @@ func (s CrmReceivablesService) Query(tenantID string, req RecvQueryReq) ([]model
 }
 
 // Void 作废回款登记。若关联 PlanID，事务内将计划状态恢复为 pending。
-func (s CrmReceivablesService) Void(tenantID, id string) error {
+func (s CrmReceivablesService) Void(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmReceivables
 		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {

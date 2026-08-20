@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"fmt"
 	"time"
@@ -26,7 +30,10 @@ type LandingPageCreateReq struct {
 }
 
 // Create 创建落地页。Slug 自动生成若留空。
-func (s CrmLandingPageService) Create(tenantID string, req models.CrmLandingPage) (models.CrmLandingPage, error) {
+func (s CrmLandingPageService) Create(ctx context.Context, req models.CrmLandingPage) (models.CrmLandingPage, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -46,12 +53,14 @@ func (s CrmLandingPageService) Create(tenantID string, req models.CrmLandingPage
 }
 
 // Query 列出落地页。
-func (s CrmLandingPageService) Query(tenantID, activityID string, pager *app.Pager) ([]models.CrmLandingPage, int64, error) {
+func (s CrmLandingPageService) Query(ctx context.Context, activityID string, pager *app.Pager) ([]models.CrmLandingPage, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if activityID != "" {
 		db = db.Where("activity_id = ?", activityID)
 	}
@@ -72,15 +81,19 @@ func (s CrmLandingPageService) GetBySlug(slug string) (models.CrmLandingPage, er
 }
 
 // Get 查单页。
-func (s CrmLandingPageService) Get(tenantID, id string) (models.CrmLandingPage, error) {
+func (s CrmLandingPageService) Get(ctx context.Context, id string) (models.CrmLandingPage, error) {
+
+
 	var p models.CrmLandingPage
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&p).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&p).Error
 	return p, err
 }
 
 // Delete 删除落地页。
-func (s CrmLandingPageService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).Delete(&models.CrmLandingPage{})
+func (s CrmLandingPageService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmLandingPage{})
 	return res.RowsAffected, res.Error
 }
 
@@ -146,7 +159,8 @@ func (s CrmLandingPageService) SubmitForm(slug string, formData map[string]strin
 		}
 		models.DB.Create(&rec)
 		// 重算活动计数
-		NewCrmActivity().recomputeActivityCounters(page.TenantID, page.ActivityID)
+		actCtx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: page.TenantID})
+		NewCrmActivity().recomputeActivityCounters(actCtx, page.ActivityID)
 	}
 
 	// 自动建线索

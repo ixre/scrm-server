@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"time"
 
 	"core/app/models"
@@ -18,12 +22,14 @@ type CrmPoolService struct{}
 func NewCrmPool() *CrmPoolService { return &CrmPoolService{} }
 
 // ListPool 公海客户列表（pool_status=1），按租户隔离，支持关键字搜索。
-func (s CrmPoolService) ListPool(tenantID, keyword string, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
+func (s CrmPoolService) ListPool(ctx context.Context, keyword string, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("pool_status = ?",  1)
+	db := models.MustFor(ctx).Where("pool_status = ?",  1)
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -38,7 +44,10 @@ func (s CrmPoolService) ListPool(tenantID, keyword string, pager *app.Pager) ([]
 }
 
 // Claim 认领公海客户：pool_status→0，owner→认领人。仅公海客户可认领。
-func (s CrmPoolService) Claim(tenantID, userID string, customerIDs []string) (int64, error) {
+func (s CrmPoolService) Claim(ctx context.Context, userID string, customerIDs []string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(customerIDs) == 0 {
 		return 0, nil
 	}
@@ -51,14 +60,17 @@ func (s CrmPoolService) Claim(tenantID, userID string, customerIDs []string) (in
 	if res.RowsAffected > 0 {
 		sop := NewCrmSop()
 		for _, cid := range customerIDs {
-			sop.Trigger(tenantID, "pool_claim", map[string]string{"customer_id": cid})
+			sop.Trigger(ctx, "pool_claim", map[string]string{"customer_id": cid})
 		}
 	}
 	return res.RowsAffected, res.Error
 }
 
 // Recycle 手动回收客户进公海：pool_status→1，owner 清空，pool_at=now。
-func (s CrmPoolService) Recycle(tenantID string, customerIDs []string) (int64, error) {
+func (s CrmPoolService) Recycle(ctx context.Context, customerIDs []string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(customerIDs) == 0 {
 		return 0, nil
 	}
@@ -73,8 +85,8 @@ func (s CrmPoolService) Recycle(tenantID string, customerIDs []string) (int64, e
 
 // AutoRecycle 自动回收：按租户公海规则，将超 N 天未跟进的非公海客户回收。
 // 遍历该租户所有 owner 非空的客户，若最近一次跟进距今 > recycleDays 则回收。
-func (s CrmPoolService) AutoRecycle(tenantID string) (int64, error) {
-	rule, err := s.GetRule(tenantID)
+func (s CrmPoolService) AutoRecycle(ctx context.Context) (int64, error) {
+	rule, err := s.GetRule(ctx)
 	if err != nil || !rule.Enabled || rule.RecycleDays <= 0 {
 		return 0, nil
 	}
@@ -82,12 +94,12 @@ func (s CrmPoolService) AutoRecycle(tenantID string) (int64, error) {
 
 	// 查所有非公海、有归属的客户，取每客户最新跟进时间。
 	var cs []models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("pool_status = ? AND owner_user_id <> ''",  0).Find(&cs).Error; err != nil {
+	if err := models.MustFor(ctx).Where("pool_status = ? AND owner_user_id <> ''",  0).Find(&cs).Error; err != nil {
 		return 0, err
 	}
 	var toRecycle []string
 	for _, c := range cs {
-		lastFollowup := lastFollowupTime(tenantID, c.ID)
+		lastFollowup := lastFollowupTime(ctx, c.ID)
 		if shouldRecycle(lastFollowup, threshold) {
 			toRecycle = append(toRecycle, c.ID)
 		}
@@ -95,13 +107,13 @@ func (s CrmPoolService) AutoRecycle(tenantID string) (int64, error) {
 	if len(toRecycle) == 0 {
 		return 0, nil
 	}
-	return s.Recycle(tenantID, toRecycle)
+	return s.Recycle(ctx, toRecycle)
 }
 
 // lastFollowupTime 取某客户最新跟进时间，无跟进则返回零值。
-func lastFollowupTime(tenantID, customerID string) time.Time {
+func lastFollowupTime(ctx context.Context, customerID string) time.Time {
 	var f models.CrmFollowup
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID).
+	if err := models.MustFor(ctx).Where("customer_id = ?",  customerID).
 		Order("created_at desc").Limit(1).First(&f).Error; err != nil {
 		return time.Time{}
 	}
@@ -120,9 +132,11 @@ func shouldRecycle(lastFollowup time.Time, threshold time.Time) bool {
 // ---------- 公海规则 ----------
 
 // GetRule 读取租户公海规则，不存在则返回默认（不自动回收）。
-func (s CrmPoolService) GetRule(tenantID string) (models.CrmPoolRule, error) {
+func (s CrmPoolService) GetRule(ctx context.Context) (models.CrmPoolRule, error) {
+
+
 	var r models.CrmPoolRule
-	err := models.DB.Scopes(models.TenantScope(tenantID)).First(&r).Error
+	err := models.MustFor(ctx).First(&r).Error
 	if err == nil {
 		return r, nil
 	}
@@ -133,9 +147,12 @@ func (s CrmPoolService) GetRule(tenantID string) (models.CrmPoolRule, error) {
 }
 
 // SetRule 设置租户公海规则（upsert）。
-func (s CrmPoolService) SetRule(tenantID string, recycleDays int, enabled bool) (models.CrmPoolRule, error) {
+func (s CrmPoolService) SetRule(ctx context.Context, recycleDays int, enabled bool) (models.CrmPoolRule, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var r models.CrmPoolRule
-	err := models.DB.Scopes(models.TenantScope(tenantID)).First(&r).Error
+	err := models.MustFor(ctx).First(&r).Error
 	if err == nil {
 		r.RecycleDays = recycleDays
 		r.Enabled = enabled
@@ -163,7 +180,7 @@ func (s CrmPoolService) AutoRecycleAll() {
 		return
 	}
 	for _, t := range ts {
-		n, err := s.AutoRecycle(t.ID)
+		n, err := s.AutoRecycle(identity.WithIdentity(context.Background(), identity.Identity{TenantID: t.ID}))
 		if err != nil {
 			log.Sugar.Errorw("pool auto recycle failed", "tenant", t.ID, "err", err)
 			continue

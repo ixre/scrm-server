@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -17,15 +21,20 @@ type CrmSceneService struct{}
 func NewCrmScene() *CrmSceneService { return &CrmSceneService{} }
 
 // List 列出当前用户自己的场景 + 团队共享的场景，按 sort 升序、id 降序。
-func (s CrmSceneService) List(tenantID, userID, entityType string) ([]models.CrmScene, error) {
+func (s CrmSceneService) List(ctx context.Context, userID, entityType string) ([]models.CrmScene, error) {
+
+
 	var items []models.CrmScene
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("entity_type = ? AND (user_id = ? OR is_shared = ?)",  entityType,  userID,  true).
+	err := models.MustFor(ctx).Where("entity_type = ? AND (user_id = ? OR is_shared = ?)",  entityType,  userID,  true).
 		Order("sort asc, id desc").Find(&items).Error
 	return items, err
 }
 
 // Create 创建场景。
-func (s CrmSceneService) Create(tenantID, userID string, sc *models.CrmScene) error {
+func (s CrmSceneService) Create(ctx context.Context, userID string, sc *models.CrmScene) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if sc == nil {
 		return errors.New("场景不能为空")
 	}
@@ -41,7 +50,7 @@ func (s CrmSceneService) Create(tenantID, userID string, sc *models.CrmScene) er
 	sc.Name = strings.TrimSpace(sc.Name)
 	// 若设为默认，先取消同 entity_type 的其他默认。
 	if sc.IsDefault {
-		if err := s.clearDefault(tenantID, userID, sc.EntityType); err != nil {
+		if err := s.clearDefault(ctx, userID, sc.EntityType); err != nil {
 			return err
 		}
 	}
@@ -49,7 +58,10 @@ func (s CrmSceneService) Create(tenantID, userID string, sc *models.CrmScene) er
 }
 
 // Update 更新场景（仅归属用户可改）。
-func (s CrmSceneService) Update(tenantID, userID, id string, sc *models.CrmScene) error {
+func (s CrmSceneService) Update(ctx context.Context, userID, id string, sc *models.CrmScene) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if sc == nil {
 		return errors.New("场景不能为空")
 	}
@@ -58,7 +70,7 @@ func (s CrmSceneService) Update(tenantID, userID, id string, sc *models.CrmScene
 	}
 	// 仅归属用户可编辑。
 	var exist models.CrmScene
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&exist).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).First(&exist).Error; err != nil {
 		return err
 	}
 	if exist.UserID != userID {
@@ -72,7 +84,7 @@ func (s CrmSceneService) Update(tenantID, userID, id string, sc *models.CrmScene
 		"sort":       sc.Sort,
 	}
 	if sc.IsDefault {
-		if err := s.clearDefault(tenantID, userID, sc.EntityType, id); err != nil {
+		if err := s.clearDefault(ctx, userID, sc.EntityType, id); err != nil {
 			return err
 		}
 	}
@@ -85,19 +97,24 @@ func (s CrmSceneService) Update(tenantID, userID, id string, sc *models.CrmScene
 }
 
 // Delete 删除场景（仅归属用户可删）。
-func (s CrmSceneService) Delete(tenantID, userID string, ids []string) (int64, error) {
+func (s CrmSceneService) Delete(ctx context.Context, userID string, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ? AND user_id = ?",  ids,  userID).
+	res := models.MustFor(ctx).Where("id IN ? AND user_id = ?",  ids,  userID).
 		Delete(&models.CrmScene{})
 	return res.RowsAffected, res.Error
 }
 
 // SetDefault 设为默认场景（同 entity_type 其他取消默认）。
-func (s CrmSceneService) SetDefault(tenantID, userID, id string) error {
+func (s CrmSceneService) SetDefault(ctx context.Context, userID, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	var sc models.CrmScene
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&sc).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).First(&sc).Error; err != nil {
 		return err
 	}
 	if sc.UserID != userID {
@@ -116,7 +133,10 @@ func (s CrmSceneService) SetDefault(tenantID, userID, id string) error {
 }
 
 // DragSort 按 ids 顺序更新 sort（ids[0]->0, ids[1]->1 ...）。
-func (s CrmSceneService) DragSort(tenantID, userID string, ids []string) error {
+func (s CrmSceneService) DragSort(ctx context.Context, userID string, ids []string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -133,7 +153,10 @@ func (s CrmSceneService) DragSort(tenantID, userID string, ids []string) error {
 
 // clearDefault 取消同 entity_type 当前用户的默认场景。
 // excludeID 为空时取消全部；非空时排除该 id（用于更新场景时先清其他再写自身）。
-func (s CrmSceneService) clearDefault(tenantID, userID, entityType string, excludeIDs ...string) error {
+func (s CrmSceneService) clearDefault(ctx context.Context, userID, entityType string, excludeIDs ...string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	q := models.DB.Model(&models.CrmScene{}).Scopes(models.TenantScope(tenantID)).Where("entity_type = ? AND user_id = ? AND is_default = ?",  entityType,  userID,  true)
 	if len(excludeIDs) > 0 && excludeIDs[0] != "" {
 		q = q.Where("id <> ?", excludeIDs[0])

@@ -1,9 +1,11 @@
 package tasks
 
 import (
+	"context"
 	"core/app/models"
 	"core/app/services"
 	"core/common/id_generator"
+	"core/common/identity"
 	"core/common/log"
 	"encoding/json"
 	"strconv"
@@ -28,7 +30,8 @@ func (CrmAutomation) RecalculateScores() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
-		services.NewCrmScore().RecalculateAll(tid)
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
+		services.NewCrmScore().RecalculateAll(ctx)
 	}
 }
 
@@ -37,7 +40,8 @@ func (CrmAutomation) ApplyAutoTags() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
-		services.NewCrmAutoTag().ApplyAll(tid)
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
+		services.NewCrmAutoTag().ApplyAll(ctx)
 	}
 }
 
@@ -97,6 +101,7 @@ func (CrmAutomation) CheckReplyTimeout() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		// 查最近60分钟内的客户消息（action_type 含 customer/dm），检查是否有跟进回复
 		var interactions []models.CrmChannelInteraction
 		models.DB.Scopes(models.TenantScope(tid)).Where("action_type IN ? AND created_at > NOW() - INTERVAL '60 minutes'", []string{"lead", "comment", "dm"}).Find(&interactions)
@@ -109,7 +114,7 @@ func (CrmAutomation) CheckReplyTimeout() {
 			models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tid)).Where("customer_id = ? AND created_at > ?", inter.CustomerID, inter.CreatedAt).
 				Count(&followupCount)
 			if followupCount == 0 {
-				_ = services.NewCrmReplyTimeout().RecordTimeout(tid, "", inter.CustomerID, inter.Channel, inter.CreatedAt, 30)
+				_ = services.NewCrmReplyTimeout().RecordTimeout(ctx, "", inter.CustomerID, inter.Channel, inter.CreatedAt, 30)
 			}
 		}
 	}
@@ -168,6 +173,7 @@ func (CrmAutomation) CheckUnfollowedLoss() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		// 查超过30天未跟进的客户
 		var customers []models.CrmCustomer
 		models.DB.Scopes(models.TenantScope(tid)).Where("deleted_at IS NULL AND owner_user_id != '' AND updated_at < NOW() - INTERVAL '30 days'", ).Find(&customers)
@@ -179,7 +185,7 @@ func (CrmAutomation) CheckUnfollowedLoss() {
 				continue
 			}
 			days := int(time.Since(c.UpdatedAt).Hours() / 24)
-			_ = services.NewCrmCustomerLoss().RecordLoss(tid, c.ID, c.Name, c.OwnerUserID, "unfollowed", days)
+			_ = services.NewCrmCustomerLoss().RecordLoss(ctx, c.ID, c.Name, c.OwnerUserID, "unfollowed", days)
 		}
 	}
 	log.Sugar.Infow("unfollowed loss checked")

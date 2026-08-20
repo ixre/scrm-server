@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"time"
 
 	"core/app/models"
@@ -16,9 +20,12 @@ type CrmQuotaService struct{}
 func NewCrmQuota() *CrmQuotaService { return &CrmQuotaService{} }
 
 // Set 设置销售月度目标（upsert）。
-func (s CrmQuotaService) Set(tenantID, userID, yearMonth string, targetAmount float64) (models.CrmQuota, error) {
+func (s CrmQuotaService) Set(ctx context.Context, userID, yearMonth string, targetAmount float64) (models.CrmQuota, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var q models.CrmQuota
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND year_month = ?",  userID,  yearMonth).First(&q).Error
+	err := models.MustFor(ctx).Where("user_id = ? AND year_month = ?",  userID,  yearMonth).First(&q).Error
 	if err == nil {
 		q.TargetAmount = targetAmount
 		err = models.DB.Save(&q).Error
@@ -39,9 +46,11 @@ func (s CrmQuotaService) Set(tenantID, userID, yearMonth string, targetAmount fl
 }
 
 // Get 读取单条目标。
-func (s CrmQuotaService) Get(tenantID, userID, yearMonth string) (models.CrmQuota, error) {
+func (s CrmQuotaService) Get(ctx context.Context, userID, yearMonth string) (models.CrmQuota, error) {
+
+
 	var q models.CrmQuota
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND year_month = ?",  userID,  yearMonth).First(&q).Error
+	err := models.MustFor(ctx).Where("user_id = ? AND year_month = ?",  userID,  yearMonth).First(&q).Error
 	return q, err
 }
 
@@ -52,7 +61,10 @@ type QuotaRow struct {
 }
 
 // List 列出某月所有销售目标（含销售名）。
-func (s CrmQuotaService) List(tenantID, yearMonth string) ([]QuotaRow, error) {
+func (s CrmQuotaService) List(ctx context.Context, yearMonth string) ([]QuotaRow, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var rows []QuotaRow
 	err := models.DB.Table("crm_quota").
 		Select("crm_quota.*, \"user\".name AS user_name").
@@ -72,12 +84,14 @@ type QuotaAchievement struct {
 }
 
 // Achievement 查单个销售某月达成情况。
-func (s CrmQuotaService) Achievement(tenantID, userID, yearMonth string) (QuotaAchievement, error) {
-	q, _ := s.Get(tenantID, userID, yearMonth)
-	actual := s.actualAmount(tenantID, userID, yearMonth)
+func (s CrmQuotaService) Achievement(ctx context.Context, userID, yearMonth string) (QuotaAchievement, error) {
+
+
+	q, _ := s.Get(ctx, userID, yearMonth)
+	actual := s.actualAmount(ctx, userID, yearMonth)
 	var u models.User
 	name := ""
-	if models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", userID).First(&u).Error == nil {
+	if models.MustFor(ctx).Where("id = ?", userID).First(&u).Error == nil {
 		name = u.Name
 	}
 	return QuotaAchievement{
@@ -91,14 +105,16 @@ func (s CrmQuotaService) Achievement(tenantID, userID, yearMonth string) (QuotaA
 }
 
 // TeamAchievement 查全团队某月达成情况。
-func (s CrmQuotaService) TeamAchievement(tenantID, yearMonth string) ([]QuotaAchievement, error) {
-	rows, err := s.List(tenantID, yearMonth)
+func (s CrmQuotaService) TeamAchievement(ctx context.Context, yearMonth string) ([]QuotaAchievement, error) {
+
+
+	rows, err := s.List(ctx, yearMonth)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]QuotaAchievement, 0, len(rows))
 	for _, r := range rows {
-		actual := s.actualAmount(tenantID, r.UserID, yearMonth)
+		actual := s.actualAmount(ctx, r.UserID, yearMonth)
 		out = append(out, QuotaAchievement{
 			UserID:       r.UserID,
 			UserName:     r.UserName,
@@ -112,7 +128,10 @@ func (s CrmQuotaService) TeamAchievement(tenantID, yearMonth string) ([]QuotaAch
 }
 
 // actualAmount 某销售某月实际签约金额（CrmOrder status=signed/completed 且 signed_at 在该月）。
-func (s CrmQuotaService) actualAmount(tenantID, userID, yearMonth string) float64 {
+func (s CrmQuotaService) actualAmount(ctx context.Context, userID, yearMonth string) float64 {
+	tenantID := identity.TenantID(ctx)
+
+
 	start, end, ok := monthRange(yearMonth)
 	if !ok {
 		return 0

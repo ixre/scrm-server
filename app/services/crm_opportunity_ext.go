@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"time"
 
@@ -16,7 +20,10 @@ type CrmOpportunityExtService struct{}
 func NewCrmOpportunityExt() *CrmOpportunityExtService { return &CrmOpportunityExtService{} }
 
 // ChangeStage 商机阶段流转：更新 StageID，并同步阶段的成交概率。
-func (s CrmOpportunityExtService) ChangeStage(tenantID, id, stageID string) error {
+func (s CrmOpportunityExtService) ChangeStage(ctx context.Context, id, stageID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -25,7 +32,7 @@ func (s CrmOpportunityExtService) ChangeStage(tenantID, id, stageID string) erro
 	}
 	// 校验阶段存在且属于本租户。
 	var stage models.CrmPipelineStage
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", stageID).First(&stage).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
 		return errors.New("阶段不存在")
 	}
 	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
@@ -41,7 +48,10 @@ func (s CrmOpportunityExtService) ChangeStage(tenantID, id, stageID string) erro
 }
 
 // Win 赢单：Status=won, WonAt=now。
-func (s CrmOpportunityExtService) Win(tenantID, id string) error {
+func (s CrmOpportunityExtService) Win(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -59,7 +69,10 @@ func (s CrmOpportunityExtService) Win(tenantID, id string) error {
 }
 
 // Lose 输单：Status=lost, LostAt=now, LostReason。
-func (s CrmOpportunityExtService) Lose(tenantID, id, lostReason string) error {
+func (s CrmOpportunityExtService) Lose(ctx context.Context, id, lostReason string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
@@ -77,7 +90,10 @@ func (s CrmOpportunityExtService) Lose(tenantID, id, lostReason string) error {
 }
 
 // BatchChangeStage 批量改阶段。
-func (s CrmOpportunityExtService) BatchChangeStage(tenantID string, ids []string, stageID string) error {
+func (s CrmOpportunityExtService) BatchChangeStage(ctx context.Context, ids []string, stageID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
@@ -85,7 +101,7 @@ func (s CrmOpportunityExtService) BatchChangeStage(tenantID string, ids []string
 		return errors.New("stage_id 不能为空")
 	}
 	var stage models.CrmPipelineStage
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", stageID).First(&stage).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
 		return errors.New("阶段不存在")
 	}
 	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).

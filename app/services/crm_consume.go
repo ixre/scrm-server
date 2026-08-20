@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -24,7 +28,10 @@ type CrmConsumeService struct{}
 func NewCrmConsume() *CrmConsumeService { return &CrmConsumeService{} }
 
 // Create 创建消费记录。
-func (s CrmConsumeService) Create(tenantID string, c *models.CrmConsume) error {
+func (s CrmConsumeService) Create(ctx context.Context, c *models.CrmConsume) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if c == nil {
 		return errors.New("消费记录不能为空")
 	}
@@ -46,7 +53,10 @@ func (s CrmConsumeService) Create(tenantID string, c *models.CrmConsume) error {
 }
 
 // Update 更新消费记录。
-func (s CrmConsumeService) Update(tenantID, id string, c *models.CrmConsume) error {
+func (s CrmConsumeService) Update(ctx context.Context, id string, c *models.CrmConsume) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if c == nil {
 		return errors.New("消费记录不能为空")
 	}
@@ -71,23 +81,27 @@ func (s CrmConsumeService) Update(tenantID, id string, c *models.CrmConsume) err
 }
 
 // Delete 删除消费记录。
-func (s CrmConsumeService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmConsumeService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmConsume{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmConsume{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询消费记录。
-func (s CrmConsumeService) Query(tenantID string, req ConsumeQueryReq) ([]models.CrmConsume, int64, error) {
+func (s CrmConsumeService) Query(ctx context.Context, req ConsumeQueryReq) ([]models.CrmConsume, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -108,9 +122,12 @@ func (s CrmConsumeService) Query(tenantID string, req ConsumeQueryReq) ([]models
 }
 
 // Revoke 撤销消费记录（status -> revoked）。
-func (s CrmConsumeService) Revoke(tenantID, id string) error {
+func (s CrmConsumeService) Revoke(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	var c models.CrmConsume
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).First(&c).Error; err != nil {
 		return err
 	}
 	if c.Status == "revoked" {
@@ -121,7 +138,10 @@ func (s CrmConsumeService) Revoke(tenantID, id string) error {
 }
 
 // Summary 按消费类型汇总金额（仅统计 normal 状态）。
-func (s CrmConsumeService) Summary(tenantID, customerID string) (map[string]float64, error) {
+func (s CrmConsumeService) Summary(ctx context.Context, customerID string) (map[string]float64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	type row struct {
 		Type   string
 		Amount float64

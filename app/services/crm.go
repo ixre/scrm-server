@@ -363,6 +363,7 @@ type UserCreateReq struct {
 
 func (s UserService) Create(ctx context.Context, req UserCreateReq) (models.User, string, error) {
 	tenantID := identity.TenantID(ctx)
+
 	if req.RoleID == "" {
 		var r models.CrmRole
 		if err := models.MustFor(ctx).Where("code = ?", "sales").First(&r).Error; err == nil {
@@ -410,6 +411,7 @@ func (s UserService) Create(ctx context.Context, req UserCreateReq) (models.User
 }
 
 func (s UserService) Query(ctx context.Context, pager *app.Pager) ([]map[string]any, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
@@ -486,6 +488,7 @@ type UserUpdateReq struct {
 }
 
 func (s UserService) Update(ctx context.Context, userID string, req UserUpdateReq) error {
+
 	m := map[string]any{
 		"name":          req.Name,
 		"mobile":        req.Mobile,
@@ -505,6 +508,8 @@ func (s UserService) Update(ctx context.Context, userID string, req UserUpdateRe
 // BindWecom 将本地用户与企微员工绑定（创建或更新 ChannelLink）。
 // staffExtID 为企微员工 ext_id，corpID 为企微 corp_id。
 func (s UserService) BindWecom(ctx context.Context, userID, corpID, staffExtID string) error {
+	tenantID := identity.TenantID(ctx)
+
 	if userID == "" || staffExtID == "" {
 		return errors.New("user_id 和 staff_ext_id 不能为空")
 	}
@@ -523,7 +528,6 @@ func (s UserService) BindWecom(ctx context.Context, userID, corpID, staffExtID s
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	tenantID := identity.TenantID(ctx)
 	return models.MustFor(ctx).Create(&models.ChannelLink{
 		Model:      models.Model{ID: id_generator.StringID()},
 		TenantID:   tenantID,
@@ -537,6 +541,7 @@ func (s UserService) BindWecom(ctx context.Context, userID, corpID, staffExtID s
 
 // UnbindWecom 解除本地用户与企微员工的绑定。
 func (s UserService) UnbindWecom(ctx context.Context, userID string) error {
+
 	return models.MustFor(ctx).Where("channel = ? AND entity_type = ? AND entity_id = ?", constants.ChannelWecom, "user", userID).
 		Delete(&models.ChannelLink{}).Error
 }
@@ -713,7 +718,9 @@ func (s CrmAuthService) Login(tenantCode, username, password string) (LoginResul
 }
 
 // SetPassword 管理员重置用户密码（须有本地身份）。
-func (s CrmAuthService) SetPassword(tenantID, id, password string) error {
+func (s CrmAuthService) SetPassword(ctx context.Context, id, password string) error {
+	tenantID := identity.TenantID(ctx)
+
 	if err := validatePassword(password); err != nil {
 		return err
 	}
@@ -732,9 +739,11 @@ func (s CrmAuthService) SetPassword(tenantID, id, password string) error {
 }
 
 // ChangePassword 用户自助改密（须有本地身份）。
-func (s CrmAuthService) ChangePassword(tenantID, userID, oldPassword, newPassword string) error {
+func (s CrmAuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+	tenantID := identity.TenantID(ctx)
+
 	var u models.User
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", userID).First(&u).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", userID).First(&u).Error; err != nil {
 		return errors.New("账号不存在")
 	}
 	if u.Password == "" || bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(oldPassword)) != nil {
@@ -756,7 +765,9 @@ type CrmCustomerService struct{}
 
 func NewCrmCustomer() *CrmCustomerService { return &CrmCustomerService{} }
 
-func (s CrmCustomerService) Create(tenantID, userID string, req models.CrmCustomer) (models.CrmCustomer, error) {
+func (s CrmCustomerService) Create(ctx context.Context, userID string, req models.CrmCustomer) (models.CrmCustomer, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.OwnerUserID == "" {
@@ -781,13 +792,15 @@ func (s CrmCustomerService) Create(tenantID, userID string, req models.CrmCustom
 		log.Sugar.Errorw("crm customer create failed", "err", err)
 		return req, err
 	}
-	if err := upsertCustomerChannelLink(tenantID, req); err != nil {
+	if err := upsertCustomerChannelLink(ctx, req); err != nil {
 		log.Sugar.Errorw("crm customer channel link upsert failed", "err", err)
 	}
 	return req, nil
 }
 
-func (s CrmCustomerService) Update(tenantID, id string, req models.CrmCustomer) (models.CrmCustomer, error) {
+func (s CrmCustomerService) Update(ctx context.Context, id string, req models.CrmCustomer) (models.CrmCustomer, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id
 	req.TenantID = tenantID
 	upd := updatesCRM(map[string]any{
@@ -832,7 +845,7 @@ func (s CrmCustomerService) Update(tenantID, id string, req models.CrmCustomer) 
 		log.Sugar.Errorw("crm customer update failed", "err", err)
 		return req, err
 	}
-	if err := upsertCustomerChannelLink(tenantID, req); err != nil {
+	if err := upsertCustomerChannelLink(ctx, req); err != nil {
 		log.Sugar.Errorw("crm customer channel link upsert failed", "err", err)
 	}
 	return req, nil
@@ -855,13 +868,14 @@ func zeroChannelValue(v any) bool {
 
 // upsertCustomerChannelLink 渠道客户(wecom/xiaohongshu)在创建/更新时同步 ChannelLink 映射。
 // 非渠道客户(manual/import/web_form)或无外部身份时不建映射。
-func upsertCustomerChannelLink(tenantID string, c models.CrmCustomer) error {
+func upsertCustomerChannelLink(ctx context.Context, c models.CrmCustomer) error {
 	if c.Source != constants.ChannelWecom && c.Source != constants.ChannelXiaohongshu {
 		return nil
 	}
 	if c.ExtCustomerID == "" {
 		return nil
 	}
+	tenantID := identity.TenantID(ctx)
 	var link models.ChannelLink
 	err := models.DB.Where("channel = ? AND entity_type = ? AND entity_id = ?", c.Source, "customer", c.ID).First(&link).Error
 	if err == nil {
@@ -882,25 +896,28 @@ func upsertCustomerChannelLink(tenantID string, c models.CrmCustomer) error {
 	}).Error
 }
 
-func (s CrmCustomerService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmCustomer{})
+func (s CrmCustomerService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmCustomer{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmCustomerService) Get(tenantID, id string) (models.CrmCustomer, error) {
+func (s CrmCustomerService) Get(ctx context.Context, id string) (models.CrmCustomer, error) {
+
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&c).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&c).Error
 	return c, err
 }
 
 // GetDetail 客户 360 详情：客户主档(含企微渠道快照) + 跟进记录 timeline。
-func (s CrmCustomerService) GetDetail(tenantID, id string) (map[string]any, error) {
-	c, err := s.Get(tenantID, id)
+func (s CrmCustomerService) GetDetail(ctx context.Context, id string) (map[string]any, error) {
+
+	c, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	var follows []models.CrmFollowup
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  id).
+	if err := models.MustFor(ctx).Where("customer_id = ?",  id).
 		Order("created_at desc").Find(&follows).Error; err != nil {
 		return nil, err
 	}
@@ -916,17 +933,17 @@ func (s CrmCustomerService) GetDetail(tenantID, id string) (map[string]any, erro
 	}
 	// 非企微渠道互动（小红书留资/评论/私信等），企微互动仍走上方 chat_msg。
 	var interactions []models.CrmChannelInteraction
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ? AND channel <> ?",  id,  constants.ChannelWecom).
+	if err := models.MustFor(ctx).Where("customer_id = ? AND channel <> ?",  id,  constants.ChannelWecom).
 		Order("happened_at desc").Limit(20).Find(&interactions).Error; err != nil {
 		return nil, err
 	}
 	// 活动参与史（营销活动触达/参与/转化明细）。
-	activityRecs, err := NewCrmActivity().ListByCustomer(tenantID, id)
+	activityRecs, err := NewCrmActivity().ListByCustomer(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	// 转移历史。
-	transferLogs, _, _ := NewCrmTransfer().ListTransferLog(tenantID, id, &app.Pager{Page: 1, PageSize: 20})
+	transferLogs, _, _ := NewCrmTransfer().ListTransferLog(ctx, id, &app.Pager{Page: 1, PageSize: 20})
 	return map[string]any{
 		"customer": c, "followups": follows, "wecom_messages": msgs,
 		"channel_interactions": interactions, "activity_records": activityRecs,
@@ -934,12 +951,13 @@ func (s CrmCustomerService) GetDetail(tenantID, id string) (map[string]any, erro
 	}, nil
 }
 
-func (s CrmCustomerService) Query(tenantID string, keyword string, ownerUserID string, source string, outFlowStatus int, poolStatus int, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUserID string, source string, outFlowStatus int, poolStatus int, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -966,9 +984,10 @@ func (s CrmCustomerService) Query(tenantID string, keyword string, ownerUserID s
 }
 
 // Export 导出客户列表为 Excel（最多 10000 行）。
-func (s CrmCustomerService) Export(tenantID string) (*bytes.Buffer, string, error) {
+func (s CrmCustomerService) Export(ctx context.Context) (*bytes.Buffer, string, error) {
+
 	var cs []models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Limit(10000).Order("id desc").Find(&cs).Error; err != nil {
+	if err := models.MustFor(ctx).Limit(10000).Order("id desc").Find(&cs).Error; err != nil {
 		return nil, "", err
 	}
 	f := excelize.NewFile()
@@ -999,7 +1018,9 @@ func (s CrmCustomerService) Export(tenantID string) (*bytes.Buffer, string, erro
 }
 
 // BatchImport 批量导入客户（Excel 行数据）。返回成功数和失败数。
-func (s CrmCustomerService) BatchImport(tenantID, userID string, rows []map[string]string) (int, int, error) {
+func (s CrmCustomerService) BatchImport(ctx context.Context, userID string, rows []map[string]string) (int, int, error) {
+	tenantID := identity.TenantID(ctx)
+
 	success, fail := 0, 0
 	for _, r := range rows {
 		c := models.CrmCustomer{
@@ -1039,7 +1060,9 @@ type CrmLeadService struct{}
 
 func NewCrmLead() *CrmLeadService { return &CrmLeadService{} }
 
-func (s CrmLeadService) Create(tenantID, userID string, req models.CrmLead) (models.CrmLead, error) {
+func (s CrmLeadService) Create(ctx context.Context, userID string, req models.CrmLead) (models.CrmLead, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.OwnerUserID == "" {
@@ -1052,7 +1075,9 @@ func (s CrmLeadService) Create(tenantID, userID string, req models.CrmLead) (mod
 	return req, err
 }
 
-func (s CrmLeadService) Update(tenantID, id string, req models.CrmLead) (models.CrmLead, error) {
+func (s CrmLeadService) Update(ctx context.Context, id string, req models.CrmLead) (models.CrmLead, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id
 	req.TenantID = tenantID
 	err := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
@@ -1068,23 +1093,26 @@ func (s CrmLeadService) Update(tenantID, id string, req models.CrmLead) (models.
 	return req, err
 }
 
-func (s CrmLeadService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmLead{})
+func (s CrmLeadService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmLead{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmLeadService) Get(tenantID, id string) (models.CrmLead, error) {
+func (s CrmLeadService) Get(ctx context.Context, id string) (models.CrmLead, error) {
+
 	var l models.CrmLead
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&l).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&l).Error
 	return l, err
 }
 
-func (s CrmLeadService) Query(tenantID string, status string, ownerUserID string, pager *app.Pager) ([]models.CrmLead, int64, error) {
+func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID string, pager *app.Pager) ([]models.CrmLead, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -1103,19 +1131,21 @@ func (s CrmLeadService) Query(tenantID string, status string, ownerUserID string
 // Convert 线索→客户转化：据线索创建 CrmCustomer 并回写线索的 customer_id、标记为 qualified。
 // 幂等：线索已关联客户则直接返回，不重复创建。
 // 若线索带手机号且已有同手机号客户，则直接关联已有客户（去重）。
-func (s CrmLeadService) Convert(tenantID, userID, leadID string) (models.CrmCustomer, error) {
-	l, err := s.Get(tenantID, leadID)
+func (s CrmLeadService) Convert(ctx context.Context, userID, leadID string) (models.CrmCustomer, error) {
+	tenantID := identity.TenantID(ctx)
+
+	l, err := s.Get(ctx, leadID)
 	if err != nil {
 		return models.CrmCustomer{}, err
 	}
 	if l.CustomerID != "" {
-		c, err := NewCrmCustomer().Get(tenantID, l.CustomerID)
+		c, err := NewCrmCustomer().Get(ctx, l.CustomerID)
 		return c, err
 	}
 	// 去重：同手机号已有客户则直接关联
 	if l.Mobile != "" {
 		var exist models.CrmCustomer
-		if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("mobile = ?",  l.Mobile).First(&exist).Error; err == nil {
+		if err := models.MustFor(ctx).Where("mobile = ?",  l.Mobile).First(&exist).Error; err == nil {
 			models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", leadID).
 				Updates(map[string]any{"customer_id": exist.ID, "status": "qualified"})
 			return exist, nil
@@ -1149,6 +1179,7 @@ type CrmPipelineStageService struct{}
 func NewCrmPipelineStage() *CrmPipelineStageService { return &CrmPipelineStageService{} }
 
 func (s CrmPipelineStageService) Create(ctx context.Context, req models.CrmPipelineStage) (models.CrmPipelineStage, error) {
+
 	req.ID = id_generator.StringID()
 	req.TenantID = identity.TenantID(ctx)
 	err := models.MustFor(ctx).Create(&req).Error
@@ -1159,6 +1190,7 @@ func (s CrmPipelineStageService) Create(ctx context.Context, req models.CrmPipel
 }
 
 func (s CrmPipelineStageService) Update(ctx context.Context, id string, req models.CrmPipelineStage) (models.CrmPipelineStage, error) {
+
 	req.ID = id
 	req.TenantID = identity.TenantID(ctx)
 	err := models.MustFor(ctx).Model(&models.CrmPipelineStage{}).Where("id = ?", id).
@@ -1174,11 +1206,13 @@ func (s CrmPipelineStageService) Update(ctx context.Context, id string, req mode
 }
 
 func (s CrmPipelineStageService) Delete(ctx context.Context, ids []string) (int64, error) {
+
 	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmPipelineStage{})
 	return res.RowsAffected, res.Error
 }
 
 func (s CrmPipelineStageService) List(ctx context.Context) ([]models.CrmPipelineStage, error) {
+
 	var ss []models.CrmPipelineStage
 	err := models.MustFor(ctx).Order("sort").Find(&ss).Error
 	return ss, err
@@ -1190,7 +1224,9 @@ type CrmOpportunityService struct{}
 
 func NewCrmOpportunity() *CrmOpportunityService { return &CrmOpportunityService{} }
 
-func (s CrmOpportunityService) Create(tenantID, userID string, req models.CrmOpportunity) (models.CrmOpportunity, error) {
+func (s CrmOpportunityService) Create(ctx context.Context, userID string, req models.CrmOpportunity) (models.CrmOpportunity, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.OwnerUserID == "" {
@@ -1199,7 +1235,7 @@ func (s CrmOpportunityService) Create(tenantID, userID string, req models.CrmOpp
 	// stage 是状态的唯一真相：创建时若指定阶段，按目标阶段终态推导 status。
 	if req.StageID != "" {
 		var stage models.CrmPipelineStage
-		if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
+		if err := models.MustFor(ctx).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
 			switch {
 			case stage.IsWon:
 				req.Status = "won"
@@ -1220,13 +1256,15 @@ func (s CrmOpportunityService) Create(tenantID, userID string, req models.CrmOpp
 	return req, err
 }
 
-func (s CrmOpportunityService) Update(tenantID, id string, req models.CrmOpportunity) (models.CrmOpportunity, error) {
+func (s CrmOpportunityService) Update(ctx context.Context, id string, req models.CrmOpportunity) (models.CrmOpportunity, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id
 	req.TenantID = tenantID
 	// stage 是状态的唯一真相：改 stage 时按目标阶段的终态推导 status，避免与 MoveStage 不一致。
 	if req.StageID != "" {
 		var stage models.CrmPipelineStage
-		if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
+		if err := models.MustFor(ctx).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
 			switch {
 			case stage.IsWon:
 				req.Status = "won"
@@ -1250,23 +1288,26 @@ func (s CrmOpportunityService) Update(tenantID, id string, req models.CrmOpportu
 	return req, err
 }
 
-func (s CrmOpportunityService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmOpportunity{})
+func (s CrmOpportunityService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmOpportunity{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmOpportunityService) Get(tenantID, id string) (models.CrmOpportunity, error) {
+func (s CrmOpportunityService) Get(ctx context.Context, id string) (models.CrmOpportunity, error) {
+
 	var o models.CrmOpportunity
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&o).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&o).Error
 	return o, err
 }
 
-func (s CrmOpportunityService) Query(tenantID string, status string, stageID string, ownerUserID string, pager *app.Pager) ([]models.CrmOpportunity, int64, error) {
+func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID string, ownerUserID string, pager *app.Pager) ([]models.CrmOpportunity, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -1287,18 +1328,20 @@ func (s CrmOpportunityService) Query(tenantID string, status string, stageID str
 
 // MoveStage 移动商机阶段；到达赢单/输单终态时同步 status。
 // 若租户开启了跟进强制校验，需近 N 天有跟进记录方可移动。
-func (s CrmOpportunityService) MoveStage(tenantID, id, stageID string) (models.CrmOpportunity, error) {
+func (s CrmOpportunityService) MoveStage(ctx context.Context, id, stageID string) (models.CrmOpportunity, error) {
+	tenantID := identity.TenantID(ctx)
+
 	var o models.CrmOpportunity
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&o).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&o).Error; err != nil {
 		return o, err
 	}
 	var stage models.CrmPipelineStage
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", stageID).First(&stage).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
 		return o, err
 	}
 	// 阶段流转校验：移动到非终态阶段时校验跟进（赢单/输单终态不校验，允许直接关闭）。
 	if !stage.IsWon && !stage.IsLost {
-		if err := checkMoveStageGuard(tenantID, id); err != nil {
+		if err := checkMoveStageGuard(ctx, id); err != nil {
 			return o, err
 		}
 	}
@@ -1316,7 +1359,7 @@ func (s CrmOpportunityService) MoveStage(tenantID, id, stageID string) (models.C
 	o.Status, _ = updates["status"].(string)
 	// Phase 4：阶段变化触发 SOP 自动化
 	if err == nil {
-		NewCrmSop().Trigger(tenantID, "stage_change", map[string]string{
+		NewCrmSop().Trigger(ctx, "stage_change", map[string]string{
 			"customer_id":    o.CustomerID,
 			"opportunity_id": o.ID,
 			"stage_id":       stageID,
@@ -1331,7 +1374,9 @@ type CrmFollowupService struct{}
 
 func NewCrmFollowup() *CrmFollowupService { return &CrmFollowupService{} }
 
-func (s CrmFollowupService) Create(tenantID, userID string, req models.CrmFollowup) (models.CrmFollowup, error) {
+func (s CrmFollowupService) Create(ctx context.Context, userID string, req models.CrmFollowup) (models.CrmFollowup, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.UserID == "" {
@@ -1344,21 +1389,24 @@ func (s CrmFollowupService) Create(tenantID, userID string, req models.CrmFollow
 	return req, err
 }
 
-func (s CrmFollowupService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmFollowup{})
+func (s CrmFollowupService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmFollowup{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmFollowupService) ListByCustomer(tenantID, customerID string) ([]models.CrmFollowup, error) {
+func (s CrmFollowupService) ListByCustomer(ctx context.Context, customerID string) ([]models.CrmFollowup, error) {
+
 	var fs []models.CrmFollowup
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID).
+	err := models.MustFor(ctx).Where("customer_id = ?",  customerID).
 		Order("created_at desc").Find(&fs).Error
 	return fs, err
 }
 
-func (s CrmFollowupService) ListByOpportunity(tenantID, opportunityID string) ([]models.CrmFollowup, error) {
+func (s CrmFollowupService) ListByOpportunity(ctx context.Context, opportunityID string) ([]models.CrmFollowup, error) {
+
 	var fs []models.CrmFollowup
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("opportunity_id = ?",  opportunityID).
+	err := models.MustFor(ctx).Where("opportunity_id = ?",  opportunityID).
 		Order("created_at desc").Find(&fs).Error
 	return fs, err
 }
@@ -1372,22 +1420,25 @@ type FollowupReminder struct {
 }
 
 // ListReminders 今日待跟进：owner=userID 且 next_followup_at <= 今天结束 且非公海。
-func (s CrmFollowupService) ListReminders(tenantID, userID string) ([]FollowupReminder, error) {
+func (s CrmFollowupService) ListReminders(ctx context.Context, userID string) ([]FollowupReminder, error) {
+
 	now := time.Now()
 	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-	return s.queryReminders(tenantID, userID, "next_followup_at <= ?", endOfToday)
+	return s.queryReminders(ctx, userID, "next_followup_at <= ?", endOfToday)
 }
 
 // ListOverdue 已逾期跟进：owner=userID 且 next_followup_at < 今天开始 且非公海。
-func (s CrmFollowupService) ListOverdue(tenantID, userID string) ([]FollowupReminder, error) {
+func (s CrmFollowupService) ListOverdue(ctx context.Context, userID string) ([]FollowupReminder, error) {
+
 	now := time.Now()
 	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	return s.queryReminders(tenantID, userID, "next_followup_at < ?", startOfToday)
+	return s.queryReminders(ctx, userID, "next_followup_at < ?", startOfToday)
 }
 
-func (s CrmFollowupService) queryReminders(tenantID, userID, cond string, bound time.Time) ([]FollowupReminder, error) {
+func (s CrmFollowupService) queryReminders(ctx context.Context, userID, cond string, bound time.Time) ([]FollowupReminder, error) {
+
 	var cs []models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("owner_user_id = ? AND pool_status = ? AND next_followup_at IS NOT NULL AND "+cond,
+	if err := models.MustFor(ctx).Where("owner_user_id = ? AND pool_status = ? AND next_followup_at IS NOT NULL AND "+cond,
 		userID, 0, bound).
 		Order("next_followup_at asc").Limit(50).Find(&cs).Error; err != nil {
 		return nil, err
@@ -1422,7 +1473,9 @@ type CrmOrderService struct{}
 
 func NewCrmOrder() *CrmOrderService { return &CrmOrderService{} }
 
-func (s CrmOrderService) Create(tenantID, userID string, req models.CrmOrder) (models.CrmOrder, error) {
+func (s CrmOrderService) Create(ctx context.Context, userID string, req models.CrmOrder) (models.CrmOrder, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.UserID == "" {
@@ -1439,7 +1492,7 @@ func (s CrmOrderService) Create(tenantID, userID string, req models.CrmOrder) (m
 	}
 	// 优惠券联动：传入 coupon_code 则核销券 + 计算折扣金额
 	if req.CouponCode != "" {
-		rec, err := NewCrmCoupon().Verify(tenantID, req.CouponCode, "")
+		rec, err := NewCrmCoupon().Verify(ctx, req.CouponCode, "")
 		if err != nil {
 			return req, fmt.Errorf("优惠券核销失败: %v", err)
 		}
@@ -1466,7 +1519,9 @@ func (s CrmOrderService) Create(tenantID, userID string, req models.CrmOrder) (m
 	return req, err
 }
 
-func (s CrmOrderService) Update(tenantID, id string, req models.CrmOrder) (models.CrmOrder, error) {
+func (s CrmOrderService) Update(ctx context.Context, id string, req models.CrmOrder) (models.CrmOrder, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id
 	req.TenantID = tenantID
 	err := models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
@@ -1483,17 +1538,19 @@ func (s CrmOrderService) Update(tenantID, id string, req models.CrmOrder) (model
 	return req, err
 }
 
-func (s CrmOrderService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmOrder{})
+func (s CrmOrderService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmOrder{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmOrderService) Query(tenantID string, status string, pager *app.Pager) ([]models.CrmOrder, int64, error) {
+func (s CrmOrderService) Query(ctx context.Context, status string, pager *app.Pager) ([]models.CrmOrder, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -1522,7 +1579,9 @@ type SalesSummary struct {
 	OrderCount      int64   `json:"order_count"`
 }
 
-func (s CrmReportService) SalesSummary(tenantID string) (SalesSummary, error) {
+func (s CrmReportService) SalesSummary(ctx context.Context) (SalesSummary, error) {
+	tenantID := identity.TenantID(ctx)
+
 	var sum SalesSummary
 	count := func(m any) int64 {
 		var n int64
@@ -1556,6 +1615,7 @@ func (s CrmReportService) SalesSummary(tenantID string) (SalesSummary, error) {
 
 // PipelineFunnel 销售漏斗：open 商机按阶段聚合金额/数量。
 func (s CrmReportService) PipelineFunnel(ctx context.Context) ([]map[string]any, error) {
+
 	stages, err := NewCrmPipelineStage().List(ctx)
 	if err != nil {
 		return nil, err
@@ -1595,10 +1655,12 @@ type ChannelCustomerCount struct {
 // ChannelSummary 渠道概览：供统一工作台展示渠道资源规模与客户构成。
 // 企微运营资源按 ext_corp_id 分区，先经 ChannelLink(tenant,wecom) 解析本租户对应的 corp_id；
 // 客户构成按 source 分组（wecom/xiaohongshu/manual/...），不再硬编码单渠道。
-func (s CrmReportService) ChannelSummary(tenantID string) (map[string]any, error) {
+func (s CrmReportService) ChannelSummary(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
 	var corpID string
 	var link models.ChannelLink
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("channel = ? AND entity_type = ?", constants.ChannelWecom,  "tenant").
+	if err := models.MustFor(ctx).Where("channel = ? AND entity_type = ?", constants.ChannelWecom,  "tenant").
 		First(&link).Error; err == nil {
 		corpID = link.ExtID
 	}
@@ -1656,7 +1718,9 @@ type ChannelCompareRow struct {
 }
 
 // ChannelCompare 渠道对比看板：各渠道客户数/线索/商机/赢单/订单金额/互动数/转化率/获客成本。
-func (s CrmReportService) ChannelCompare(tenantID string) ([]ChannelCompareRow, error) {
+func (s CrmReportService) ChannelCompare(ctx context.Context) ([]ChannelCompareRow, error) {
+	tenantID := identity.TenantID(ctx)
+
 	channels := []string{constants.ChannelWecom, constants.ChannelXiaohongshu, constants.ChannelGzh, constants.ChannelDouyin, "manual", "import", "web_form"}
 	rows := make([]ChannelCompareRow, 0, len(channels))
 	for _, ch := range channels {
@@ -1726,9 +1790,10 @@ type ActivityFunnelRow struct {
 }
 
 // ActivityFunnel 活动效果漏斗报表：按活动维度统计触达/参与/转化 + ROI。
-func (s CrmReportService) ActivityFunnel(tenantID string) ([]ActivityFunnelRow, error) {
+func (s CrmReportService) ActivityFunnel(ctx context.Context) ([]ActivityFunnelRow, error) {
+
 	var acts []models.CrmActivity
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Find(&acts).Error; err != nil {
+	if err := models.MustFor(ctx).Find(&acts).Error; err != nil {
 		return nil, err
 	}
 	rows := make([]ActivityFunnelRow, 0, len(acts))
@@ -1775,10 +1840,12 @@ type SalesRankingRow struct {
 }
 
 // SalesRanking 销售业绩排行：按销售统计客户数/商机数/赢单数/订单金额/达成率。
-func (s CrmReportService) SalesRanking(tenantID, yearMonth string) ([]SalesRankingRow, error) {
+func (s CrmReportService) SalesRanking(ctx context.Context, yearMonth string) ([]SalesRankingRow, error) {
+	tenantID := identity.TenantID(ctx)
+
 	// 查所有 CRM 用户（销售）
 	var users []models.User
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Find(&users).Error; err != nil {
+	if err := models.MustFor(ctx).Find(&users).Error; err != nil {
 		return nil, err
 	}
 	rows := make([]SalesRankingRow, 0, len(users))
@@ -1802,7 +1869,7 @@ func (s CrmReportService) SalesRanking(tenantID, yearMonth string) ([]SalesRanki
 		// 业绩目标
 		if yearMonth != "" {
 			var q models.CrmQuota
-			if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND year_month = ?",  u.ID,  yearMonth).First(&q).Error; err == nil {
+			if err := models.MustFor(ctx).Where("user_id = ? AND year_month = ?",  u.ID,  yearMonth).First(&q).Error; err == nil {
 				row.QuotaAmount = q.TargetAmount
 				if q.TargetAmount > 0 {
 					row.AchievementRate = row.OrderAmount / q.TargetAmount * 100
@@ -1825,7 +1892,9 @@ type LifecycleRow struct {
 }
 
 // CustomerLifecycle 客户生命周期分析：按最后互动时间分类。
-func (s CrmReportService) CustomerLifecycle(tenantID string) ([]LifecycleRow, error) {
+func (s CrmReportService) CustomerLifecycle(ctx context.Context) ([]LifecycleRow, error) {
+	tenantID := identity.TenantID(ctx)
+
 	var total int64
 	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL", ).Count(&total)
 	now := time.Now()
@@ -1862,7 +1931,9 @@ type ChannelCACRow struct {
 }
 
 // ChannelCAC 渠道获客成本：按渠道汇总活动成本/新客户数，计算 CAC。
-func (s CrmReportService) ChannelCAC(tenantID string) ([]ChannelCACRow, error) {
+func (s CrmReportService) ChannelCAC(ctx context.Context) ([]ChannelCACRow, error) {
+	tenantID := identity.TenantID(ctx)
+
 	channels := []string{constants.ChannelWecom, constants.ChannelXiaohongshu, constants.ChannelGzh, constants.ChannelDouyin, "general"}
 	rows := make([]ChannelCACRow, 0, len(channels))
 	for _, ch := range channels {
@@ -1888,7 +1959,9 @@ type CrmActivityService struct{}
 
 func NewCrmActivity() *CrmActivityService { return &CrmActivityService{} }
 
-func (s CrmActivityService) Create(tenantID, userID string, req models.CrmActivity) (models.CrmActivity, error) {
+func (s CrmActivityService) Create(ctx context.Context, userID string, req models.CrmActivity) (models.CrmActivity, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.OwnerUserID == "" {
@@ -1915,7 +1988,9 @@ func normalizeActivityChannels(req *models.CrmActivity) {
 	}
 }
 
-func (s CrmActivityService) Update(tenantID, id string, req models.CrmActivity) (models.CrmActivity, error) {
+func (s CrmActivityService) Update(ctx context.Context, id string, req models.CrmActivity) (models.CrmActivity, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id
 	req.TenantID = tenantID
 	normalizeActivityChannels(&req)
@@ -1943,9 +2018,10 @@ func (s CrmActivityService) Update(tenantID, id string, req models.CrmActivity) 
 // SetStatus 切换活动状态（有向流转）：
 //
 //	draft → active/ended；active → off/ended；off → active；ended 为终态。
-func (s CrmActivityService) SetStatus(tenantID, id, status string) error {
+func (s CrmActivityService) SetStatus(ctx context.Context, id, status string) error {
+
 	var a models.CrmActivity
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&a).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&a).Error; err != nil {
 		return err
 	}
 	transitions := map[string]map[string]bool{
@@ -1960,23 +2036,26 @@ func (s CrmActivityService) SetStatus(tenantID, id, status string) error {
 	return models.DB.Model(&models.CrmActivity{}).Where("id = ?", id).Update("status", status).Error
 }
 
-func (s CrmActivityService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmActivity{})
+func (s CrmActivityService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmActivity{})
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmActivityService) Get(tenantID, id string) (models.CrmActivity, error) {
+func (s CrmActivityService) Get(ctx context.Context, id string) (models.CrmActivity, error) {
+
 	var a models.CrmActivity
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&a).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&a).Error
 	return a, err
 }
 
-func (s CrmActivityService) Query(tenantID string, keyword string, activityType string, status string, ownerUserID string, channel string, pager *app.Pager) ([]models.CrmActivity, int64, error) {
+func (s CrmActivityService) Query(ctx context.Context, keyword string, activityType string, status string, ownerUserID string, channel string, pager *app.Pager) ([]models.CrmActivity, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("name LIKE ?", like)
@@ -2010,8 +2089,9 @@ type CrmChannelTagService struct{}
 func NewCrmChannelTag() *CrmChannelTagService { return &CrmChannelTagService{} }
 
 // List 按渠道返回标签目录（channel 为空则返回全部渠道）。
-func (s CrmChannelTagService) List(tenantID, channel string) ([]models.CrmChannelTag, error) {
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+func (s CrmChannelTagService) List(ctx context.Context, channel string) ([]models.CrmChannelTag, error) {
+
+	db := models.MustFor(ctx)
 	if channel != "" {
 		db = db.Where("channel = ?", channel)
 	}
@@ -2021,7 +2101,9 @@ func (s CrmChannelTagService) List(tenantID, channel string) ([]models.CrmChanne
 }
 
 // Create 创建渠道标签。
-func (s CrmChannelTagService) Create(tenantID string, req models.CrmChannelTag) (models.CrmChannelTag, error) {
+func (s CrmChannelTagService) Create(ctx context.Context, req models.CrmChannelTag) (models.CrmChannelTag, error) {
+	tenantID := identity.TenantID(ctx)
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Channel == "" {
@@ -2037,8 +2119,9 @@ func (s CrmChannelTagService) Create(tenantID string, req models.CrmChannelTag) 
 }
 
 // Delete 删除渠道标签。
-func (s CrmChannelTagService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmChannelTag{})
+func (s CrmChannelTagService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmChannelTag{})
 	return res.RowsAffected, res.Error
 }
 
@@ -2083,16 +2166,18 @@ type CustomerActivityRow struct {
 // Record 录入活动参与明细（触达/参与/转化）。
 // 每 (activity, customer) 仅保留一行，UPSERT 原子提档（不降级）：已存在且新档位更高则升级，
 // 档位更低或持平则仅刷新通道/时间/备注。写完后同事务重算活动三计数。
-func (s CrmActivityService) Record(tenantID, userID string, req models.CrmActivityRecord) (models.CrmActivityRecord, error) {
+func (s CrmActivityService) Record(ctx context.Context, userID string, req models.CrmActivityRecord) (models.CrmActivityRecord, error) {
+	tenantID := identity.TenantID(ctx)
+
 	if req.ActivityID == "" || req.CustomerID == "" {
 		return req, errors.New("activity_id/customer_id 不能为空")
 	}
 	var act models.CrmActivity
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", req.ActivityID).First(&act).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", req.ActivityID).First(&act).Error; err != nil {
 		return req, errors.New("活动不存在")
 	}
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", req.CustomerID).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", req.CustomerID).First(&c).Error; err != nil {
 		return req, errors.New("客户不存在")
 	}
 	req.TenantID = tenantID
@@ -2130,16 +2215,18 @@ func (s CrmActivityService) Record(tenantID, userID string, req models.CrmActivi
 		log.Sugar.Errorw("crm activity record failed", "err", err)
 		return req, err
 	}
-	if err := s.recomputeActivityCounters(tenantID, req.ActivityID); err != nil {
+	if err := s.recomputeActivityCounters(ctx, req.ActivityID); err != nil {
 		return req, err
 	}
 	// 活动→线索自动转化：参与即建线索（若该客户在该活动下尚无线索）
-	s.autoCreateLeadFromActivity(tenantID, req.ActivityID, req.CustomerID, req.RecordType)
+	s.autoCreateLeadFromActivity(ctx, req.ActivityID, req.CustomerID, req.RecordType)
 	return req, nil
 }
 
 // autoCreateLeadFromActivity 活动参与自动建线索（幂等：同活动+客户不重复建）。
-func (s CrmActivityService) autoCreateLeadFromActivity(tenantID, activityID, customerID, recordType string) {
+func (s CrmActivityService) autoCreateLeadFromActivity(ctx context.Context, activityID, customerID, recordType string) {
+	tenantID := identity.TenantID(ctx)
+
 	// 幂等：同活动+客户已有线索则跳过
 	var cnt int64
 	models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("customer_id = ? AND remark LIKE ?",  customerID,  "%"+activityID+"%").Count(&cnt)
@@ -2147,11 +2234,11 @@ func (s CrmActivityService) autoCreateLeadFromActivity(tenantID, activityID, cus
 		return
 	}
 	var act models.CrmActivity
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", activityID).First(&act).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", activityID).First(&act).Error; err != nil {
 		return
 	}
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", customerID).First(&c).Error; err != nil {
 		return
 	}
 	lead := models.CrmLead{
@@ -2172,15 +2259,16 @@ func (s CrmActivityService) autoCreateLeadFromActivity(tenantID, activityID, cus
 }
 
 // DeleteRecord 删除参与明细，并重算受影响活动的三计数。
-func (s CrmActivityService) DeleteRecord(tenantID string, ids []string) (int64, error) {
+func (s CrmActivityService) DeleteRecord(ctx context.Context, ids []string) (int64, error) {
+
 	var recs []models.CrmActivityRecord
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Find(&recs).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id IN ?",  ids).Find(&recs).Error; err != nil {
 		return 0, err
 	}
 	if len(recs) == 0 {
 		return 0, nil
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmActivityRecord{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmActivityRecord{})
 	if res.Error != nil {
 		return 0, res.Error
 	}
@@ -2189,7 +2277,7 @@ func (s CrmActivityService) DeleteRecord(tenantID string, ids []string) (int64, 
 		activities[r.ActivityID] = true
 	}
 	for aid := range activities {
-		if err := s.recomputeActivityCounters(tenantID, aid); err != nil {
+		if err := s.recomputeActivityCounters(ctx, aid); err != nil {
 			return res.RowsAffected, err
 		}
 	}
@@ -2205,7 +2293,9 @@ func funnelCounts(converted, participated, reached int) (reach, participate, con
 }
 
 // recomputeActivityCounters 从参与明细重算活动触达/参与/转化计数（累计漏斗）。
-func (s CrmActivityService) recomputeActivityCounters(tenantID, activityID string) error {
+func (s CrmActivityService) recomputeActivityCounters(ctx context.Context, activityID string) error {
+	tenantID := identity.TenantID(ctx)
+
 	var perType []struct {
 		RecordType string
 		N          int
@@ -2236,7 +2326,9 @@ func (s CrmActivityService) recomputeActivityCounters(tenantID, activityID strin
 }
 
 // ListRecords 按活动分页返回参与明细（带客户名），可按档位过滤。
-func (s CrmActivityService) ListRecords(tenantID, activityID, recordType string, pager *app.Pager) ([]ActivityRecordRow, int64, error) {
+func (s CrmActivityService) ListRecords(ctx context.Context, activityID, recordType string, pager *app.Pager) ([]ActivityRecordRow, int64, error) {
+	tenantID := identity.TenantID(ctx)
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
@@ -2262,7 +2354,9 @@ func (s CrmActivityService) ListRecords(tenantID, activityID, recordType string,
 }
 
 // ListByCustomer 返回某客户的活动参与史（带活动名/类型/状态），客户360使用。
-func (s CrmActivityService) ListByCustomer(tenantID, customerID string) ([]CustomerActivityRow, error) {
+func (s CrmActivityService) ListByCustomer(ctx context.Context, customerID string) ([]CustomerActivityRow, error) {
+	tenantID := identity.TenantID(ctx)
+
 	var rows []CustomerActivityRow
 	err := models.DB.Table("crm_activity_record").
 		Select("crm_activity_record.*, crm_activity.name AS activity_name, crm_activity.activity_type AS activity_type, crm_activity.status AS activity_status").
@@ -2278,12 +2372,14 @@ type CrmChannelInteractionService struct{}
 func NewCrmChannelInteraction() *CrmChannelInteractionService { return &CrmChannelInteractionService{} }
 
 // Create 录入渠道互动（非企微渠道的留资/评论/私信等，企微互动仍走消息存档）。
-func (s CrmChannelInteractionService) Create(tenantID, userID string, req models.CrmChannelInteraction) (models.CrmChannelInteraction, error) {
+func (s CrmChannelInteractionService) Create(ctx context.Context, userID string, req models.CrmChannelInteraction) (models.CrmChannelInteraction, error) {
+	tenantID := identity.TenantID(ctx)
+
 	if req.CustomerID == "" {
 		return req, errors.New("customer_id 不能为空")
 	}
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", req.CustomerID).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", req.CustomerID).First(&c).Error; err != nil {
 		return req, errors.New("客户不存在")
 	}
 	if req.Channel == "" {
@@ -2305,18 +2401,20 @@ func (s CrmChannelInteractionService) Create(tenantID, userID string, req models
 	return req, err
 }
 
-func (s CrmChannelInteractionService) Delete(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmChannelInteraction{})
+func (s CrmChannelInteractionService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmChannelInteraction{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询渠道互动，可按客户/渠道过滤。
-func (s CrmChannelInteractionService) Query(tenantID, customerID, channel string, pager *app.Pager) ([]models.CrmChannelInteraction, int64, error) {
+func (s CrmChannelInteractionService) Query(ctx context.Context, customerID, channel string, pager *app.Pager) ([]models.CrmChannelInteraction, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if customerID != "" {
 		db = db.Where("customer_id = ?", customerID)
 	}
@@ -2366,7 +2464,9 @@ func MaskSecret(s string) string {
 }
 
 // Create 新增渠道接入配置。corp_id 全局唯一（一个企微号只被一个租户接入）。
-func (s CrmChannelConfigService) Create(tenantID string, req ChannelConfigReq) (ChannelConfigVO, error) {
+func (s CrmChannelConfigService) Create(ctx context.Context, req ChannelConfigReq) (ChannelConfigVO, error) {
+	tenantID := identity.TenantID(ctx)
+
 	cfg := models.CrmChannelConfig{
 		Model:       models.Model{ID: id_generator.StringID()},
 		TenantID:    tenantID,
@@ -2431,9 +2531,10 @@ func toChannelConfigVO(cfg models.CrmChannelConfig) ChannelConfigVO {
 }
 
 // Update 更新渠道配置。secrets 空串=保留原值；corp_id 变更时校验全局唯一。
-func (s CrmChannelConfigService) Update(tenantID, id string, req ChannelConfigReq) (ChannelConfigVO, error) {
+func (s CrmChannelConfigService) Update(ctx context.Context, id string, req ChannelConfigReq) (ChannelConfigVO, error) {
+
 	var cfg models.CrmChannelConfig
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&cfg).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&cfg).Error; err != nil {
 		return toChannelConfigVO(cfg), errors.New("渠道配置不存在")
 	}
 	if req.CorpID != "" && req.CorpID != cfg.CorpID {
@@ -2545,12 +2646,13 @@ type ChannelConfigVO struct {
 	DouyinAppSecret string `json:"douyin_app_secret"`
 }
 
-func (s CrmChannelConfigService) Query(tenantID string, pager *app.Pager) ([]ChannelConfigVO, int64, error) {
+func (s CrmChannelConfigService) Query(ctx context.Context, pager *app.Pager) ([]ChannelConfigVO, int64, error) {
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	var total int64
 	if err := db.Model(&models.CrmChannelConfig{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -2574,10 +2676,11 @@ func (s CrmChannelConfigService) Query(tenantID string, pager *app.Pager) ([]Cha
 	return vos, total, nil
 }
 
-func (s CrmChannelConfigService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmChannelConfigService) Delete(ctx context.Context, ids []string) (int64, error) {
+
 	var cfgs []models.CrmChannelConfig
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Find(&cfgs)
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmChannelConfig{})
+	models.MustFor(ctx).Where("id IN ?",  ids).Find(&cfgs)
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmChannelConfig{})
 	for _, c := range cfgs {
 		if we_work.Clients != nil {
 			we_work.Clients.Remove(c.CorpID)

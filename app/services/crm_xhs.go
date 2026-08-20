@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"time"
 
@@ -42,19 +46,22 @@ type XhsInteractionEvent struct {
 // 2. 写 ChannelLink(customer, xiaohongshu, ext_user_id)
 // 3. 写 CrmChannelInteraction(action_type=lead)
 // 4. 自动创建引流任务（小红书→企微）
-func (s CrmCustomerService) SyncFromXhs(tenantID, appID string, ev XhsLeadEvent) error {
+func (s CrmCustomerService) SyncFromXhs(ctx context.Context, appID string, ev XhsLeadEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if ev.ExtUserID == "" {
 		return errors.New("ext_user_id 不能为空")
 	}
 	// 解析租户的小红书渠道配置
-	cfg, err := s.getXhsConfig(tenantID, appID)
+	cfg, err := s.getXhsConfig(ctx, appID)
 	if err != nil {
 		return err
 	}
 
 	// 1. upsert CrmCustomer
 	var c models.CrmCustomer
-	err = models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelXiaohongshu,  appID,  ev.ExtUserID).First(&c).Error
+	err = models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelXiaohongshu,  appID,  ev.ExtUserID).First(&c).Error
 	switch {
 	case err == nil:
 		// 已存在：更新昵称/手机号
@@ -90,16 +97,16 @@ func (s CrmCustomerService) SyncFromXhs(tenantID, appID string, ev XhsLeadEvent)
 	}
 
 	// 2. ChannelLink
-	if lerr := upsertCustomerChannelLink(tenantID, c); lerr != nil {
+	if lerr := upsertCustomerChannelLink(ctx, c); lerr != nil {
 		log.Sugar.Errorw("xhs customer channel link failed", "err", lerr)
 	}
 
 	// 3. CrmChannelInteraction(lead)
-	s.recordXhsInteraction(tenantID, c.ID, "lead", ev.Content, ev.FormID, ev.HappenedAt)
+	s.recordXhsInteraction(ctx, c.ID, "lead", ev.Content, ev.FormID, ev.HappenedAt)
 
 	// 4. 自动创建引流任务（小红书→企微）
 	if cfg.Enabled == 1 {
-		NewCrmChannelTask().CreateLeadToWecomTask(tenantID, c.ID)
+		NewCrmChannelTask().CreateLeadToWecomTask(ctx, c.ID)
 	}
 
 	log.Sugar.Infow("xhs lead synced", "tenant", tenantID, "ext_user", ev.ExtUserID, "customer", c.ID)
@@ -108,14 +115,17 @@ func (s CrmCustomerService) SyncFromXhs(tenantID, appID string, ev XhsLeadEvent)
 
 // SyncInteractionFromXhs 小红书互动事件（评论/私信）落 CrmChannelInteraction。
 // 若客户不存在则自动创建（source=xiaohongshu, 进公海）。
-func (s CrmCustomerService) SyncInteractionFromXhs(tenantID, appID string, ev XhsInteractionEvent) error {
+func (s CrmCustomerService) SyncInteractionFromXhs(ctx context.Context, appID string, ev XhsInteractionEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if ev.ExtUserID == "" {
 		return errors.New("ext_user_id 不能为空")
 	}
 
 	// 确保客户存在
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelXiaohongshu,  appID,  ev.ExtUserID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelXiaohongshu,  appID,  ev.ExtUserID).First(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c = models.CrmCustomer{
 			Model:         models.Model{ID: id_generator.StringID()},
@@ -132,18 +142,21 @@ func (s CrmCustomerService) SyncInteractionFromXhs(tenantID, appID string, ev Xh
 		if cerr := createCRM(models.DB, &c, "OwnerUserID"); cerr != nil {
 			return cerr
 		}
-		upsertCustomerChannelLink(tenantID, c)
+		upsertCustomerChannelLink(ctx, c)
 	} else if err != nil {
 		return err
 	}
 
 	// 写互动记录
-	s.recordXhsInteraction(tenantID, c.ID, ev.ActionType, ev.Content, ev.ExtRef, ev.HappenedAt)
+	s.recordXhsInteraction(ctx, c.ID, ev.ActionType, ev.Content, ev.ExtRef, ev.HappenedAt)
 	return nil
 }
 
 // recordXhsInteraction 写一条小红书渠道互动记录。
-func (s CrmCustomerService) recordXhsInteraction(tenantID, customerID, actionType, content, extRef string, happenedAt int64) {
+func (s CrmCustomerService) recordXhsInteraction(ctx context.Context, customerID, actionType, content, extRef string, happenedAt int64) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var t *time.Time
 	if happenedAt > 0 {
 		v := time.Unix(happenedAt, 0)
@@ -171,14 +184,16 @@ func (s CrmCustomerService) recordXhsInteraction(tenantID, customerID, actionTyp
 			if models.DB.Where("id = ?", customerID).First(&cust).Error == nil {
 				ownerID = cust.OwnerUserID
 			}
-			NewCrmSensitiveWord().Check(tenantID, ownerID, customerID, content)
+			NewCrmSensitiveWord().Check(ctx, ownerID, customerID, content)
 		}()
 	}
 }
 
 // getXhsConfig 查租户的小红书渠道配置。
-func (s CrmCustomerService) getXhsConfig(tenantID, appID string) (models.CrmChannelConfig, error) {
+func (s CrmCustomerService) getXhsConfig(ctx context.Context, appID string) (models.CrmChannelConfig, error) {
+
+
 	var cfg models.CrmChannelConfig
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("channel = ? AND corp_id = ?",  constants.ChannelXiaohongshu,  appID).First(&cfg).Error
+	err := models.MustFor(ctx).Where("channel = ? AND corp_id = ?",  constants.ChannelXiaohongshu,  appID).First(&cfg).Error
 	return cfg, err
 }

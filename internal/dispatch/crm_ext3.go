@@ -15,7 +15,7 @@ import (
 // ---- 收支类别 ----
 
 func crmIncomeCategoryList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func crmIncomeCategoryList(ctx context.Context, _, _ string, params json.RawMess
 		return nil, err
 	}
 	q := services.IncomeCategoryQueryReq{Page: req.Page, PageSize: req.PageSize, Type: req.Type, Status: req.Status}
-	items, total, err := services.NewCrmIncomeCategory().Query(t, q)
+	items, total, err := services.NewCrmIncomeCategory().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func crmIncomeCategoryList(ctx context.Context, _, _ string, params json.RawMess
 }
 
 func crmIncomeCategoryCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +44,11 @@ func crmIncomeCategoryCreate(ctx context.Context, _, _ string, params json.RawMe
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmIncomeCategory().Create(t, &c)
+	return ok, services.NewCrmIncomeCategory().Create(ctx, &c)
 }
 
 func crmIncomeCategoryUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +56,11 @@ func crmIncomeCategoryUpdate(ctx context.Context, _, id string, params json.RawM
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmIncomeCategory().Update(t, id, &c)
+	return ok, services.NewCrmIncomeCategory().Update(ctx, id, &c)
 }
 
 func crmIncomeCategoryDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +73,13 @@ func crmIncomeCategoryDelete(ctx context.Context, _, _ string, params json.RawMe
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmIncomeCategory().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmIncomeCategory().Delete(ctx, req.IDs); return ok, e }
 }
 
 // ---- 其他收入单 ----
 
 func crmOtherIncomeList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func crmOtherIncomeList(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, err
 	}
 	q := services.OtherIncomeQueryReq{Page: req.Page, PageSize: req.PageSize, Status: req.Status, CategoryID: req.CategoryID}
-	items, total, err := services.NewCrmOtherIncome().Query(t, q)
+	items, total, err := services.NewCrmOtherIncome().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func crmOtherIncomeList(ctx context.Context, _, _ string, params json.RawMessage
 }
 
 func crmOtherIncomeCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,11 +108,11 @@ func crmOtherIncomeCreate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOtherIncome().Create(t, &r)
+	return ok, services.NewCrmOtherIncome().Create(ctx, &r)
 }
 
 func crmOtherIncomeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -120,11 +120,11 @@ func crmOtherIncomeUpdate(ctx context.Context, _, id string, params json.RawMess
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOtherIncome().Update(t, id, &r)
+	return ok, services.NewCrmOtherIncome().Update(ctx, id, &r)
 }
 
 func crmOtherIncomeDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -137,11 +137,11 @@ func crmOtherIncomeDelete(ctx context.Context, _, _ string, params json.RawMessa
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmOtherIncome().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmOtherIncome().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmOtherIncomeChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +151,13 @@ func crmOtherIncomeChangeStatus(ctx context.Context, _, id string, params json.R
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOtherIncome().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmOtherIncome().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---- 其他支出单 ----
 
 func crmOtherExpenseList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func crmOtherExpenseList(ctx context.Context, _, _ string, params json.RawMessag
 		return nil, err
 	}
 	q := services.OtherExpenseQueryReq{Page: req.Page, PageSize: req.PageSize, Status: req.Status, CategoryID: req.CategoryID}
-	items, total, err := services.NewCrmOtherExpense().Query(t, q)
+	items, total, err := services.NewCrmOtherExpense().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func crmOtherExpenseList(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func crmOtherExpenseCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -186,11 +186,11 @@ func crmOtherExpenseCreate(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOtherExpense().Create(t, &r)
+	return ok, services.NewCrmOtherExpense().Create(ctx, &r)
 }
 
 func crmOtherExpenseUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +198,11 @@ func crmOtherExpenseUpdate(ctx context.Context, _, id string, params json.RawMes
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOtherExpense().Update(t, id, &r)
+	return ok, services.NewCrmOtherExpense().Update(ctx, id, &r)
 }
 
 func crmOtherExpenseDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -215,11 +215,11 @@ func crmOtherExpenseDelete(ctx context.Context, _, _ string, params json.RawMess
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmOtherExpense().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmOtherExpense().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmOtherExpenseChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -229,13 +229,13 @@ func crmOtherExpenseChangeStatus(ctx context.Context, _, id string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOtherExpense().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmOtherExpense().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---- 资金转账单 ----
 
 func crmFundTransferList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func crmFundTransferList(ctx context.Context, _, _ string, params json.RawMessag
 		return nil, err
 	}
 	q := services.FundTransferQueryReq{Page: req.Page, PageSize: req.PageSize, Status: req.Status}
-	items, total, err := services.NewCrmFundTransfer().Query(t, q)
+	items, total, err := services.NewCrmFundTransfer().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func crmFundTransferList(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func crmFundTransferCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -263,11 +263,11 @@ func crmFundTransferCreate(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmFundTransfer().Create(t, &r)
+	return ok, services.NewCrmFundTransfer().Create(ctx, &r)
 }
 
 func crmFundTransferUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -275,11 +275,11 @@ func crmFundTransferUpdate(ctx context.Context, _, id string, params json.RawMes
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmFundTransfer().Update(t, id, &r)
+	return ok, services.NewCrmFundTransfer().Update(ctx, id, &r)
 }
 
 func crmFundTransferDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -292,11 +292,11 @@ func crmFundTransferDelete(ctx context.Context, _, _ string, params json.RawMess
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmFundTransfer().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmFundTransfer().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmFundTransferChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func crmFundTransferChangeStatus(ctx context.Context, _, id string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmFundTransfer().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmFundTransfer().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---------- 进销存单据 dispatch handlers ----------
@@ -314,7 +314,7 @@ func crmFundTransferChangeStatus(ctx context.Context, _, id string, params json.
 // ---- 入库单 ----
 
 func crmStockInList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,7 @@ func crmStockInList(ctx context.Context, _, _ string, params json.RawMessage) (a
 		return nil, err
 	}
 	q := services.StockInQueryReq{Page: req.Page, PageSize: req.PageSize, WarehouseID: req.WarehouseID, Type: req.Type, Status: req.Status}
-	items, total, err := services.NewCrmStockIn().Query(t, q)
+	items, total, err := services.NewCrmStockIn().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func crmStockInList(ctx context.Context, _, _ string, params json.RawMessage) (a
 }
 
 func crmStockInCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -344,11 +344,11 @@ func crmStockInCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockIn().Create(t, &r)
+	return ok, services.NewCrmStockIn().Create(ctx, &r)
 }
 
 func crmStockInUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -356,11 +356,11 @@ func crmStockInUpdate(ctx context.Context, _, id string, params json.RawMessage)
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockIn().Update(t, id, &r)
+	return ok, services.NewCrmStockIn().Update(ctx, id, &r)
 }
 
 func crmStockInDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -373,11 +373,11 @@ func crmStockInDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmStockIn().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmStockIn().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmStockInChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -387,13 +387,13 @@ func crmStockInChangeStatus(ctx context.Context, _, id string, params json.RawMe
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockIn().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmStockIn().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---- 出库单 ----
 
 func crmStockOutList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +407,7 @@ func crmStockOutList(ctx context.Context, _, _ string, params json.RawMessage) (
 		return nil, err
 	}
 	q := services.StockOutQueryReq{Page: req.Page, PageSize: req.PageSize, WarehouseID: req.WarehouseID, Type: req.Type, Status: req.Status}
-	items, total, err := services.NewCrmStockOut().Query(t, q)
+	items, total, err := services.NewCrmStockOut().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func crmStockOutList(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmStockOutCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -423,11 +423,11 @@ func crmStockOutCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockOut().Create(t, &r)
+	return ok, services.NewCrmStockOut().Create(ctx, &r)
 }
 
 func crmStockOutUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -435,11 +435,11 @@ func crmStockOutUpdate(ctx context.Context, _, id string, params json.RawMessage
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockOut().Update(t, id, &r)
+	return ok, services.NewCrmStockOut().Update(ctx, id, &r)
 }
 
 func crmStockOutDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -452,11 +452,11 @@ func crmStockOutDelete(ctx context.Context, _, _ string, params json.RawMessage)
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmStockOut().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmStockOut().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmStockOutChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -466,13 +466,13 @@ func crmStockOutChangeStatus(ctx context.Context, _, id string, params json.RawM
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockOut().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmStockOut().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---- 盘点单 ----
 
 func crmStockCheckList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +485,7 @@ func crmStockCheckList(ctx context.Context, _, _ string, params json.RawMessage)
 		return nil, err
 	}
 	q := services.StockCheckQueryReq{Page: req.Page, PageSize: req.PageSize, WarehouseID: req.WarehouseID, Status: req.Status}
-	items, total, err := services.NewCrmStockCheck().Query(t, q)
+	items, total, err := services.NewCrmStockCheck().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +493,7 @@ func crmStockCheckList(ctx context.Context, _, _ string, params json.RawMessage)
 }
 
 func crmStockCheckCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -501,11 +501,11 @@ func crmStockCheckCreate(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockCheck().Create(t, &r)
+	return ok, services.NewCrmStockCheck().Create(ctx, &r)
 }
 
 func crmStockCheckUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -513,11 +513,11 @@ func crmStockCheckUpdate(ctx context.Context, _, id string, params json.RawMessa
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockCheck().Update(t, id, &r)
+	return ok, services.NewCrmStockCheck().Update(ctx, id, &r)
 }
 
 func crmStockCheckDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -530,11 +530,11 @@ func crmStockCheckDelete(ctx context.Context, _, _ string, params json.RawMessag
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmStockCheck().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmStockCheck().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmStockCheckChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -544,13 +544,13 @@ func crmStockCheckChangeStatus(ctx context.Context, _, id string, params json.Ra
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockCheck().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmStockCheck().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---- 调拨单 ----
 
 func crmStockTransferList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -562,7 +562,7 @@ func crmStockTransferList(ctx context.Context, _, _ string, params json.RawMessa
 		return nil, err
 	}
 	q := services.StockTransferQueryReq{Page: req.Page, PageSize: req.PageSize, Status: req.Status}
-	items, total, err := services.NewCrmStockTransfer().Query(t, q)
+	items, total, err := services.NewCrmStockTransfer().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +570,7 @@ func crmStockTransferList(ctx context.Context, _, _ string, params json.RawMessa
 }
 
 func crmStockTransferCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -578,11 +578,11 @@ func crmStockTransferCreate(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockTransfer().Create(t, &r)
+	return ok, services.NewCrmStockTransfer().Create(ctx, &r)
 }
 
 func crmStockTransferUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -590,11 +590,11 @@ func crmStockTransferUpdate(ctx context.Context, _, id string, params json.RawMe
 	if err := Bind(params, &r); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockTransfer().Update(t, id, &r)
+	return ok, services.NewCrmStockTransfer().Update(ctx, id, &r)
 }
 
 func crmStockTransferDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -607,11 +607,11 @@ func crmStockTransferDelete(ctx context.Context, _, _ string, params json.RawMes
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmStockTransfer().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmStockTransfer().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmStockTransferChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +621,7 @@ func crmStockTransferChangeStatus(ctx context.Context, _, id string, params json
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmStockTransfer().ChangeStatus(t, id, req.Status)
+	return ok, services.NewCrmStockTransfer().ChangeStatus(ctx, id, req.Status)
 }
 
 // ---------- 工单扩展 dispatch handlers ----------
@@ -629,7 +629,7 @@ func crmStockTransferChangeStatus(ctx context.Context, _, id string, params json
 // ---- 工单类型 ----
 
 func crmWorkorderTypeList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +641,7 @@ func crmWorkorderTypeList(ctx context.Context, _, _ string, params json.RawMessa
 		return nil, err
 	}
 	q := services.WorkorderTypeQueryReq{Page: req.Page, PageSize: req.PageSize, Status: req.Status}
-	items, total, err := services.NewCrmWorkorderType().Query(t, q)
+	items, total, err := services.NewCrmWorkorderType().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -649,7 +649,7 @@ func crmWorkorderTypeList(ctx context.Context, _, _ string, params json.RawMessa
 }
 
 func crmWorkorderTypeCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -657,11 +657,11 @@ func crmWorkorderTypeCreate(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmWorkorderType().Create(t, &c)
+	return ok, services.NewCrmWorkorderType().Create(ctx, &c)
 }
 
 func crmWorkorderTypeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -669,11 +669,11 @@ func crmWorkorderTypeUpdate(ctx context.Context, _, id string, params json.RawMe
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmWorkorderType().Update(t, id, &c)
+	return ok, services.NewCrmWorkorderType().Update(ctx, id, &c)
 }
 
 func crmWorkorderTypeDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -686,13 +686,13 @@ func crmWorkorderTypeDelete(ctx context.Context, _, _ string, params json.RawMes
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmWorkorderType().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmWorkorderType().Delete(ctx, req.IDs); return ok, e }
 }
 
 // ---- 工单池 ----
 
 func crmWorkorderPoolList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -703,7 +703,7 @@ func crmWorkorderPoolList(ctx context.Context, _, _ string, params json.RawMessa
 		return nil, err
 	}
 	q := services.WorkorderPoolQueryReq{Page: req.Page, PageSize: req.PageSize}
-	items, total, err := services.NewCrmWorkorderPool().ListPool(t, q)
+	items, total, err := services.NewCrmWorkorderPool().ListPool(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -711,7 +711,7 @@ func crmWorkorderPoolList(ctx context.Context, _, _ string, params json.RawMessa
 }
 
 func crmWorkorderPoolMoveToPool(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -724,20 +724,20 @@ func crmWorkorderPoolMoveToPool(ctx context.Context, _, _ string, params json.Ra
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	return ok, services.NewCrmWorkorderPool().MoveToPool(t, req.IDs)
+	return ok, services.NewCrmWorkorderPool().MoveToPool(ctx, req.IDs)
 }
 
 func crmWorkorderPoolReceive(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	u := identity.UserID(ctx)
-	return ok, services.NewCrmWorkorderPool().Receive(t, u, id)
+	return ok, services.NewCrmWorkorderPool().Receive(ctx, u, id)
 }
 
 func crmWorkorderPoolBatchReceive(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -751,13 +751,13 @@ func crmWorkorderPoolBatchReceive(ctx context.Context, _, _ string, params json.
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	return ok, services.NewCrmWorkorderPool().BatchReceive(t, u, req.IDs)
+	return ok, services.NewCrmWorkorderPool().BatchReceive(ctx, u, req.IDs)
 }
 
 // ---- 工单日志 ----
 
 func crmWorkorderLogList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -767,11 +767,11 @@ func crmWorkorderLogList(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmWorkorderLog().ListByWorkorder(t, req.WorkorderID)
+	return services.NewCrmWorkorderLog().ListByWorkorder(ctx, req.WorkorderID)
 }
 
 func crmWorkorderLogAdd(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -784,13 +784,13 @@ func crmWorkorderLogAdd(ctx context.Context, _, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmWorkorderLog().Add(t, req.WorkorderID, u, req.Action, req.Content)
+	return ok, services.NewCrmWorkorderLog().Add(ctx, req.WorkorderID, u, req.Action, req.Content)
 }
 
 // ---------- 呼叫中心扩展 dispatch handlers ----------
 
 func crmCallListList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -803,7 +803,7 @@ func crmCallListList(ctx context.Context, _, _ string, params json.RawMessage) (
 		return nil, err
 	}
 	q := services.CallListQueryReq{Page: req.Page, PageSize: req.PageSize, UserID: req.UserID, Status: req.Status}
-	items, total, err := services.NewCrmCallList().Query(t, q)
+	items, total, err := services.NewCrmCallList().Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -811,7 +811,7 @@ func crmCallListList(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmCallListCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -819,11 +819,11 @@ func crmCallListCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmCallList().Create(t, &c)
+	return ok, services.NewCrmCallList().Create(ctx, &c)
 }
 
 func crmCallListUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -831,11 +831,11 @@ func crmCallListUpdate(ctx context.Context, _, id string, params json.RawMessage
 	if err := Bind(params, &c); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmCallList().Update(t, id, &c)
+	return ok, services.NewCrmCallList().Update(ctx, id, &c)
 }
 
 func crmCallListDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -848,11 +848,11 @@ func crmCallListDelete(ctx context.Context, _, _ string, params json.RawMessage)
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmCallList().Delete(t, req.IDs); return ok, e }
+	{ _, e := services.NewCrmCallList().Delete(ctx, req.IDs); return ok, e }
 }
 
 func crmCallListBatchAssign(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -866,21 +866,21 @@ func crmCallListBatchAssign(ctx context.Context, _, _ string, params json.RawMes
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	return ok, services.NewCrmCallList().BatchAssign(t, req.UserID, req.IDs)
+	return ok, services.NewCrmCallList().BatchAssign(ctx, req.UserID, req.IDs)
 }
 
 func crmCallListMarkDialed(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmCallList().MarkDialed(t, id)
+	return ok, services.NewCrmCallList().MarkDialed(ctx, id)
 }
 
 func crmCallListMarkSkipped(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmCallList().MarkSkipped(t, id)
+	return ok, services.NewCrmCallList().MarkSkipped(ctx, id)
 }

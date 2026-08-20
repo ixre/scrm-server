@@ -12,17 +12,17 @@ import (
 // ---------- 活动效果漏斗 ----------
 
 func crmReportActivityFunnel(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().ActivityFunnel(t)
+	return services.NewCrmReport().ActivityFunnel(ctx)
 }
 
 // ---------- 优惠券 ----------
 
 func crmCouponCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -30,11 +30,11 @@ func crmCouponCreate(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCoupon().Create(t, identity.UserID(ctx), req.Coupon)
+	return services.NewCrmCoupon().Create(ctx, identity.UserID(ctx), req.Coupon)
 }
 
 func crmCouponUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +45,11 @@ func crmCouponUpdate(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCoupon().Update(t, req.ID, req.Coupon)
+	return services.NewCrmCoupon().Update(ctx, req.ID, req.Coupon)
 }
 
 func crmCouponQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func crmCouponQuery(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmCoupon().Query(t, req.Query.Status, req.Pager)
+	items, total, err := services.NewCrmCoupon().Query(ctx, req.Query.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func crmCouponQuery(ctx context.Context, _, _ string, params json.RawMessage) (a
 }
 
 func crmCouponGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -80,11 +80,11 @@ func crmCouponGet(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCoupon().Get(t, req.ID)
+	return services.NewCrmCoupon().Get(ctx, req.ID)
 }
 
 func crmCouponDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -94,11 +94,11 @@ func crmCouponDelete(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCoupon().Delete(t, req.IDs)
+	return services.NewCrmCoupon().Delete(ctx, req.IDs)
 }
 
 func crmCouponIssue(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +109,11 @@ func crmCouponIssue(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCoupon().Issue(t, req.CouponID, req.CustomerID)
+	return services.NewCrmCoupon().Issue(ctx, req.CouponID, req.CustomerID)
 }
 
 func crmCouponVerify(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +124,11 @@ func crmCouponVerify(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmCoupon().Verify(t, req.Code, req.OrderID)
+	return services.NewCrmCoupon().Verify(ctx, req.Code, req.OrderID)
 }
 
 func crmCouponListRecords(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func crmCouponListRecords(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmCoupon().ListRecords(t, req.Query.CouponID, req.Query.Status, req.Pager)
+	items, total, err := services.NewCrmCoupon().ListRecords(ctx, req.Query.CouponID, req.Query.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func crmCouponListRecords(ctx context.Context, _, _ string, params json.RawMessa
 // ---------- 裂变活动 ----------
 
 func crmFissionCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -160,11 +160,11 @@ func crmFissionCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFission().Create(t, req.Fission)
+	return services.NewCrmFission().Create(ctx, req.Fission)
 }
 
 func crmFissionQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func crmFissionQuery(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmFission().Query(t, req.Query.Status, req.Pager)
+	items, total, err := services.NewCrmFission().Query(ctx, req.Query.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func crmFissionQuery(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmFissionGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -195,11 +195,11 @@ func crmFissionGet(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFission().Get(t, req.ID)
+	return services.NewCrmFission().Get(ctx, req.ID)
 }
 
 func crmFissionDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -209,11 +209,11 @@ func crmFissionDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFission().Delete(t, req.IDs)
+	return services.NewCrmFission().Delete(ctx, req.IDs)
 }
 
 func crmFissionRecordInvite(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -225,11 +225,11 @@ func crmFissionRecordInvite(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFission().RecordInvite(t, req.FissionID, req.InviterCustomerID, req.InviteeCustomerID)
+	return services.NewCrmFission().RecordInvite(ctx, req.FissionID, req.InviterCustomerID, req.InviteeCustomerID)
 }
 
 func crmFissionListInvites(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func crmFissionListInvites(ctx context.Context, _, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmFission().ListInvites(t, req.Query.FissionID, req.Query.InviterCustomerID, req.Pager)
+	items, total, err := services.NewCrmFission().ListInvites(ctx, req.Query.FissionID, req.Query.InviterCustomerID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func crmFissionListInvites(ctx context.Context, _, _ string, params json.RawMess
 }
 
 func crmFissionStatsByInviter(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -262,13 +262,13 @@ func crmFissionStatsByInviter(ctx context.Context, _, _ string, params json.RawM
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmFission().StatsByInviter(t, req.FissionID, req.InviterCustomerID)
+	return services.NewCrmFission().StatsByInviter(ctx, req.FissionID, req.InviterCustomerID)
 }
 
 // ---------- 落地页 ----------
 
 func crmLandingPageCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -276,11 +276,11 @@ func crmLandingPageCreate(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLandingPage().Create(t, req.Page)
+	return services.NewCrmLandingPage().Create(ctx, req.Page)
 }
 
 func crmLandingPageQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func crmLandingPageQuery(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmLandingPage().Query(t, req.Query.ActivityID, req.Pager)
+	items, total, err := services.NewCrmLandingPage().Query(ctx, req.Query.ActivityID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +301,7 @@ func crmLandingPageQuery(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func crmLandingPageGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -311,11 +311,11 @@ func crmLandingPageGet(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLandingPage().Get(t, req.ID)
+	return services.NewCrmLandingPage().Get(ctx, req.ID)
 }
 
 func crmLandingPageDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -325,5 +325,5 @@ func crmLandingPageDelete(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmLandingPage().Delete(t, req.IDs)
+	return services.NewCrmLandingPage().Delete(ctx, req.IDs)
 }

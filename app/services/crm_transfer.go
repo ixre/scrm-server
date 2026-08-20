@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"core/app/models"
 	"core/common/app"
 	"core/common/id_generator"
@@ -17,7 +21,10 @@ func NewCrmTransfer() *CrmTransferService { return &CrmTransferService{} }
 
 // Transfer 批量转移客户归属：改 owner + 写转移日志（事务）。
 // 公海客户(pool_status=1)不可转移，需先认领。
-func (s CrmTransferService) Transfer(tenantID, operatorUserID string, customerIDs []string, toUserID, reason string) (int64, error) {
+func (s CrmTransferService) Transfer(ctx context.Context, operatorUserID string, customerIDs []string, toUserID, reason string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(customerIDs) == 0 {
 		return 0, nil
 	}
@@ -70,12 +77,14 @@ func (s CrmTransferService) Transfer(tenantID, operatorUserID string, customerID
 }
 
 // ListTransferLog 查某客户的转移历史（按时间倒序）。
-func (s CrmTransferService) ListTransferLog(tenantID, customerID string, pager *app.Pager) ([]models.CrmTransferLog, int64, error) {
+func (s CrmTransferService) ListTransferLog(ctx context.Context, customerID string, pager *app.Pager) ([]models.CrmTransferLog, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID)
+	db := models.MustFor(ctx).Where("customer_id = ?",  customerID)
 	var total int64
 	if err := db.Model(&models.CrmTransferLog{}).Count(&total).Error; err != nil {
 		return nil, 0, err

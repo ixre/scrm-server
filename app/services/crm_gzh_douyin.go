@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"time"
 
@@ -41,14 +45,17 @@ type GzhInteractionEvent struct {
 // 1. 按 (tenant, gzh, openid) 幂等 upsert CrmCustomer(source=gzh)
 // 2. 写 ChannelLink
 // 3. 写 CrmChannelInteraction
-func (s CrmCustomerService) SyncFromGzh(tenantID, appID string, ev GzhLeadEvent) error {
+func (s CrmCustomerService) SyncFromGzh(ctx context.Context, appID string, ev GzhLeadEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if ev.OpenID == "" {
 		return errors.New("openid 不能为空")
 	}
 
 	// 1. upsert CrmCustomer
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelGzh,  appID,  ev.OpenID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelGzh,  appID,  ev.OpenID).First(&c).Error
 	switch {
 	case err == nil:
 		updates := map[string]any{}
@@ -83,25 +90,28 @@ func (s CrmCustomerService) SyncFromGzh(tenantID, appID string, ev GzhLeadEvent)
 	}
 
 	// 2. ChannelLink
-	if lerr := upsertCustomerChannelLink(tenantID, c); lerr != nil {
+	if lerr := upsertCustomerChannelLink(ctx, c); lerr != nil {
 		log.Sugar.Errorw("gzh customer channel link failed", "err", lerr)
 	}
 
 	// 3. CrmChannelInteraction
-	s.recordGzhInteraction(tenantID, c.ID, "lead", ev.Content, ev.FormID, ev.HappenedAt)
+	s.recordGzhInteraction(ctx, c.ID, "lead", ev.Content, ev.FormID, ev.HappenedAt)
 
 	log.Sugar.Infow("gzh lead synced", "tenant", tenantID, "openid", ev.OpenID, "customer", c.ID)
 	return nil
 }
 
 // SyncInteractionFromGzh 公众号互动事件（消息/菜单点击）落 CrmChannelInteraction。
-func (s CrmCustomerService) SyncInteractionFromGzh(tenantID, appID string, ev GzhInteractionEvent) error {
+func (s CrmCustomerService) SyncInteractionFromGzh(ctx context.Context, appID string, ev GzhInteractionEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if ev.OpenID == "" {
 		return errors.New("openid 不能为空")
 	}
 
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelGzh,  appID,  ev.OpenID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelGzh,  appID,  ev.OpenID).First(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c = models.CrmCustomer{
 			Model:         models.Model{ID: id_generator.StringID()},
@@ -118,17 +128,20 @@ func (s CrmCustomerService) SyncInteractionFromGzh(tenantID, appID string, ev Gz
 		if cerr := createCRM(models.DB, &c, "OwnerUserID"); cerr != nil {
 			return cerr
 		}
-		upsertCustomerChannelLink(tenantID, c)
+		upsertCustomerChannelLink(ctx, c)
 	} else if err != nil {
 		return err
 	}
 
-	s.recordGzhInteraction(tenantID, c.ID, ev.ActionType, ev.Content, ev.ExtRef, ev.HappenedAt)
+	s.recordGzhInteraction(ctx, c.ID, ev.ActionType, ev.Content, ev.ExtRef, ev.HappenedAt)
 	return nil
 }
 
 // recordGzhInteraction 写一条公众号渠道互动记录。
-func (s CrmCustomerService) recordGzhInteraction(tenantID, customerID, actionType, content, extRef string, happenedAt int64) {
+func (s CrmCustomerService) recordGzhInteraction(ctx context.Context, customerID, actionType, content, extRef string, happenedAt int64) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var t *time.Time
 	if happenedAt > 0 {
 		v := time.Unix(happenedAt, 0)
@@ -156,7 +169,7 @@ func (s CrmCustomerService) recordGzhInteraction(tenantID, customerID, actionTyp
 			if models.DB.Where("id = ?", customerID).First(&cust).Error == nil {
 				ownerID = cust.OwnerUserID
 			}
-			NewCrmSensitiveWord().Check(tenantID, ownerID, customerID, content)
+			NewCrmSensitiveWord().Check(ctx, ownerID, customerID, content)
 		}()
 	}
 }
@@ -187,13 +200,16 @@ type DouyinInteractionEvent struct {
 }
 
 // SyncFromDouyin 抖音留资事件落 CRM。
-func (s CrmCustomerService) SyncFromDouyin(tenantID, appID string, ev DouyinLeadEvent) error {
+func (s CrmCustomerService) SyncFromDouyin(ctx context.Context, appID string, ev DouyinLeadEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if ev.ExtUserID == "" {
 		return errors.New("ext_user_id 不能为空")
 	}
 
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelDouyin,  appID,  ev.ExtUserID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelDouyin,  appID,  ev.ExtUserID).First(&c).Error
 	switch {
 	case err == nil:
 		updates := map[string]any{}
@@ -227,24 +243,27 @@ func (s CrmCustomerService) SyncFromDouyin(tenantID, appID string, ev DouyinLead
 		return err
 	}
 
-	if lerr := upsertCustomerChannelLink(tenantID, c); lerr != nil {
+	if lerr := upsertCustomerChannelLink(ctx, c); lerr != nil {
 		log.Sugar.Errorw("douyin customer channel link failed", "err", lerr)
 	}
 
-	s.recordDouyinInteraction(tenantID, c.ID, "lead", ev.Content, ev.FormID, ev.HappenedAt)
+	s.recordDouyinInteraction(ctx, c.ID, "lead", ev.Content, ev.FormID, ev.HappenedAt)
 
 	log.Sugar.Infow("douyin lead synced", "tenant", tenantID, "ext_user", ev.ExtUserID, "customer", c.ID)
 	return nil
 }
 
 // SyncInteractionFromDouyin 抖音互动事件（私信/评论）落 CrmChannelInteraction。
-func (s CrmCustomerService) SyncInteractionFromDouyin(tenantID, appID string, ev DouyinInteractionEvent) error {
+func (s CrmCustomerService) SyncInteractionFromDouyin(ctx context.Context, appID string, ev DouyinInteractionEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if ev.ExtUserID == "" {
 		return errors.New("ext_user_id 不能为空")
 	}
 
 	var c models.CrmCustomer
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelDouyin,  appID,  ev.ExtUserID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelDouyin,  appID,  ev.ExtUserID).First(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c = models.CrmCustomer{
 			Model:         models.Model{ID: id_generator.StringID()},
@@ -261,17 +280,20 @@ func (s CrmCustomerService) SyncInteractionFromDouyin(tenantID, appID string, ev
 		if cerr := createCRM(models.DB, &c, "OwnerUserID"); cerr != nil {
 			return cerr
 		}
-		upsertCustomerChannelLink(tenantID, c)
+		upsertCustomerChannelLink(ctx, c)
 	} else if err != nil {
 		return err
 	}
 
-	s.recordDouyinInteraction(tenantID, c.ID, ev.ActionType, ev.Content, ev.ExtRef, ev.HappenedAt)
+	s.recordDouyinInteraction(ctx, c.ID, ev.ActionType, ev.Content, ev.ExtRef, ev.HappenedAt)
 	return nil
 }
 
 // recordDouyinInteraction 写一条抖音渠道互动记录。
-func (s CrmCustomerService) recordDouyinInteraction(tenantID, customerID, actionType, content, extRef string, happenedAt int64) {
+func (s CrmCustomerService) recordDouyinInteraction(ctx context.Context, customerID, actionType, content, extRef string, happenedAt int64) {
+	tenantID := identity.TenantID(ctx)
+
+
 	var t *time.Time
 	if happenedAt > 0 {
 		v := time.Unix(happenedAt, 0)
@@ -299,7 +321,7 @@ func (s CrmCustomerService) recordDouyinInteraction(tenantID, customerID, action
 			if models.DB.Where("id = ?", customerID).First(&cust).Error == nil {
 				ownerID = cust.OwnerUserID
 			}
-			NewCrmSensitiveWord().Check(tenantID, ownerID, customerID, content)
+			NewCrmSensitiveWord().Check(ctx, ownerID, customerID, content)
 		}()
 	}
 }

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -23,7 +27,10 @@ type CrmSupplierService struct{}
 func NewCrmSupplier() *CrmSupplierService { return &CrmSupplierService{} }
 
 // Create 创建供应商。
-func (s CrmSupplierService) Create(tenantID string, sup *models.CrmSupplier) error {
+func (s CrmSupplierService) Create(ctx context.Context, sup *models.CrmSupplier) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if sup == nil {
 		return errors.New("供应商不能为空")
 	}
@@ -37,7 +44,9 @@ func (s CrmSupplierService) Create(tenantID string, sup *models.CrmSupplier) err
 }
 
 // Update 更新供应商。
-func (s CrmSupplierService) Update(tenantID, id string, sup *models.CrmSupplier) error {
+func (s CrmSupplierService) Update(ctx context.Context, id string, sup *models.CrmSupplier) error {
+
+
 	if sup == nil {
 		return errors.New("供应商不能为空")
 	}
@@ -48,25 +57,29 @@ func (s CrmSupplierService) Update(tenantID, id string, sup *models.CrmSupplier)
 		"address": sup.Address,
 		"remark":  sup.Remark,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除供应商。
-func (s CrmSupplierService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmSupplierService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmSupplier{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSupplier{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 获取供应商详情。
-func (s CrmSupplierService) Get(tenantID, id string) (*models.CrmSupplier, error) {
+func (s CrmSupplierService) Get(ctx context.Context, id string) (*models.CrmSupplier, error) {
+
+
 	var item models.CrmSupplier
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -74,14 +87,16 @@ func (s CrmSupplierService) Get(tenantID, id string) (*models.CrmSupplier, error
 }
 
 // Query 分页查询供应商。
-func (s CrmSupplierService) Query(tenantID string, req SupplierQueryReq) ([]models.CrmSupplier, int64, error) {
+func (s CrmSupplierService) Query(ctx context.Context, req SupplierQueryReq) ([]models.CrmSupplier, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR contact LIKE ? OR phone LIKE ?", like, like, like)
@@ -112,7 +127,10 @@ type CrmPurchaseOrderService struct{}
 func NewCrmPurchaseOrder() *CrmPurchaseOrderService { return &CrmPurchaseOrderService{} }
 
 // Create 创建采购订单。
-func (s CrmPurchaseOrderService) Create(tenantID string, o *models.CrmPurchaseOrder) error {
+func (s CrmPurchaseOrderService) Create(ctx context.Context, o *models.CrmPurchaseOrder) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if o == nil {
 		return errors.New("采购订单不能为空")
 	}
@@ -132,7 +150,9 @@ func (s CrmPurchaseOrderService) Create(tenantID string, o *models.CrmPurchaseOr
 }
 
 // Update 更新采购订单。
-func (s CrmPurchaseOrderService) Update(tenantID, id string, o *models.CrmPurchaseOrder) error {
+func (s CrmPurchaseOrderService) Update(ctx context.Context, id string, o *models.CrmPurchaseOrder) error {
+
+
 	if o == nil {
 		return errors.New("采购订单不能为空")
 	}
@@ -147,25 +167,29 @@ func (s CrmPurchaseOrderService) Update(tenantID, id string, o *models.CrmPurcha
 		"remark":       o.Remark,
 	}
 	updatesCRM(m, "supplier_id", "warehouse_id")
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除采购订单。
-func (s CrmPurchaseOrderService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmPurchaseOrderService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmPurchaseOrder{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmPurchaseOrder{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 获取采购订单详情。
-func (s CrmPurchaseOrderService) Get(tenantID, id string) (*models.CrmPurchaseOrder, error) {
+func (s CrmPurchaseOrderService) Get(ctx context.Context, id string) (*models.CrmPurchaseOrder, error) {
+
+
 	var item models.CrmPurchaseOrder
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -173,14 +197,16 @@ func (s CrmPurchaseOrderService) Get(tenantID, id string) (*models.CrmPurchaseOr
 }
 
 // Query 分页查询采购订单。
-func (s CrmPurchaseOrderService) Query(tenantID string, req PurchaseOrderQueryReq) ([]models.CrmPurchaseOrder, int64, error) {
+func (s CrmPurchaseOrderService) Query(ctx context.Context, req PurchaseOrderQueryReq) ([]models.CrmPurchaseOrder, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if req.SupplierID != "" {
 		db = db.Where("supplier_id = ?", req.SupplierID)
 	}
@@ -201,7 +227,10 @@ func (s CrmPurchaseOrderService) Query(tenantID string, req PurchaseOrderQueryRe
 }
 
 // ChangeStatus 变更采购订单状态。
-func (s CrmPurchaseOrderService) ChangeStatus(tenantID, id, status string) error {
+func (s CrmPurchaseOrderService) ChangeStatus(ctx context.Context, id, status string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if status == "" {
 		return errors.New("状态不能为空")
 	}

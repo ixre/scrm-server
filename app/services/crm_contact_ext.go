@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -16,25 +20,28 @@ func NewCrmContactExt() *CrmContactExtService { return &CrmContactExtService{} }
 
 // ConvertToCustomer 联系人转客户：创建 CrmCustomer（姓名/电话/邮箱），回写联系人 CustomerID。
 // 幂等：联系人已关联客户则直接返回已有客户。
-func (s CrmContactExtService) ConvertToCustomer(tenantID, userID, contactID string) (*models.CrmCustomer, error) {
+func (s CrmContactExtService) ConvertToCustomer(ctx context.Context, userID, contactID string) (*models.CrmCustomer, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if contactID == "" {
 		return nil, errors.New("contact_id 不能为空")
 	}
 	var c models.CrmContact
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", contactID).First(&c).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", contactID).First(&c).Error; err != nil {
 		return nil, errors.New("联系人不存在")
 	}
 	// 已关联客户则直接返回。
 	if c.CustomerID != "" {
 		var exist models.CrmCustomer
-		if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", c.CustomerID).First(&exist).Error; err == nil {
+		if err := models.MustFor(ctx).Where("id = ?", c.CustomerID).First(&exist).Error; err == nil {
 			return &exist, nil
 		}
 	}
 	// 去重：同手机号已有客户则直接关联。
 	if c.Phone != "" {
 		var exist models.CrmCustomer
-		if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("mobile = ?",  c.Phone).First(&exist).Error; err == nil {
+		if err := models.MustFor(ctx).Where("mobile = ?",  c.Phone).First(&exist).Error; err == nil {
 			models.DB.Model(&models.CrmContact{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", contactID).Update("customer_id", exist.ID)
 			return &exist, nil
 		}
@@ -65,9 +72,11 @@ func (s CrmContactExtService) ConvertToCustomer(tenantID, userID, contactID stri
 }
 
 // ListPool 联系人池：CustomerID 为空的联系人。
-func (s CrmContactExtService) ListPool(tenantID string, req PageReq) ([]models.CrmContact, int64, error) {
+func (s CrmContactExtService) ListPool(ctx context.Context, req PageReq) ([]models.CrmContact, int64, error) {
+
+
 	p := req.pager()
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("(customer_id IS NULL OR customer_id = '0')", )
+	db := models.MustFor(ctx).Where("(customer_id IS NULL OR customer_id = '0')", )
 	var total int64
 	if err := db.Model(&models.CrmContact{}).Count(&total).Error; err != nil {
 		return nil, 0, err

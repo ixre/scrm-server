@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"core/app/models"
 	"core/common/id_generator"
 	"core/common/log"
@@ -13,7 +17,10 @@ type CrmQuickFollowupService struct{}
 func NewCrmQuickFollowupService() *CrmQuickFollowupService { return &CrmQuickFollowupService{} }
 
 // Create 创建快捷跟进。
-func (s CrmQuickFollowupService) Create(tenantID, userID string, q *models.CrmQuickFollowup) error {
+func (s CrmQuickFollowupService) Create(ctx context.Context, userID string, q *models.CrmQuickFollowup) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	q.ID = id_generator.StringID()
 	q.TenantID = tenantID
 	q.UserID = userID
@@ -25,7 +32,10 @@ func (s CrmQuickFollowupService) Create(tenantID, userID string, q *models.CrmQu
 }
 
 // Update 更新快捷跟进。
-func (s CrmQuickFollowupService) Update(tenantID, userID, id string, q *models.CrmQuickFollowup) error {
+func (s CrmQuickFollowupService) Update(ctx context.Context, userID, id string, q *models.CrmQuickFollowup) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	updates := map[string]any{
 		"content": q.Content, "type": q.Type, "sort": q.Sort,
 	}
@@ -34,16 +44,20 @@ func (s CrmQuickFollowupService) Update(tenantID, userID, id string, q *models.C
 }
 
 // Delete 删除快捷跟进。
-func (s CrmQuickFollowupService) Delete(tenantID, userID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND id IN ?",  userID,  ids).
+func (s CrmQuickFollowupService) Delete(ctx context.Context, userID string, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("user_id = ? AND id IN ?",  userID,  ids).
 		Delete(&models.CrmQuickFollowup{})
 	return res.RowsAffected, res.Error
 }
 
 // List 列出当前用户的快捷跟进（按 sort 排序）。
-func (s CrmQuickFollowupService) List(tenantID, userID string) ([]models.CrmQuickFollowup, error) {
+func (s CrmQuickFollowupService) List(ctx context.Context, userID string) ([]models.CrmQuickFollowup, error) {
+
+
 	var items []models.CrmQuickFollowup
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ?",  userID).
+	err := models.MustFor(ctx).Where("user_id = ?",  userID).
 		Order("sort desc, id desc").Find(&items).Error
 	return items, err
 }
@@ -62,7 +76,10 @@ type SigninQueryReq struct {
 }
 
 // Create 创建签到（自动设置 UserID）。
-func (s CrmSigninService) Create(tenantID, userID string, signin *models.CrmSignin) error {
+func (s CrmSigninService) Create(ctx context.Context, userID string, signin *models.CrmSignin) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	signin.ID = id_generator.StringID()
 	signin.TenantID = tenantID
 	signin.UserID = userID
@@ -74,21 +91,25 @@ func (s CrmSigninService) Create(tenantID, userID string, signin *models.CrmSign
 }
 
 // Delete 删除签到。
-func (s CrmSigninService) Delete(tenantID, userID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND id IN ?",  userID,  ids).
+func (s CrmSigninService) Delete(ctx context.Context, userID string, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("user_id = ? AND id IN ?",  userID,  ids).
 		Delete(&models.CrmSignin{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询签到（可按 customer_id 筛选）。
-func (s CrmSigninService) Query(tenantID, userID string, req SigninQueryReq) ([]models.CrmSignin, int64, error) {
+func (s CrmSigninService) Query(ctx context.Context, userID string, req SigninQueryReq) ([]models.CrmSignin, int64, error) {
+
+
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.DB.Scopes(models.TenantScope(tenantID)).Where("user_id = ?",  userID)
+	db := models.MustFor(ctx).Where("user_id = ?",  userID)
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -103,9 +124,11 @@ func (s CrmSigninService) Query(tenantID, userID string, req SigninQueryReq) ([]
 }
 
 // ListByCustomer 按客户列出签到记录。
-func (s CrmSigninService) ListByCustomer(tenantID, customerID string) ([]models.CrmSignin, error) {
+func (s CrmSigninService) ListByCustomer(ctx context.Context, customerID string) ([]models.CrmSignin, error) {
+
+
 	var items []models.CrmSignin
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("customer_id = ?",  customerID).
+	err := models.MustFor(ctx).Where("customer_id = ?",  customerID).
 		Order("created_at desc").Find(&items).Error
 	return items, err
 }

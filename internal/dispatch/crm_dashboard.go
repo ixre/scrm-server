@@ -10,49 +10,49 @@ import (
 // ---------- 仪表盘 ----------
 
 func crmDashboardBriefing(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Briefing(t)
+	return services.NewCrmDashboard().Briefing(ctx)
 }
 
 func crmDashboardSummary(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Summary(t)
+	return services.NewCrmDashboard().Summary(ctx)
 }
 
 func crmDashboardTrend(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Trend(t)
+	return services.NewCrmDashboard().Trend(ctx)
 }
 
 func crmDashboardRanking(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Ranking(t)
+	return services.NewCrmDashboard().Ranking(ctx)
 }
 
 func crmDashboardAchievement(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Achievement(t)
+	return services.NewCrmDashboard().Achievement(ctx)
 }
 
 // ---------- 统计报表 ----------
 
 func crmStatsCustomer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +60,11 @@ func crmStatsCustomer(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmStatistics().CustomerAnalysis(t, req)
+	return services.NewCrmStatistics().CustomerAnalysis(ctx, req)
 }
 
 func crmStatsLead(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +72,11 @@ func crmStatsLead(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmStatistics().LeadAnalysis(t, req)
+	return services.NewCrmStatistics().LeadAnalysis(ctx, req)
 }
 
 func crmStatsContract(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -84,11 +84,11 @@ func crmStatsContract(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmStatistics().ContractStats(t, req)
+	return services.NewCrmStatistics().ContractStats(ctx, req)
 }
 
 func crmStatsWorkorder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +96,11 @@ func crmStatsWorkorder(ctx context.Context, _, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmStatistics().WorkorderStats(t, req)
+	return services.NewCrmStatistics().WorkorderStats(ctx, req)
 }
 
 func crmStatsProduct(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,11 +108,11 @@ func crmStatsProduct(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmStatistics().ProductStats(t, req)
+	return services.NewCrmStatistics().ProductStats(ctx, req)
 }
 
 func crmStatsCall(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -120,5 +120,5 @@ func crmStatsCall(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmStatistics().CallStats(t, req)
+	return services.NewCrmStatistics().CallStats(ctx, req)
 }

@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 
@@ -24,7 +28,10 @@ type CrmBatchService struct{}
 func NewCrmBatch() *CrmBatchService { return &CrmBatchService{} }
 
 // Execute 执行批量操作并记录。
-func (s CrmBatchService) Execute(tenantID, userID string, req BatchExecReq) (*models.CrmBatchOp, error) {
+func (s CrmBatchService) Execute(ctx context.Context, userID string, req BatchExecReq) (*models.CrmBatchOp, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	if len(req.EntityIDs) == 0 {
 		return nil, errors.New("entity_ids 不能为空")
 	}
@@ -36,7 +43,7 @@ func (s CrmBatchService) Execute(tenantID, userID string, req BatchExecReq) (*mo
 		return nil, errors.New("op_type 不能为空")
 	}
 
-	success, fail, remark, err := s.dispatch(tenantID, userID, req)
+	success, fail, remark, err := s.dispatch(ctx, userID, req)
 
 	batch := &models.CrmBatchOp{
 		Model:        models.Model{ID: id_generator.StringID()},
@@ -61,7 +68,9 @@ func (s CrmBatchService) Execute(tenantID, userID string, req BatchExecReq) (*mo
 }
 
 // dispatch 根据 op_type 调用对应 service 方法，返回 (成功数, 失败数, 备注, error)。
-func (s CrmBatchService) dispatch(tenantID, userID string, req BatchExecReq) (int, int, string, error) {
+func (s CrmBatchService) dispatch(ctx context.Context, userID string, req BatchExecReq) (int, int, string, error) {
+
+
 	total := len(req.EntityIDs)
 	remark := ""
 	switch req.OpType {
@@ -69,36 +78,36 @@ func (s CrmBatchService) dispatch(tenantID, userID string, req BatchExecReq) (in
 		if req.ToUserID == "" {
 			return 0, total, "", errors.New("to_user_id 不能为空")
 		}
-		n, err := NewCrmTransfer().Transfer(tenantID, userID, req.EntityIDs, req.ToUserID, "批量转移")
+		n, err := NewCrmTransfer().Transfer(ctx, userID, req.EntityIDs, req.ToUserID, "批量转移")
 		remark = "批量转移至 " + req.ToUserID
 		return int(n), total - int(n), remark, err
 	case "seas": // 入海（公海）
-		n, err := NewCrmPool().Recycle(tenantID, req.EntityIDs)
+		n, err := NewCrmPool().Recycle(ctx, req.EntityIDs)
 		remark = "批量入公海"
 		return int(n), total - int(n), remark, err
 	case "lock": // 锁客
-		err := NewCrmCustomerExt().Lock(tenantID, req.EntityIDs, "批量锁客")
+		err := NewCrmCustomerExt().Lock(ctx, req.EntityIDs, "批量锁客")
 		remark = "批量锁客"
 		if err != nil {
 			return 0, total, remark, err
 		}
 		return total, 0, remark, nil
 	case "unlock": // 解锁
-		err := NewCrmCustomerExt().Unlock(tenantID, req.EntityIDs)
+		err := NewCrmCustomerExt().Unlock(ctx, req.EntityIDs)
 		remark = "批量解锁"
 		if err != nil {
 			return 0, total, remark, err
 		}
 		return total, 0, remark, nil
 	case "blacklist": // 拉黑
-		err := NewCrmCustomerExt().Blacklist(tenantID, req.EntityIDs, "批量拉黑")
+		err := NewCrmCustomerExt().Blacklist(ctx, req.EntityIDs, "批量拉黑")
 		remark = "批量拉黑"
 		if err != nil {
 			return 0, total, remark, err
 		}
 		return total, 0, remark, nil
 	case "remove_blacklist": // 移出黑名单
-		err := NewCrmCustomerExt().RemoveBlacklist(tenantID, req.EntityIDs)
+		err := NewCrmCustomerExt().RemoveBlacklist(ctx, req.EntityIDs)
 		remark = "批量移出黑名单"
 		if err != nil {
 			return 0, total, remark, err
@@ -108,7 +117,7 @@ func (s CrmBatchService) dispatch(tenantID, userID string, req BatchExecReq) (in
 		if req.FieldKey == "" {
 			return 0, total, "", errors.New("field_key 不能为空")
 		}
-		n, err := batchUpdateField(tenantID, req.EntityType, req.EntityIDs, req.FieldKey, req.FieldValue)
+		n, err := batchUpdateField(ctx, req.EntityType, req.EntityIDs, req.FieldKey, req.FieldValue)
 		remark = "批量修改字段 " + req.FieldKey
 		return int(n), total - int(n), remark, err
 	default:
@@ -117,17 +126,15 @@ func (s CrmBatchService) dispatch(tenantID, userID string, req BatchExecReq) (in
 }
 
 // batchUpdateField 批量更新实体某字段（仅支持 customer/lead）。
-func batchUpdateField(tenantID, entityType string, ids []string, fieldKey, fieldValue string) (int64, error) {
+func batchUpdateField(ctx context.Context, entityType string, ids []string, fieldKey, fieldValue string) (int64, error) {
 	switch entityType {
 	case "customer":
-		res := models.DB.Model(&models.CrmCustomer{}).
-			Scopes(models.TenantScope(tenantID)).
+		res := models.MustFor(ctx).Model(&models.CrmCustomer{}).
 			Where("id IN ?", ids).
 			Update(fieldKey, fieldValue)
 		return res.RowsAffected, res.Error
 	case "lead":
-		res := models.DB.Model(&models.CrmLead{}).
-			Scopes(models.TenantScope(tenantID)).
+		res := models.MustFor(ctx).Model(&models.CrmLead{}).
 			Where("id IN ?", ids).
 			Update(fieldKey, fieldValue)
 		return res.RowsAffected, res.Error

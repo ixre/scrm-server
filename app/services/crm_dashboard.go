@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"fmt"
 	"time"
 
@@ -56,7 +60,10 @@ func sumRange(m any, tenantID, field string, start, end time.Time, extra string)
 }
 
 // Briefing 本月关键指标卡 + 环比。
-func (s CrmDashboardService) Briefing(tenantID string) (map[string]any, error) {
+func (s CrmDashboardService) Briefing(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	start, end, prevStart, prevEnd := monthBounds(now)
 
@@ -100,7 +107,10 @@ func (s CrmDashboardService) Briefing(tenantID string) (map[string]any, error) {
 }
 
 // Summary 汇总Tab：客户/商机/合同/跟进/回款等汇总计数。
-func (s CrmDashboardService) Summary(tenantID string) (map[string]any, error) {
+func (s CrmDashboardService) Summary(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	start, end, _, _ := monthBounds(now)
 	monthEnd := end.AddDate(0, 0, -1)
@@ -150,7 +160,10 @@ func (s CrmDashboardService) Summary(tenantID string) (map[string]any, error) {
 }
 
 // Trend 近6个月趋势：客户/订单/商机/跟进/回款按月计数。
-func (s CrmDashboardService) Trend(tenantID string) (map[string]any, error) {
+func (s CrmDashboardService) Trend(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	months := make([]string, 6)
 	labels := make([]time.Time, 6)
@@ -211,7 +224,10 @@ type rankRow struct {
 }
 
 // Ranking 排行榜：合同金额/回款金额/新增客户/跟进次数，取前10。
-func (s CrmDashboardService) Ranking(tenantID string) (map[string]any, error) {
+func (s CrmDashboardService) Ranking(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	start, end, _, _ := monthBounds(now)
 
@@ -253,7 +269,10 @@ func (s CrmDashboardService) Ranking(tenantID string) (map[string]any, error) {
 }
 
 // Achievement 业绩达成：本月各销售目标 vs 实际回款。
-func (s CrmDashboardService) Achievement(tenantID string) (map[string]any, error) {
+func (s CrmDashboardService) Achievement(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	yearMonth := fmt.Sprintf("%04d-%02d", now.Year(), int(now.Month()))
 	start, end, _, _ := monthBounds(now)

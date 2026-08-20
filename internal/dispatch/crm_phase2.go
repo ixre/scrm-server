@@ -12,17 +12,17 @@ import (
 // ---------- Phase 2 渠道对比看板 ----------
 
 func crmReportChannelCompare(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().ChannelCompare(t)
+	return services.NewCrmReport().ChannelCompare(ctx)
 }
 
 // ---------- 引流任务 ----------
 
 func crmChannelTaskList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func crmChannelTaskList(ctx context.Context, _, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmChannelTask().List(t, req.Query.Status, req.Pager)
+	items, total, err := services.NewCrmChannelTask().List(ctx, req.Query.Status, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func crmChannelTaskList(ctx context.Context, _, _ string, params json.RawMessage
 }
 
 func crmChannelTaskMarkDone(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +53,11 @@ func crmChannelTaskMarkDone(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCrmChannelTask().MarkDone(t, req.ID)
+	return nil, services.NewCrmChannelTask().MarkDone(ctx, req.ID)
 }
 
 func crmChannelTaskMarkSkipped(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -67,11 +67,11 @@ func crmChannelTaskMarkSkipped(ctx context.Context, _, _ string, params json.Raw
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCrmChannelTask().MarkSkipped(t, req.ID)
+	return nil, services.NewCrmChannelTask().MarkSkipped(ctx, req.ID)
 }
 
 func crmChannelTaskAssign(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func crmChannelTaskAssign(ctx context.Context, _, _ string, params json.RawMessa
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCrmChannelTask().Assign(t, req.ID, req.UserID)
+	return nil, services.NewCrmChannelTask().Assign(ctx, req.ID, req.UserID)
 }
 
 // _ 确保 identity 包被引用（UserID 在其他 handler 中使用）

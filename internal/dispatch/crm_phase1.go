@@ -14,7 +14,7 @@ import (
 // ---------- 公海池 ----------
 
 func crmPoolList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func crmPoolList(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmPool().ListPool(t, req.Query.Keyword, req.Pager)
+	items, total, err := services.NewCrmPool().ListPool(ctx, req.Query.Keyword, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func crmPoolList(ctx context.Context, _, _ string, params json.RawMessage) (any,
 }
 
 func crmPoolClaim(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +45,11 @@ func crmPoolClaim(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmPool().Claim(t, identity.UserID(ctx), req.IDs)
+	return services.NewCrmPool().Claim(ctx, identity.UserID(ctx), req.IDs)
 }
 
 func crmPoolRecycle(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +62,19 @@ func crmPoolRecycle(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmPool().Recycle(t, req.IDs)
+	return services.NewCrmPool().Recycle(ctx, req.IDs)
 }
 
 func crmPoolGetRule(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmPool().GetRule(t)
+	return services.NewCrmPool().GetRule(ctx)
 }
 
 func crmPoolSetRule(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +88,13 @@ func crmPoolSetRule(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmPool().SetRule(t, req.RecycleDays, req.Enabled)
+	return services.NewCrmPool().SetRule(ctx, req.RecycleDays, req.Enabled)
 }
 
 // ---------- 客户转移 ----------
 
 func crmCustomerTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +109,11 @@ func crmCustomerTransfer(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmTransfer().Transfer(t, identity.UserID(ctx), req.IDs, req.ToUserID, req.Reason)
+	return services.NewCrmTransfer().Transfer(ctx, identity.UserID(ctx), req.IDs, req.ToUserID, req.Reason)
 }
 
 func crmCustomerListTransferLog(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func crmCustomerListTransferLog(ctx context.Context, _, _ string, params json.Ra
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmTransfer().ListTransferLog(t, req.CustomerID, req.Pager)
+	items, total, err := services.NewCrmTransfer().ListTransferLog(ctx, req.CustomerID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -134,33 +134,33 @@ func crmCustomerListTransferLog(ctx context.Context, _, _ string, params json.Ra
 // ---------- 跟进提醒 ----------
 
 func crmFollowupListReminders(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmFollowup().ListReminders(t, identity.UserID(ctx))
+	return services.NewCrmFollowup().ListReminders(ctx, identity.UserID(ctx))
 }
 
 func crmFollowupListOverdue(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmFollowup().ListOverdue(t, identity.UserID(ctx))
+	return services.NewCrmFollowup().ListOverdue(ctx, identity.UserID(ctx))
 }
 
 // ---------- 销售规则 ----------
 
 func crmSalesRuleGet(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmSalesRule().GetRule(t)
+	return services.NewCrmSalesRule().GetRule(ctx)
 }
 
 func crmSalesRuleSet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -174,13 +174,13 @@ func crmSalesRuleSet(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmSalesRule().SetRule(t, req.RequireFollowup, req.FollowupDays)
+	return services.NewCrmSalesRule().SetRule(ctx, req.RequireFollowup, req.FollowupDays)
 }
 
 // ---------- 业绩目标 ----------
 
 func crmQuotaSet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +198,11 @@ func crmQuotaSet(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	if req.YearMonth == "" {
 		req.YearMonth = time.Now().Format("2006-01")
 	}
-	return services.NewCrmQuota().Set(t, req.UserID, req.YearMonth, req.TargetAmount)
+	return services.NewCrmQuota().Set(ctx, req.UserID, req.YearMonth, req.TargetAmount)
 }
 
 func crmQuotaGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -219,11 +219,11 @@ func crmQuotaGet(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	if req.YearMonth == "" {
 		req.YearMonth = time.Now().Format("2006-01")
 	}
-	return services.NewCrmQuota().Get(t, req.UserID, req.YearMonth)
+	return services.NewCrmQuota().Get(ctx, req.UserID, req.YearMonth)
 }
 
 func crmQuotaList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -236,11 +236,11 @@ func crmQuotaList(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if req.YearMonth == "" {
 		req.YearMonth = time.Now().Format("2006-01")
 	}
-	return services.NewCrmQuota().List(t, req.YearMonth)
+	return services.NewCrmQuota().List(ctx, req.YearMonth)
 }
 
 func crmQuotaAchievement(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -257,11 +257,11 @@ func crmQuotaAchievement(ctx context.Context, _, _ string, params json.RawMessag
 	if req.YearMonth == "" {
 		req.YearMonth = time.Now().Format("2006-01")
 	}
-	return services.NewCrmQuota().Achievement(t, req.UserID, req.YearMonth)
+	return services.NewCrmQuota().Achievement(ctx, req.UserID, req.YearMonth)
 }
 
 func crmQuotaTeamAchievement(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -274,13 +274,13 @@ func crmQuotaTeamAchievement(ctx context.Context, _, _ string, params json.RawMe
 	if req.YearMonth == "" {
 		req.YearMonth = time.Now().Format("2006-01")
 	}
-	return services.NewCrmQuota().TeamAchievement(t, req.YearMonth)
+	return services.NewCrmQuota().TeamAchievement(ctx, req.YearMonth)
 }
 
 // ---------- 客户去重 ----------
 
 func crmDedupFindDuplicates(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -290,11 +290,11 @@ func crmDedupFindDuplicates(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmDedup().FindDuplicates(t, req.Mobile)
+	return services.NewCrmDedup().FindDuplicates(ctx, req.Mobile)
 }
 
 func crmDedupMerge(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	t, err := requireIdentity(ctx)
+	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -311,5 +311,5 @@ func crmDedupMerge(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if req.PrimaryID == "" {
 		return nil, errors.New("primary_id 不能为空")
 	}
-	return nil, services.NewCrmDedup().Merge(t, req.PrimaryID, req.DuplicateIDs)
+	return nil, services.NewCrmDedup().Merge(ctx, req.PrimaryID, req.DuplicateIDs)
 }

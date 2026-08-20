@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strconv"
 	"strings"
@@ -23,7 +27,10 @@ type AutoTagRuleCreateReq struct {
 }
 
 // CreateRule 创建自动打标签规则。
-func (s CrmAutoTagService) CreateRule(tenantID string, req models.CrmAutoTagRule) (models.CrmAutoTagRule, error) {
+func (s CrmAutoTagService) CreateRule(ctx context.Context, req models.CrmAutoTagRule) (models.CrmAutoTagRule, error) {
+	tenantID := identity.TenantID(ctx)
+
+
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -40,12 +47,14 @@ func (s CrmAutoTagService) CreateRule(tenantID string, req models.CrmAutoTagRule
 }
 
 // QueryRules 列出自动打标签规则。
-func (s CrmAutoTagService) QueryRules(tenantID, status string, pager *app.Pager) ([]models.CrmAutoTagRule, int64, error) {
+func (s CrmAutoTagService) QueryRules(ctx context.Context, status string, pager *app.Pager) ([]models.CrmAutoTagRule, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -59,17 +68,21 @@ func (s CrmAutoTagService) QueryRules(tenantID, status string, pager *app.Pager)
 }
 
 // DeleteRules 删除规则。
-func (s CrmAutoTagService) DeleteRules(tenantID string, ids []string) (int64, error) {
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).Delete(&models.CrmAutoTagRule{})
+func (s CrmAutoTagService) DeleteRules(ctx context.Context, ids []string) (int64, error) {
+
+
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmAutoTagRule{})
 	return res.RowsAffected, res.Error
 }
 
 // ApplyToCustomer 对单个客户应用所有匹配的自动打标签规则。
-func (s CrmAutoTagService) ApplyToCustomer(tenantID, customerID string) error {
+func (s CrmAutoTagService) ApplyToCustomer(ctx context.Context, customerID string) error {
+
+
 	var rules []models.CrmAutoTagRule
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("status = ?", "active").Find(&rules)
+	models.MustFor(ctx).Where("status = ?", "active").Find(&rules)
 	var cust models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&cust).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", customerID).First(&cust).Error; err != nil {
 		return err
 	}
 	tagsToAdd := []string{}
@@ -143,10 +156,12 @@ func parseThreshold(cond string) int {
 }
 
 // ApplyAll 对所有客户应用自动打标签（定时调用）。
-func (s CrmAutoTagService) ApplyAll(tenantID string) {
+func (s CrmAutoTagService) ApplyAll(ctx context.Context) {
+
+
 	var customers []models.CrmCustomer
-	models.DB.Scopes(models.TenantScope(tenantID)).Find(&customers)
+	models.MustFor(ctx).Find(&customers)
 	for _, c := range customers {
-		s.ApplyToCustomer(tenantID, c.ID)
+		s.ApplyToCustomer(ctx, c.ID)
 	}
 }

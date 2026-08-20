@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"core/app/constants"
 	"core/app/models"
 	"core/common/app"
@@ -17,17 +21,23 @@ type CrmChannelTaskService struct{}
 func NewCrmChannelTask() *CrmChannelTaskService { return &CrmChannelTaskService{} }
 
 // CreateLeadToWecomTask 小红书留资 → 企微添加引流任务（幂等：同客户同 action pending 状态不重复建）。
-func (s CrmChannelTaskService) CreateLeadToWecomTask(tenantID, customerID string) error {
+func (s CrmChannelTaskService) CreateLeadToWecomTask(ctx context.Context, customerID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	// 幂等：同客户已有 pending 的 add_wecom 任务则跳过
 	var cnt int64
 	models.DB.Model(&models.CrmChannelTask{}).Scopes(models.TenantScope(tenantID)).Where("customer_id = ? AND action = ? AND status = ?",  customerID,  "add_wecom",  "pending").Count(&cnt)
 	if cnt > 0 {
 		return nil
 	}
-	return s.create(tenantID, customerID, constants.ChannelXiaohongshu, constants.ChannelWecom, "add_wecom", "", "")
+	return s.create(ctx, customerID, constants.ChannelXiaohongshu, constants.ChannelWecom, "add_wecom", "", "")
 }
 
-func (s CrmChannelTaskService) create(tenantID, customerID, fromCh, toCh, action, assignUserID, remark string) error {
+func (s CrmChannelTaskService) create(ctx context.Context, customerID, fromCh, toCh, action, assignUserID, remark string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	t := models.CrmChannelTask{
 		Model:       models.Model{ID: id_generator.StringID()},
 		TenantID:    tenantID,
@@ -47,12 +57,14 @@ func (s CrmChannelTaskService) create(tenantID, customerID, fromCh, toCh, action
 }
 
 // List 列出引流任务（按租户+状态过滤）。
-func (s CrmChannelTaskService) List(tenantID, status string, pager *app.Pager) ([]models.CrmChannelTask, int64, error) {
+func (s CrmChannelTaskService) List(ctx context.Context, status string, pager *app.Pager) ([]models.CrmChannelTask, int64, error) {
+
+
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.DB.Scopes(models.TenantScope(tenantID))
+	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -66,25 +78,37 @@ func (s CrmChannelTaskService) List(tenantID, status string, pager *app.Pager) (
 }
 
 // MarkDone 标记任务完成。
-func (s CrmChannelTaskService) MarkDone(tenantID, taskID string) error {
+func (s CrmChannelTaskService) MarkDone(ctx context.Context, taskID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmChannelTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Update("status", "done").Error
 }
 
 // MarkSkipped 标记任务跳过。
-func (s CrmChannelTaskService) MarkSkipped(tenantID, taskID string) error {
+func (s CrmChannelTaskService) MarkSkipped(ctx context.Context, taskID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmChannelTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Update("status", "skipped").Error
 }
 
 // Assign 分配任务给销售。
-func (s CrmChannelTaskService) Assign(tenantID, taskID, userID string) error {
+func (s CrmChannelTaskService) Assign(ctx context.Context, taskID, userID string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	return models.DB.Model(&models.CrmChannelTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Update("assign_user_id", userID).Error
 }
 
 // PendingCountByUser 某销售的待处理引流任务数（工作台用）。
-func (s CrmChannelTaskService) PendingCountByUser(tenantID, userID string) int64 {
+func (s CrmChannelTaskService) PendingCountByUser(ctx context.Context, userID string) int64 {
+	tenantID := identity.TenantID(ctx)
+
+
 	var cnt int64
 	models.DB.Model(&models.CrmChannelTask{}).Scopes(models.TenantScope(tenantID)).Where("assign_user_id = ? AND status = ?",  userID,  "pending").Count(&cnt)
 	return cnt

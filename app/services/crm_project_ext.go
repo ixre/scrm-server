@@ -1,6 +1,10 @@
 package services
 
 import (
+	"core/common/identity"
+	
+	"context"
+	
 	"errors"
 	"strings"
 	"time"
@@ -17,7 +21,10 @@ type CrmProjectEventService struct{}
 func NewCrmProjectEvent() *CrmProjectEventService { return &CrmProjectEventService{} }
 
 // Create 创建项目事件。
-func (s CrmProjectEventService) Create(tenantID string, e *models.CrmProjectEvent) error {
+func (s CrmProjectEventService) Create(ctx context.Context, e *models.CrmProjectEvent) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if e == nil {
 		return errors.New("事件不能为空")
 	}
@@ -37,7 +44,9 @@ func (s CrmProjectEventService) Create(tenantID string, e *models.CrmProjectEven
 }
 
 // Update 更新项目事件。
-func (s CrmProjectEventService) Update(tenantID, id string, e *models.CrmProjectEvent) error {
+func (s CrmProjectEventService) Update(ctx context.Context, id string, e *models.CrmProjectEvent) error {
+
+
 	if e == nil {
 		return errors.New("事件不能为空")
 	}
@@ -48,31 +57,38 @@ func (s CrmProjectEventService) Update(tenantID, id string, e *models.CrmProject
 		"plan_date": e.PlanDate,
 		"remark":    e.Remark,
 	}
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
 // Delete 删除项目事件。
-func (s CrmProjectEventService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmProjectEventService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmProjectEvent{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmProjectEvent{})
 	return res.RowsAffected, res.Error
 }
 
 // ListByProject 按项目列出事件。
-func (s CrmProjectEventService) ListByProject(tenantID, projectID string) ([]models.CrmProjectEvent, error) {
+func (s CrmProjectEventService) ListByProject(ctx context.Context, projectID string) ([]models.CrmProjectEvent, error) {
+
+
 	var items []models.CrmProjectEvent
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("project_id = ?",  projectID).
+	err := models.MustFor(ctx).Where("project_id = ?",  projectID).
 		Order("sort asc, id desc").Find(&items).Error
 	return items, err
 }
 
 // CompleteEvent 完成项目事件。
-func (s CrmProjectEventService) CompleteEvent(tenantID, id string) error {
+func (s CrmProjectEventService) CompleteEvent(ctx context.Context, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	now := time.Now()
 	return models.DB.Model(&models.CrmProjectEvent{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
 		Updates(map[string]any{"status": "done", "done_at": &now}).Error
@@ -86,7 +102,10 @@ type CrmProjectFileService struct{}
 func NewCrmProjectFile() *CrmProjectFileService { return &CrmProjectFileService{} }
 
 // Create 上传项目文档。
-func (s CrmProjectFileService) Create(tenantID, uploadBy string, f *models.CrmProjectFile) error {
+func (s CrmProjectFileService) Create(ctx context.Context, uploadBy string, f *models.CrmProjectFile) error {
+	tenantID := identity.TenantID(ctx)
+
+
 	if f == nil {
 		return errors.New("文档不能为空")
 	}
@@ -104,18 +123,22 @@ func (s CrmProjectFileService) Create(tenantID, uploadBy string, f *models.CrmPr
 }
 
 // Delete 删除项目文档。
-func (s CrmProjectFileService) Delete(tenantID string, ids []string) (int64, error) {
+func (s CrmProjectFileService) Delete(ctx context.Context, ids []string) (int64, error) {
+
+
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.DB.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Delete(&models.CrmProjectFile{})
+	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmProjectFile{})
 	return res.RowsAffected, res.Error
 }
 
 // ListByProject 按项目列出文档。
-func (s CrmProjectFileService) ListByProject(tenantID, projectID string) ([]models.CrmProjectFile, error) {
+func (s CrmProjectFileService) ListByProject(ctx context.Context, projectID string) ([]models.CrmProjectFile, error) {
+
+
 	var items []models.CrmProjectFile
-	err := models.DB.Scopes(models.TenantScope(tenantID)).Where("project_id = ?",  projectID).
+	err := models.MustFor(ctx).Where("project_id = ?",  projectID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }
