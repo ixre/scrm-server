@@ -49,6 +49,7 @@ func staffEnable(ctx context.Context, corpID, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewStaffService().Enable(ctx, req, corpID)
 }
 
@@ -59,6 +60,7 @@ func staffGetDetail(ctx context.Context, corpID, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewStaffService().GetDetail(ctx, req.ID, corpID)
 }
 
@@ -69,6 +71,7 @@ func staffStaffInfoStatistics(ctx context.Context, corpID, _ string, params json
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewStaffService().StaffInfoStatistics(ctx, req.ID, corpID)
 }
 
@@ -77,6 +80,7 @@ func staffUpdateCustomerTag(ctx context.Context, corpID, _ string, params json.R
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewStaffService().UpdateCustomerTag(ctx, req, req.ExtStaffID, corpID)
 }
 
@@ -85,6 +89,7 @@ func staffQueryMainInfo(ctx context.Context, corpID, _ string, params json.RawMe
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewStaffService().QueryMainInfo(ctx, req, corpID, &req.Pager)
 }
 
@@ -95,6 +100,7 @@ func staffGetCustomerSummary(ctx context.Context, corpID, _ string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewStaffService().GetCustomerSummary(ctx, req.ID, corpID)
 }
 
@@ -103,6 +109,7 @@ func staffUpdateCustomerInternalTag(ctx context.Context, corpID, _ string, param
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewStaffService().UpdateCustomerInternalTag(ctx, req, corpID)
 }
 
@@ -224,5 +231,6 @@ func msgArchSearchMsgs(ctx context.Context, corpID, _ string, params json.RawMes
 }
 
 func staffSync(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewStaffService().Sync(ctx, corpID)
 }

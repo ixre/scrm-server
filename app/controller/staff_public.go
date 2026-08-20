@@ -40,7 +40,8 @@ func (s Staff) GetStaff(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.Get(context.Background(), extStaffID, consoleStaff.ExtCorpID)
+	staff, err := s.staffService.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		handler.ResponseError(err)
 		return

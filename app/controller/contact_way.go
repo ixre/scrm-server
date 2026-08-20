@@ -44,7 +44,8 @@ func (o *ContactWay) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(context.Background(), req, consoleStaff.ExtCorpID)
+	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -78,7 +79,8 @@ func (o *ContactWay) Get(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Get(context.Background(), id, consoleStaff.ExtCorpID)
+	item, err := o.srv.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
 		handler.ResponseError(err)
@@ -154,7 +156,8 @@ func (o *ContactWay) Update(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Update(context.Background(), id, req, consoleStaff.ExtCorpID)
+	item, err := o.srv.Update(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id, req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)
@@ -188,7 +191,8 @@ func (o *ContactWay) Delete(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.Delete(context.Background(), req.IDs, consoleStaff.ExtCorpID)
+	total, err := o.srv.Delete(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.IDs,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -222,7 +226,8 @@ func (o *ContactWay) BatchUpdate(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.BatchUpdate(context.Background(), req, consoleStaff.ExtCorpID)
+	total, err := o.srv.BatchUpdate(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "BatchUpdate failed")
 		handler.ResponseError(err)

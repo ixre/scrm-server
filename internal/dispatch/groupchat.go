@@ -53,6 +53,7 @@ func groupChatQuery(ctx context.Context, corpID, _ string, params json.RawMessag
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewGroupChatService().Query(ctx, p.Query, corpID, p.Pager, p.Sorter)
 	if err != nil {
 		return nil, err
@@ -69,6 +70,7 @@ func groupChatUpdateTags(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func groupChatGetAllOwners(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	ctx = corpCtx(ctx, corpID)
 	return services.NewGroupChatService().GetAllOwners(ctx, corpID)
 }
 
@@ -78,6 +80,7 @@ func groupChatGetAll(ctx context.Context, corpID, _ string, params json.RawMessa
 		return nil, err
 	}
 	MergePS(&p)
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewGroupChatService().GetAll(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err

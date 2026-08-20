@@ -29,6 +29,7 @@ func massMsgCreate(ctx context.Context, corpID, staffID string, params json.RawM
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewDefaultMassMsgService().Create(ctx, req.Req, req.ExtStaffID, corpID)
 }
 
@@ -40,6 +41,7 @@ func massMsgUpdate(ctx context.Context, corpID, staffID string, params json.RawM
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewDefaultMassMsgService().UpdateMassMsg(ctx, req.Req, req.ID, staffID, corpID)
 }
 
@@ -48,6 +50,7 @@ func massMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage)
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewDefaultMassMsgService().Query(ctx, corpID, p.Sorter, p.Pager)
 	if err != nil {
 		return nil, err
@@ -62,6 +65,7 @@ func massMsgGet(ctx context.Context, corpID, _ string, params json.RawMessage) (
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewDefaultMassMsgService().Get(ctx, req.ID, corpID)
 }
 
@@ -82,6 +86,7 @@ func massMsgNotify(ctx context.Context, corpID, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewDefaultMassMsgService().Notify(ctx, req.IDs, corpID)
 }
 

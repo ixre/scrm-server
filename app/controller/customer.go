@@ -169,7 +169,8 @@ func (o CustomerHandler) GetNotifyStaffRule(c *gin.Context) {
 		return
 	}
 
-	resp, err := o.srv.GetNotifyStaffRule(context.Background(), consoleStaff.ExtCorpID)
+	resp, err := o.srv.GetNotifyStaffRule(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), consoleStaff.ExtCorpID)
+
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -231,7 +232,8 @@ func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(context.Background(), req, consoleStaff.ExtCorpID)
+	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -301,7 +303,8 @@ func (o CustomerHandler) Statistic(c *gin.Context) {
 		return
 	}
 
-	items, err := o.srv.CustomerStatistic(context.Background(), req, consoleStaff.ExtCorpID)
+	items, err := o.srv.CustomerStatistic(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)

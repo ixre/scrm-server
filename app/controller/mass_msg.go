@@ -49,7 +49,8 @@ func (ch MassMsg) Create(c *gin.Context) {
 		handler.ResponseError(err)
 		return
 	}
-	msg, err := ch.srv.Create(context.Background(), req, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
+	msg, err := ch.srv.Create(services.SyncTenantCtx(context.Background(), consoleStaffInfo.ExtCorpID), req, consoleStaffInfo.Name,consoleStaffInfo.ExtCorpID)
+
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -80,7 +81,8 @@ func (ch MassMsg) Get(c *gin.Context) {
 		return
 	}
 
-	result, err := ch.srv.Get(context.Background(), missionID, info.ExtCorpID)
+	result, err := ch.srv.Get(services.SyncTenantCtx(context.Background(), info.ExtCorpID), missionID,info.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
 		handler.ResponseError(err)
@@ -319,7 +321,8 @@ func (ch MassMsg) Update(c *gin.Context) {
 		handler.ResponseError(err)
 		return
 	}
-	msgID, err := ch.srv.UpdateMassMsg(context.Background(), req, id, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
+	msgID, err := ch.srv.UpdateMassMsg(services.SyncTenantCtx(context.Background(), consoleStaffInfo.ExtCorpID), req, id, consoleStaffInfo.Name,consoleStaffInfo.ExtCorpID)
+
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)

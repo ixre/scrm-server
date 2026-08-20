@@ -32,19 +32,29 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// syncTenantCtx 从 corp_id 反查对应的 tenant_id，包成 ctx 返回。
-// 用于 Syncs() 等没有 grpc ctx 的启动期同步任务。
-// 反查走 channel_link(wecom, tenant)；找不到则返回空 TenantID 的 ctx。
-func syncTenantCtx(corpID string) context.Context {
+// SyncTenantCtx 从 corp_id 反查对应的 tenant_id，包成 ctx 返回。
+// 用于 Syncs() 等没有 grpc ctx 的启动期同步任务，以及 controller/consumer 等
+// 已有 corpID 但 ctx 无 tenant 的调用方。反查走 channel_link(wecom, tenant)；
+// 找不到则返回原 ctx（保持兼容，未配 channel_link 的 corp 也能跑）。
+func SyncTenantCtx(ctx context.Context, corpID string) context.Context {
 	if corpID == "" {
-		return context.Background()
+		return ctx
+	}
+	if tID := identity.TenantID(ctx); tID != "" {
+		// CRM 上下文已带 tenant，直接用，不被 corp 覆盖
+		return ctx
 	}
 	var link models.ChannelLink
 	if err := models.DB.Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom, "tenant", corpID).
 		First(&link).Error; err != nil {
-		return context.Background()
+		return ctx
 	}
-	return identity.WithIdentity(context.Background(), identity.Identity{TenantID: link.EntityID})
+	return identity.WithIdentity(ctx, identity.Identity{TenantID: link.EntityID})
+}
+
+// syncTenantCtx 等价于 SyncTenantCtx，仅供包内调用方。
+func syncTenantCtx(corpID string) context.Context {
+	return SyncTenantCtx(context.Background(), corpID)
 }
 
 // createCRM 创建记录，自动省略值为空的 FK 列。

@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"core/app/services"
 	app "core/common/app"
 )
 
@@ -98,4 +99,13 @@ func MergePS[T any](p *QueryParams[T]) {
 	}
 	merged, _ := json.Marshal(queryMap)
 	_ = json.Unmarshal(merged, &p.Query)
+}
+
+// corpCtx 从 corpID 反查 channel_link 得到对应 tenant_id，注入 ctx。
+// 用于老 openscrm 域（customer/staff/contact_way/group_chat/mass_msg 等）的 dispatch 适配器。
+// 找不到时返回原 ctx（保持兼容，未配 channel_link 的 corp 也能跑，但 tenant 隔离失效）。
+//
+// 实际委托给 services.SyncTenantCtx（同一份逻辑），避免重复实现。
+func corpCtx(ctx context.Context, corpID string) context.Context {
+	return services.SyncTenantCtx(ctx, corpID)
 }

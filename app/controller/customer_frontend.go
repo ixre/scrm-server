@@ -36,7 +36,8 @@ func (o *CustomerFrontend) Get(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.GetFullCustomerInfo(context.Background(), extCustomerID, staff.ExtID, staff.ExtCorpID)
+	item, err := o.srv.GetFullCustomerInfo(services.SyncTenantCtx(context.Background(), staff.ExtCorpID), extCustomerID, staff.ExtID,staff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

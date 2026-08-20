@@ -66,7 +66,8 @@ func (s Staff) Get(c *gin.Context) {
 		return
 	}
 
-	staff, err := s.staffService.Get(context.Background(), extStaffID, consoleStaff.ExtCorpID)
+	staff, err := s.staffService.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -121,7 +122,8 @@ func (s Staff) GetCurrent(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(context.Background(), consoleStaff.ExtID, consoleStaff.ExtCorpID)
+	item, err := s.staffService.GetDetail(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), consoleStaff.ExtID,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -186,7 +188,8 @@ func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.StaffInfoStatistics(context.Background(), extStaffID, consoleStaff.ExtCorpID)
+	staff, err := s.staffService.StaffInfoStatistics(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -316,7 +319,8 @@ func (s Staff) ExportDeleteCustomers(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	file, fileName, err := s.staffService.ExportDeleteCustomerList(context.Background(), req, consoleStaff.ExtCorpID)
+	file, fileName, err := s.staffService.ExportDeleteCustomerList(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -342,7 +346,8 @@ func (s Staff) GetCurrentFrontendStaff(c *gin.Context) {
 		log.TracedError("GetStaffInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(context.Background(), staff.ExtID, staff.ExtCorpID)
+	item, err := s.staffService.GetDetail(services.SyncTenantCtx(context.Background(), staff.ExtCorpID), staff.ExtID,staff.ExtCorpID)
+
 	if err != nil {
 		handler.ResponseError(err)
 		return

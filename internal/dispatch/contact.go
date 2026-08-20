@@ -26,6 +26,7 @@ func contactWayQuery(ctx context.Context, corpID, _ string, params json.RawMessa
 		return nil, err
 	}
 	MergePS(&p)
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewContactWay().Query(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
@@ -40,6 +41,7 @@ func contactWayGet(ctx context.Context, corpID, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewContactWay().Get(ctx, req.ID, corpID)
 }
 
@@ -48,6 +50,7 @@ func contactWayCreate(ctx context.Context, corpID, staffID string, params json.R
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewContactWay().Create(ctx, req, corpID, staffID)
 }
 
@@ -59,6 +62,7 @@ func contactWayUpdate(ctx context.Context, corpID, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewContactWay().Update(ctx, req.ID, req.Req, corpID)
 }
 
@@ -69,6 +73,7 @@ func contactWayDelete(ctx context.Context, corpID, _ string, params json.RawMess
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewContactWay().Delete(ctx, req.IDs, corpID)
 }
 
@@ -77,6 +82,7 @@ func contactWayBatchUpdate(ctx context.Context, corpID, _ string, params json.Ra
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewContactWay().BatchUpdate(ctx, req, corpID)
 }
 
@@ -153,6 +159,7 @@ func departmentQuery(ctx context.Context, corpID, _ string, params json.RawMessa
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewDepartment().Query(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
@@ -167,6 +174,7 @@ func departmentGet(ctx context.Context, corpID, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewDepartment().Get(ctx, req.ExtDeptID, corpID)
 }
 

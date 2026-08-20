@@ -44,7 +44,8 @@ func (d *Department) Query(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	departments, total, err := d.srv.Query(context.Background(), req, consoleStaff.ExtCorpID)
+	departments, total, err := d.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query departments failed")
 		handler.ResponseError(err)
@@ -100,7 +101,8 @@ func (d *Department) Get(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	departments, err := d.srv.Get(context.Background(), req.ExtID, consoleStaff.ExtCorpID)
+	departments, err := d.srv.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.ExtID,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "get departments failed")
 		handler.ResponseError(err)

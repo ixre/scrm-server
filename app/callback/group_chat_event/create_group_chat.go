@@ -41,7 +41,7 @@ func EventCreateExternalChatHandler(msg *workwx.RxMessage) error {
 
 	groupChatService := services.NewGroupChatService()
 	extCorpID := conf.Settings.WeWork.ExtCorpID
-	err = groupChatService.Syncs(context.Background(), chat.ChatID, extCorpID)
+	err = groupChatService.Syncs(services.SyncTenantCtx(context.Background(), extCorpID), chat.ChatID, extCorpID)
 	if err != nil {
 		return err
 	}

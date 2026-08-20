@@ -119,6 +119,7 @@ func materialQuery(ctx context.Context, corpID, _ string, params json.RawMessage
 		return nil, err
 	}
 	MergePS(&p)
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewMaterial().Query(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
@@ -131,6 +132,7 @@ func materialCreate(ctx context.Context, corpID, staffID string, params json.Raw
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewMaterial().Create(ctx, req, corpID, staffID)
 }
 
@@ -142,6 +144,7 @@ func materialUpdate(ctx context.Context, corpID, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewMaterial().Update(ctx, req.ID, req.Req, corpID)
 }
 
@@ -152,10 +155,12 @@ func materialDelete(ctx context.Context, corpID, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewMaterial().Delete(ctx, req.IDs, corpID)
 }
 
 func materialGetSidebarStatus(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	ctx = corpCtx(ctx, corpID)
 	return services.NewMaterial().GetSidebarStatus(ctx, corpID)
 }
 
@@ -164,6 +169,7 @@ func materialUpdateGetSidebarStatus(ctx context.Context, corpID, _ string, param
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewMaterial().UpdateGetSidebarStatus(ctx, req, corpID)
 }
 

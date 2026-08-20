@@ -84,7 +84,7 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 
 			// send default welcome msg
 			staffService := services.NewStaffService()
-			return staffService.SendDefaultWelcomeMsg(context.Background(), welcomeCode, staff.ExtCorpID, staff.ExtID)
+			return staffService.SendDefaultWelcomeMsg(services.SyncTenantCtx(context.Background(), staff.ExtCorpID), welcomeCode, staff.ExtCorpID, staff.ExtID)
 		}
 	}
 

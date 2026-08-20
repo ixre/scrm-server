@@ -107,7 +107,8 @@ func (o GroupChat) Export(c *gin.Context) {
 		return
 	}
 
-	buf, filename, err := o.srv.Export(context.Background(), req, consoleStaff.ExtCorpID)
+	buf, filename, err := o.srv.Export(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -134,7 +135,8 @@ func (o GroupChat) GetAllOwners(c *gin.Context) {
 		return
 	}
 
-	items, err := o.srv.GetAllOwners(context.Background(), consoleStaff.ExtCorpID)
+	items, err := o.srv.GetAllOwners(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -168,7 +170,8 @@ func (o GroupChat) GetAll(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.GetAll(context.Background(), req, consoleStaff.ExtCorpID)
+	items, total, err := o.srv.GetAll(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

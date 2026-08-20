@@ -79,7 +79,8 @@ func (o MaterialLib) Delete(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.Delete(context.Background(), req.IDs, consoleStaff.ExtCorpID)
+	total, err := o.srv.Delete(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.IDs,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -155,7 +156,8 @@ func (o MaterialLib) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(context.Background(), req, consoleStaff.ExtCorpID)
+	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -183,7 +185,8 @@ func (o MaterialLib) GetSidebarStatus(c *gin.Context) {
 		return
 	}
 
-	status, err := o.srv.GetSidebarStatus(context.Background(), consoleStaff.ExtCorpID)
+	status, err := o.srv.GetSidebarStatus(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

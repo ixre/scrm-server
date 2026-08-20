@@ -40,7 +40,8 @@ func (o HomePageHandler) GetCustomerSummary(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	customer, errs := o.staffSrv.GetCustomerSummary(context.Background(), admin.ExtID, admin.ExtCorpID)
+	customer, errs := o.staffSrv.GetCustomerSummary(services.SyncTenantCtx(context.Background(), admin.ExtCorpID), admin.ExtID,admin.ExtCorpID)
+
 	if errs != nil {
 		errs := errors.Wrap(errs, "get customer_event by id failed")
 		handler.ResponseError(errs)
@@ -74,7 +75,8 @@ func (o HomePageHandler) GetCustomersTrend(c *gin.Context) {
 		return
 	}
 
-	items, err := o.customerSrv.CustomerStatistic(context.Background(), req, consoleStaff.ExtCorpID)
+	items, err := o.customerSrv.CustomerStatistic(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)

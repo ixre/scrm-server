@@ -44,7 +44,8 @@ func (o MaterialLibFrontend) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(context.Background(), req, staffInfo.ExtCorpID)
+	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), staffInfo.ExtCorpID), req,staffInfo.ExtCorpID)
+
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

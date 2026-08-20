@@ -63,6 +63,7 @@ func customerGetFullCustomerInfo(ctx context.Context, corpID, _ string, params j
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewCustomer().GetFullCustomerInfo(ctx, req.ExtCustomerID, req.ExtStaffID, corpID)
 }
 
@@ -71,6 +72,7 @@ func customerGetCustomerLosses(ctx context.Context, corpID, _ string, params jso
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	items, total, err := services.NewCustomer().GetCustomerLosses(ctx, p.Query, corpID, p.Pager, p.Sorter)
 	if err != nil {
 		return nil, err
@@ -83,6 +85,7 @@ func customerStatistic(ctx context.Context, corpID, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return services.NewCustomer().CustomerStatistic(ctx, req, corpID)
 }
 
@@ -91,10 +94,12 @@ func customerUpdateDeleteEventNotify(ctx context.Context, corpID, _ string, para
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
+	ctx = corpCtx(ctx, corpID)
 	return nil, services.NewCustomer().UpdateDeleteEventNotify(ctx, req, corpID)
 }
 
 func customerGetNotifyStaffRule(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	ctx = corpCtx(ctx, corpID)
 	return services.NewCustomer().GetNotifyStaffRule(ctx, corpID)
 }
 
