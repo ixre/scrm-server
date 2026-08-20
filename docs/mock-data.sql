@@ -11,8 +11,11 @@
 --   manager  / 123456  — 销售经理（客户/销售/运营/营销/风控可见，企业管理不可见）
 --   sales    / 123456  — 销售（客户管理/线索/商机/智能名片/话术可见）
 --
--- 平台超管（独立于租户，登录入口 /platform/login）：
---   master   / 123456  — 平台超管（管理所有租户：创建/停用/删除/编辑）
+-- 平台超管（独立于租户，登录入口 /platform/login，密码统一 123456）：
+--   master     / 123456  — 超级管理员（全部平台功能）
+--   operator1  / 123456  — 运营（租户CRUD + 统计）
+--   finance1   / 123456  — 财务（计费 + 租户只读 + 统计只读）
+--   support1   / 123456  — 客服（租户只读 + 日志只读 + 统计只读）
 --
 -- 运行方式（scrm-dev-postgres 容器）：
 --   docker exec -i scrm-dev-postgres psql -U root -d scrm < docs/mock-data.sql
@@ -93,9 +96,21 @@ COMMIT;
 
 -- ============================================================ 平台超管（platform_admin）
 -- 平台超管独立于租户，用于管理所有租户（创建/停用/删除/编辑）。
--- 登录入口：/platform/login，账号 master / 123456。
+-- 登录入口：/platform/login，密码统一 123456。
 -- bcrypt hash of "123456"（与 CRM 用户一致）:
 --   $2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.
+--
+-- 平台角色与权限：
+--   super_admin  超级管理员  全部平台功能（租户CRUD/计费/统计/日志/设置）
+--   operator     运营        租户CRUD + 统计
+--   finance      财务        计费 + 租户只读 + 统计只读
+--   support      客服        租户只读 + 日志只读 + 统计只读
+--
+-- 账号列表：
+--   master     / 123456  — 超级管理员
+--   operator1  / 123456  — 运营
+--   finance1   / 123456  — 财务
+--   support1   / 123456  — 客服
 BEGIN;
 INSERT INTO platform_admin
   (id, created_at, updated_at, username, password, name, mobile, email, role, status)
@@ -104,7 +119,34 @@ SELECT 9010000000000000400, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
    '平台超管', '', '', 'super_admin', 1
  WHERE NOT EXISTS (
    SELECT 1 FROM platform_admin WHERE username = 'master' AND deleted_at IS NULL
- );
+);
+
+INSERT INTO platform_admin
+  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+SELECT 9010000000000000401, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+   'operator1', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
+   '运营小李', '', '', 'operator', 1
+ WHERE NOT EXISTS (
+   SELECT 1 FROM platform_admin WHERE username = 'operator1' AND deleted_at IS NULL
+);
+
+INSERT INTO platform_admin
+  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+SELECT 9010000000000000402, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+   'finance1', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
+   '财务小张', '', '', 'finance', 1
+ WHERE NOT EXISTS (
+   SELECT 1 FROM platform_admin WHERE username = 'finance1' AND deleted_at IS NULL
+);
+
+INSERT INTO platform_admin
+  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+SELECT 9010000000000000403, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+   'support1', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
+   '客服小王', '', '', 'support', 1
+ WHERE NOT EXISTS (
+   SELECT 1 FROM platform_admin WHERE username = 'support1' AND deleted_at IS NULL
+);
 COMMIT;
 
 -- ============================================================ CRM 客户

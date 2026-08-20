@@ -72,13 +72,17 @@ Redis:
 
 核心首次启动会自动创建平台超管账号（仅非生产环境执行，见 `app/services/crm.go` 的 `SeedPlatformAdmin`）。
 
-| 账号 | 密码 | 入口 | 功能 |
+| 账号 | 密码 | 角色 | 功能 |
 |------|------|------|------|
-| `master` | `123456` | `/platform/login` | 租户管理（列表/创建/编辑/停用启用/删除） |
+| `master` | `123456` | 超级管理员 | 全部平台功能（租户CRUD/计费/统计/日志/设置） |
+| `operator1` | `123456` | 运营 | 租户CRUD + 统计 |
+| `finance1` | `123456` | 财务 | 计费 + 租户只读 + 统计只读 |
+| `support1` | `123456` | 客服 | 租户只读 + 日志只读 + 统计只读 |
 
-访问 `http://localhost:3000/#/platform/login`，填入 `master` / `123456` 即可进入平台管理后台。
+访问 `http://localhost:3000/#/platform/login`，填入对应账号和密码 `123456` 即可进入平台管理后台。
 
 > 平台超管也可通过 mock-data.sql 初始化（幂等），与 SeedPlatformAdmin 等效。
+> `master` 由 `SeedPlatformAdmin` 自动创建，mock-data.sql 补齐 operator1/finance1/support1 三个角色账号。
 
 ### 租户用户
 
