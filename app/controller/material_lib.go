@@ -44,7 +44,7 @@ func (o MaterialLib) Create(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Create(context.Background(), req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
+	item, err := o.srv.Create(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -122,7 +122,7 @@ func (o MaterialLib) Update(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.Update(context.Background(), id, req, consoleStaff.ExtCorpID)
+	err = o.srv.Update(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)
@@ -220,7 +220,7 @@ func (o MaterialLib) UpdateSidebarStatus(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.UpdateGetSidebarStatus(context.Background(), req, consoleStaff.ExtCorpID)
+	err = o.srv.UpdateGetSidebarStatus(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)

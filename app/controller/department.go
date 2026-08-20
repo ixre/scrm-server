@@ -68,7 +68,7 @@ func (d *Department) Sync(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	err = d.srv.Sync(context.Background(), consoleStaffInfo.ExtCorpID)
+	err = d.srv.Sync(services.SyncTenantCtx(context.Background(), consoleStaffInfo.ExtCorpID), consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "sync departments failed")
 		handler.ResponseError(err)

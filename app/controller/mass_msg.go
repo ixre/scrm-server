@@ -169,7 +169,7 @@ func (ch MassMsg) Notify(c *gin.Context) {
 		return
 	}
 
-	err = ch.srv.Notify(context.Background(), req.IDs, consoleStaffInfo.ExtCorpID)
+	err = ch.srv.Notify(services.SyncTenantCtx(context.Background(), consoleStaffInfo.ExtCorpID), req.IDs, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -201,7 +201,7 @@ func (ch MassMsg) Query(c *gin.Context) {
 		handler.ResponseError(err)
 		return
 	}
-	items, total, err := ch.srv.Query(context.Background(), info.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := ch.srv.Query(services.SyncTenantCtx(context.Background(), info.ExtCorpID), info.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err := errors.Wrap(err, "query group msg failed")
 		handler.ResponseError(err)

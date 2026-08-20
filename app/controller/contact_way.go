@@ -114,7 +114,7 @@ func (o *ContactWay) Create(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Create(context.Background(), req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
+	item, err := o.srv.Create(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)

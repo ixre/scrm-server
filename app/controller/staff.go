@@ -35,7 +35,7 @@ func (s Staff) Sync(c *gin.Context) {
 		handler.ResponseBadRequestError(err)
 		return
 	}
-	err = s.staffService.Sync(context.Background(), adminInfo.ExtCorpID)
+	err = s.staffService.Sync(services.SyncTenantCtx(context.Background(), adminInfo.ExtCorpID), adminInfo.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -98,7 +98,7 @@ func (s Staff) Update(c *gin.Context) {
 		return
 	}
 
-	err = s.staffService.Enable(context.Background(), req, consoleStaff.ExtCorpID)
+	err = s.staffService.Enable(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -156,7 +156,7 @@ func (s Staff) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := s.staffService.Query(context.Background(), 
+	items, total, err := s.staffService.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), 
 		req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -224,7 +224,7 @@ func (s Staff) UpdateCustomerTag(c *gin.Context) {
 	//if req.ExtStaffID != "" {
 	//	extStaffID = req.ExtStaffID
 	//}
-	err = s.staffService.UpdateCustomerTag(context.Background(), req, extStaffID, consoleStaff.ExtCorpID)
+	err = s.staffService.UpdateCustomerTag(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -256,7 +256,7 @@ func (s Staff) UpdateCustomerInternalTag(c *gin.Context) {
 		return
 	}
 
-	err = s.staffService.UpdateCustomerInternalTag(context.Background(), req, consoleStaff.ExtCorpID)
+	err = s.staffService.UpdateCustomerInternalTag(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -288,7 +288,7 @@ func (s Staff) QueryMainInfo(c *gin.Context) {
 		return
 	}
 
-	res, err := s.staffService.QueryMainInfo(context.Background(), req, consoleStaff.ExtCorpID, &req.Pager)
+	res, err := s.staffService.QueryMainInfo(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

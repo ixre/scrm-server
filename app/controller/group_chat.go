@@ -44,7 +44,7 @@ func (o GroupChat) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(context.Background(), req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
+	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
