@@ -1,6 +1,7 @@
 package consumers
 
 import (
+	"context"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/services"
@@ -12,7 +13,7 @@ func SendMassMsg(job delay_queue.Job) error {
 	log.Sugar.Info("job info:", job)
 	if job.Topic == constants.MassMsgTopic {
 		customerService := services.NewDefaultMassMsgService()
-		msgID, err := customerService.SendMassMsgToWx(job.Body, job.ID)
+		msgID, err := customerService.SendMassMsgToWx(context.Background(), job.Body, job.ID)
 		if err != nil {
 			log.Sugar.Error(err)
 			return err

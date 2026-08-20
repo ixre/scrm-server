@@ -20,38 +20,38 @@ func init() {
 	Reg.Register(s, "BatchUpdate", contactWayBatchUpdate)
 }
 
-func contactWayQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryContactWayReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
 	MergePS(&p)
-	items, total, err := services.NewContactWay().Query(p.Query, corpID)
+	items, total, err := services.NewContactWay().Query(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func contactWayGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewContactWay().Get(req.ID, corpID)
+	return services.NewContactWay().Get(ctx, req.ID, corpID)
 }
 
-func contactWayCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func contactWayCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.CreateContactWayReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewContactWay().Create(req, corpID, staffID)
+	return services.NewContactWay().Create(ctx, req, corpID, staffID)
 }
 
-func contactWayUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                       `json:"id"`
 		Req requests.UpdateContactWayReq `json:"req"`
@@ -59,25 +59,25 @@ func contactWayUpdate(_ context.Context, corpID, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewContactWay().Update(req.ID, req.Req, corpID)
+	return services.NewContactWay().Update(ctx, req.ID, req.Req, corpID)
 }
 
-func contactWayDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewContactWay().Delete(req.IDs, corpID)
+	return services.NewContactWay().Delete(ctx, req.IDs, corpID)
 }
 
-func contactWayBatchUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayBatchUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.BatchUpdateContactWayReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewContactWay().BatchUpdate(req, corpID)
+	return services.NewContactWay().BatchUpdate(ctx, req, corpID)
 }
 
 // 渠道码分组（contact_way_group）域适配器 —— 通用 JSON 透传分发。
@@ -90,7 +90,7 @@ func init() {
 	Reg.Register(s, "Delete", contactWayGroupDelete)
 }
 
-func contactWayGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryContactWayGroupReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func contactWayGroupQuery(_ context.Context, corpID, _ string, params json.RawMe
 	return Result(items, total), nil
 }
 
-func contactWayGroupGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayGroupGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
@@ -112,7 +112,7 @@ func contactWayGroupGet(_ context.Context, corpID, _ string, params json.RawMess
 	return services.NewContactWayGroup().Get(req.ID, corpID)
 }
 
-func contactWayGroupCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func contactWayGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.CreateContactWayGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func contactWayGroupCreate(_ context.Context, corpID, staffID string, params jso
 	return services.NewContactWayGroup().Create(req, corpID, staffID)
 }
 
-func contactWayGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                            `json:"id"`
 		Req requests.UpdateContactWayGroupReq `json:"req"`
@@ -131,7 +131,7 @@ func contactWayGroupUpdate(_ context.Context, corpID, _ string, params json.RawM
 	return services.NewContactWayGroup().Update(req.ID, req.Req, corpID)
 }
 
-func contactWayGroupDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func contactWayGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -148,26 +148,26 @@ func init() {
 	Reg.Register(s, "Get", departmentGet)
 }
 
-func departmentQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func departmentQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[entities.GetSubDepartmentReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewDepartment().Query(p.Query, corpID)
+	items, total, err := services.NewDepartment().Query(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func departmentGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func departmentGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ExtDeptID int64 `json:"ext_dept_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewDepartment().Get(req.ExtDeptID, corpID)
+	return services.NewDepartment().Get(ctx, req.ExtDeptID, corpID)
 }
 
 // 企业风控（corporation_risk_mgr）域适配器 —— 通用 JSON 透传分发。
@@ -178,7 +178,7 @@ func init() {
 	Reg.Register(s, "Upsert", corpRiskMgrUpsert)
 }
 
-func corpRiskMgrQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func corpRiskMgrQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryStaffDeleteCustomerHistoryReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -190,11 +190,11 @@ func corpRiskMgrQuery(_ context.Context, corpID, _ string, params json.RawMessag
 	return Result(items, total), nil
 }
 
-func corpRiskMgrGet(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+func corpRiskMgrGet(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
 	return services.NewCorpRiskMgrService().Get(corpID)
 }
 
-func corpRiskMgrUpsert(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func corpRiskMgrUpsert(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateStaffDeleteCustomerNotifierReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func init() {
 	Reg.Register(s, "Delete", internalTagDelete)
 }
 
-func internalTagQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func internalTagQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryInternalTagReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func internalTagQuery(_ context.Context, corpID, _ string, params json.RawMessag
 	return Result(items, total), nil
 }
 
-func internalTagCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func internalTagCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.CreateInternalTagReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func internalTagCreate(_ context.Context, corpID, _ string, params json.RawMessa
 	return services.NewInternalTag().Create(req, corpID)
 }
 
-func internalTagDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func internalTagDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}

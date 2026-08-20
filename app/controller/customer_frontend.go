@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/services"
@@ -35,7 +36,7 @@ func (o *CustomerFrontend) Get(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.GetFullCustomerInfo(extCustomerID, staff.ExtID, staff.ExtCorpID)
+	item, err := o.srv.GetFullCustomerInfo(context.Background(), extCustomerID, staff.ExtID, staff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

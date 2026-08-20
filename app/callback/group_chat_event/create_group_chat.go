@@ -1,6 +1,7 @@
 package group_chat_event
 
 import (
+	"context"
 	"github.com/pkg/errors"
 	"core/app/models"
 	"core/app/services"
@@ -40,7 +41,7 @@ func EventCreateExternalChatHandler(msg *workwx.RxMessage) error {
 
 	groupChatService := services.NewGroupChatService()
 	extCorpID := conf.Settings.WeWork.ExtCorpID
-	err = groupChatService.Syncs(chat.ChatID, extCorpID)
+	err = groupChatService.Syncs(context.Background(), chat.ChatID, extCorpID)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/requests"
@@ -43,7 +44,7 @@ func (o MaterialLibFrontend) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(req, staffInfo.ExtCorpID)
+	items, total, err := o.srv.Query(context.Background(), req, staffInfo.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/services"
@@ -39,7 +40,7 @@ func (s Staff) GetStaff(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.Get(extStaffID, consoleStaff.ExtCorpID)
+	staff, err := s.staffService.Get(context.Background(), extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return

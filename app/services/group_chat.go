@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"bytes"
 	"fmt"
 	"github.com/gogf/gf/os/gfile"
@@ -39,7 +40,7 @@ func NewGroupChatService() *GroupChatService {
 }
 
 // Syncs 同步群聊列表
-func (o GroupChatService) Syncs(chatID string, extCorpID string) error {
+func (o GroupChatService) Syncs(ctx context.Context, chatID string, extCorpID string) error {
 
 	log.Sugar.Debugw("sync group chatInfo ", "chatID", chatID, "extCorpID", extCorpID)
 	client, err := we_work.Clients.Get(extCorpID)
@@ -56,7 +57,7 @@ func (o GroupChatService) Syncs(chatID string, extCorpID string) error {
 
 	// 拼接群名
 	chatInfo := groupChatInfo.GroupChat
-	chatName, err := o.CreateChatName(chatInfo, extCorpID)
+	chatName, err := o.CreateChatName(ctx, chatInfo, extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
@@ -104,7 +105,7 @@ func (o GroupChatService) Syncs(chatID string, extCorpID string) error {
 
 // Query
 // Description: 查询客户群列表
-func (o GroupChatService) Query(
+func (o GroupChatService) Query(ctx context.Context, 
 	req requests.QueryGroupChatReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) (res []models.GroupChat, total int64, err error) {
 	res = make([]models.GroupChat, 0)
 	res, total, err = o.GroupChatRepo.Query(req, extCorpID, pager, sorter)
@@ -112,7 +113,7 @@ func (o GroupChatService) Query(
 }
 
 // SyncAll 同步企业所有群聊
-func (o GroupChatService) SyncAll(extCorpID string) error {
+func (o GroupChatService) SyncAll(ctx context.Context, extCorpID string) error {
 	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -141,7 +142,7 @@ func (o GroupChatService) SyncAll(extCorpID string) error {
 				return err
 			}
 			for _, chat := range groupChat.GroupChatList {
-				err = o.Syncs(chat.ChatID, extCorpID)
+				err = o.Syncs(ctx, chat.ChatID, extCorpID)
 				if err != nil {
 					err = errors.WithStack(err)
 					return err
@@ -161,7 +162,7 @@ func (o GroupChatService) SyncAll(extCorpID string) error {
 
 // UpdateTags
 // Description: 群聊批量打标签
-func (o GroupChatService) UpdateTags(req requests.UpdateCustomerGroupReq) (err error) {
+func (o GroupChatService) UpdateTags(ctx context.Context, req requests.UpdateCustomerGroupReq) (err error) {
 	for _, groupChatID := range req.GroupChatIDs {
 		err = o.GroupChatRepo.UpdateTags(groupChatID, req.AddTagIDs, req.RemoveTagIDs)
 		if err != nil {
@@ -172,7 +173,7 @@ func (o GroupChatService) UpdateTags(req requests.UpdateCustomerGroupReq) (err e
 	return
 }
 
-func (o GroupChatService) Export(req requests.QueryGroupChatReq, extCorpID string) (*bytes.Buffer, string, error) {
+func (o GroupChatService) Export(ctx context.Context, req requests.QueryGroupChatReq, extCorpID string) (*bytes.Buffer, string, error) {
 	log.Sugar.Infow("ExportDeleteStaffWarningList", "req", req)
 	groupChats, err := o.GroupChatRepo.GetAll(req, extCorpID)
 	if err != nil {
@@ -238,14 +239,14 @@ func (o GroupChatService) Export(req requests.QueryGroupChatReq, extCorpID strin
 	return buf, fullPath, nil
 }
 
-func (o GroupChatService) GetAllOwners(extCorpId string) (staffs []models.StaffMainInfo, err error) {
+func (o GroupChatService) GetAllOwners(ctx context.Context, extCorpId string) (staffs []models.StaffMainInfo, err error) {
 	return o.GroupChatRepo.GetAllOwners(extCorpId)
 }
 
 // CreateChatName
 // Description: 没有群名的群聊拼接群名
 // Detail: 群主加两个管理员,管理员不足两个,就用群成员补齐
-func (o GroupChatService) CreateChatName(chatInfo gowx.GroupChat, extCorpID string) (chatName string, err error) {
+func (o GroupChatService) CreateChatName(ctx context.Context, chatInfo gowx.GroupChat, extCorpID string) (chatName string, err error) {
 	sb := strings.Builder{}
 	if chatInfo.Name == "" {
 		staff, err := o.StaffRepo.Get(chatInfo.Owner, extCorpID, false)
@@ -284,7 +285,7 @@ func (o GroupChatService) CreateChatName(chatInfo gowx.GroupChat, extCorpID stri
 	return
 }
 
-func (o GroupChatService) GetAll(
+func (o GroupChatService) GetAll(ctx context.Context, 
 	req requests.QueryGroupChatReq, extCorpID string) (items []models.GroupChatMainInfo, total int64, err error) {
 
 	return o.GroupChatRepo.GetAllChatsMainInfo(&req.Pager, &req.Sorter, extCorpID)

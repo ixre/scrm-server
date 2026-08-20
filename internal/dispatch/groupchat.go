@@ -48,44 +48,44 @@ func init() {
 	Reg.Register("group_chat_welcome_msg", "Delete", groupChatWelcomeMsgDelete)
 }
 
-func groupChatQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryGroupChatReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewGroupChatService().Query(p.Query, corpID, p.Pager, p.Sorter)
+	items, total, err := services.NewGroupChatService().Query(ctx, p.Query, corpID, p.Pager, p.Sorter)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func groupChatUpdateTags(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func groupChatUpdateTags(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateCustomerGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewGroupChatService().UpdateTags(req)
+	return nil, services.NewGroupChatService().UpdateTags(ctx, req)
 }
 
-func groupChatGetAllOwners(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
-	return services.NewGroupChatService().GetAllOwners(corpID)
+func groupChatGetAllOwners(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return services.NewGroupChatService().GetAllOwners(ctx, corpID)
 }
 
-func groupChatGetAll(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatGetAll(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryGroupChatReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
 	MergePS(&p)
-	items, total, err := services.NewGroupChatService().GetAll(p.Query, corpID)
+	items, total, err := services.NewGroupChatService().GetAll(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func groupChatGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[entities.QueryGroupChatGroupReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func groupChatGroupQuery(_ context.Context, corpID, _ string, params json.RawMes
 	return Result(items, total), nil
 }
 
-func groupChatGroupCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func groupChatGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req entities.CreateGroupChatGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func groupChatGroupCreate(_ context.Context, corpID, staffID string, params json
 	return services.NewGroupChatGroupService().Create(req, corpID, staffID)
 }
 
-func groupChatGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                           `json:"id"`
 		Req entities.UpdateGroupChatGroupReq `json:"req"`
@@ -116,7 +116,7 @@ func groupChatGroupUpdate(_ context.Context, corpID, _ string, params json.RawMe
 	return services.NewGroupChatGroupService().Update(req.ID, req.Req, corpID)
 }
 
-func groupChatGroupDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.DeleteGroupChatGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func groupChatGroupDelete(_ context.Context, corpID, _ string, params json.RawMe
 	return services.NewGroupChatGroupService().Delete(req, corpID)
 }
 
-func groupChatTagCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func groupChatTagCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.CreateGroupChatTagsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func groupChatTagCreate(_ context.Context, corpID, staffID string, params json.R
 	return services.NewCustomerGroupTag().Create(req, corpID, staffID)
 }
 
-func groupChatTagUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatTagUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateGroupChatTagReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func groupChatTagUpdate(_ context.Context, corpID, _ string, params json.RawMess
 	return services.NewCustomerGroupTag().Update(req, corpID)
 }
 
-func groupChatTagDelete(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func groupChatTagDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -150,7 +150,7 @@ func groupChatTagDelete(_ context.Context, _, _ string, params json.RawMessage) 
 	return services.NewCustomerGroupTag().Delete(req.IDs)
 }
 
-func groupChatTagGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatTagGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[string]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func groupChatTagGroupQuery(_ context.Context, corpID, _ string, params json.Raw
 	return Result(items, total), nil
 }
 
-func groupChatTagGroupCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func groupChatTagGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.CreateGroupChatTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func groupChatTagGroupCreate(_ context.Context, corpID, staffID string, params j
 	return services.NewGroupChatTagGroup().Create(&req, corpID, staffID)
 }
 
-func groupChatTagGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatTagGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateGroupChatTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -178,7 +178,7 @@ func groupChatTagGroupUpdate(_ context.Context, corpID, _ string, params json.Ra
 	return services.NewGroupChatTagGroup().Update(&req, corpID)
 }
 
-func groupChatTagGroupDelete(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func groupChatTagGroupDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -188,7 +188,7 @@ func groupChatTagGroupDelete(_ context.Context, _, _ string, params json.RawMess
 	return services.NewGroupChatTagGroup().Delete(req.IDs)
 }
 
-func groupChatAutoJoinDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatAutoJoinDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -198,7 +198,7 @@ func groupChatAutoJoinDelete(_ context.Context, corpID, _ string, params json.Ra
 	return services.NewGroupChatAutoJoin().Delete(req.IDs, corpID)
 }
 
-func groupChatAutoJoinBatchRegroup(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatAutoJoinBatchRegroup(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.BatchRegroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -206,7 +206,7 @@ func groupChatAutoJoinBatchRegroup(_ context.Context, corpID, _ string, params j
 	return nil, services.NewGroupChatAutoJoin().BatchRegroup(req, corpID)
 }
 
-func groupChatAutoJoinCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatAutoJoinCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.CreateGroupChatAutoJoinCodeReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func groupChatAutoJoinCreate(_ context.Context, corpID, _ string, params json.Ra
 	return services.NewGroupChatAutoJoin().Create(req, corpID)
 }
 
-func groupChatAutoJoinQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatAutoJoinQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryGroupChatAutoJoinReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func groupChatAutoJoinQuery(_ context.Context, corpID, _ string, params json.Raw
 	return Result(items, total), nil
 }
 
-func groupChatAutoJoinUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatAutoJoinUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                                    `json:"id"`
 		Req requests.UpdateGroupChatAutoJoinQrCodeReq `json:"req"`
@@ -237,7 +237,7 @@ func groupChatAutoJoinUpdate(_ context.Context, corpID, _ string, params json.Ra
 	return services.NewGroupChatAutoJoin().Update(req.ID, req.Req, corpID)
 }
 
-func groupChatMassMsgQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatMassMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[struct{}]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -249,7 +249,7 @@ func groupChatMassMsgQuery(_ context.Context, corpID, _ string, params json.RawM
 	return Result(items, total), nil
 }
 
-func groupChatMassMsgGet(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func groupChatMassMsgGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
@@ -259,7 +259,7 @@ func groupChatMassMsgGet(_ context.Context, _, _ string, params json.RawMessage)
 	return services.NewGroupChatMassMsg().Get(req.ID)
 }
 
-func groupChatMassMsgSendAsync(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func groupChatMassMsgSendAsync(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.SendGroupChatMassMsgReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func groupChatMassMsgSendAsync(_ context.Context, corpID, staffID string, params
 	return services.NewGroupChatMassMsg().SendMassMsgAsync(req, staffID, corpID)
 }
 
-func groupChatMassMsgDelete(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func groupChatMassMsgDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -277,7 +277,7 @@ func groupChatMassMsgDelete(_ context.Context, _, _ string, params json.RawMessa
 	return nil, services.NewGroupChatMassMsg().DeleteTimedMassMsg(req.IDs)
 }
 
-func groupChatWelcomeMsgQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatWelcomeMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryGroupChatWelcomeMsgReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -291,7 +291,7 @@ func groupChatWelcomeMsgQuery(_ context.Context, corpID, _ string, params json.R
 	return Result(items, total), nil
 }
 
-func groupChatWelcomeMsgCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatWelcomeMsgCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        requests.CreateGroupChatWelcomeMsgReq `json:"req"`
 		ExtStaffID string                                `json:"ext_staff_id"`
@@ -303,7 +303,7 @@ func groupChatWelcomeMsgCreate(_ context.Context, corpID, _ string, params json.
 	return services.NewGroupChatWelcomeMsg().Create(req.Req, staff)
 }
 
-func groupChatWelcomeMsgUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func groupChatWelcomeMsgUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                                `json:"id"`
 		Req requests.UpdateGroupChatWelcomeMsgReq `json:"req"`
@@ -315,7 +315,7 @@ func groupChatWelcomeMsgUpdate(_ context.Context, corpID, _ string, params json.
 	return services.NewGroupChatWelcomeMsg().Update(req.Req, req.ID, staff)
 }
 
-func groupChatWelcomeMsgDelete(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func groupChatWelcomeMsgDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}

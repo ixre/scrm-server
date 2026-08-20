@@ -23,7 +23,7 @@ func NewStaffServer() *StaffServer {
 }
 
 func (s *StaffServer) Get(ctx context.Context, req *pb.GetStaffRequest) (*pb.Staff, error) {
-	st, err := s.srv.Get(req.GetExtId(), req.GetCorpId())
+	st, err := s.srv.Get(context.Background(), req.GetExtId(), req.GetCorpId())
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -41,7 +41,7 @@ func (s *StaffServer) Query(ctx context.Context, req *pb.QueryStaffRequest) (*pb
 	if q.Pager.PageSize == 0 {
 		q.Pager.PageSize = 20
 	}
-	items, total, err := s.srv.Query(q, req.GetCorpId(), &app.Sorter{}, &q.Pager)
+	items, total, err := s.srv.Query(context.Background(), q, req.GetCorpId(), &app.Sorter{}, &q.Pager)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

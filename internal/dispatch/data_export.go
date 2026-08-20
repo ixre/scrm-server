@@ -30,7 +30,7 @@ func fullPathToSignedURL(fullPath string) (string, error) {
 	return storage.FileStorage.SignURL(objectKey, constants.HTTPGet, 3600)
 }
 
-func dataExportGroupChatList(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func dataExportGroupChatList(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.QueryGroupChatReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func dataExportGroupChatList(_ context.Context, corpID, _ string, params json.Ra
 	return fullPathToSignedURL(fullPath)
 }
 
-func dataExportDeleteStaffWarningList(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func dataExportDeleteStaffWarningList(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.DataExportReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func dataExportDeleteStaffWarningList(_ context.Context, corpID, _ string, param
 	return fullPathToSignedURL(fullPath)
 }
 
-func dataExportGenTask(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func dataExportGenTask(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.DataExportReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func dataExportGenTask(_ context.Context, corpID, staffID string, params json.Ra
 	return services.NewDataExport().GenDataExportTask(req, models.Staff{ExtCorpID: corpID, ExtID: staffID})
 }
 
-func dataExportGet(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func dataExportGet(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}

@@ -1,6 +1,7 @@
 package staff_event
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"core/app/constants"
@@ -41,7 +42,7 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 		"customerID", extCustomerID, "staffID", extStaffID, "welcomeCode", welcomeCode)
 
 	customerSrv := services.NewCustomer()
-	err := customerSrv.SyncSingleCustomerData(extStaffID, extCustomerID)
+	err := customerSrv.SyncSingleCustomerData(context.Background(), extStaffID, extCustomerID)
 	if err != nil {
 		log.Sugar.Errorw("customerSrv.SyncSingleCustomerData failed",
 			"extStaffID", extStaffID, "extCustomerID", extCustomerID)
@@ -62,7 +63,7 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 		return err
 	}
 
-	shouldSendWelcomeMsg, err := (&services.ContactWay{}).DealAddCustomerEvent(models.DB, eventAddExternalContact)
+	shouldSendWelcomeMsg, err := (&services.ContactWay{}).DealAddCustomerEvent(context.Background(), models.DB, eventAddExternalContact)
 	if err != nil {
 		log.Sugar.Errorw("ContactWay.DealAddCustomerEvent failed",
 			"err", err, "eventAddExternalContact", eventAddExternalContact)
@@ -83,7 +84,7 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 
 			// send default welcome msg
 			staffService := services.NewStaffService()
-			return staffService.SendDefaultWelcomeMsg(welcomeCode, staff.ExtCorpID, staff.ExtID)
+			return staffService.SendDefaultWelcomeMsg(context.Background(), welcomeCode, staff.ExtCorpID, staff.ExtID)
 		}
 	}
 

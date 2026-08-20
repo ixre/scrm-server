@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"github.com/thoas/go-funk"
@@ -24,7 +25,7 @@ func NewContactWay() *ContactWay {
 	return &ContactWay{model: models.ContactWay{}}
 }
 
-func (o *ContactWay) Query(req requests.QueryContactWayReq, extCorpID string) (items []responses.ContactWay, total int64, err error) {
+func (o *ContactWay) Query(ctx context.Context, req requests.QueryContactWayReq, extCorpID string) (items []responses.ContactWay, total int64, err error) {
 	param := models.ContactWay{}
 	err = copier.Copy(&param, req)
 	if err != nil {
@@ -70,7 +71,7 @@ func (o *ContactWay) Query(req requests.QueryContactWayReq, extCorpID string) (i
 	return
 }
 
-func (o *ContactWay) Get(id string, extCorpID string) (item responses.ContactWay, err error) {
+func (o *ContactWay) Get(ctx context.Context, id string, extCorpID string) (item responses.ContactWay, err error) {
 	contactWay, err := o.model.Get(id, extCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get contactWay failed")
@@ -100,7 +101,7 @@ const preprocessModeCreate = "create"
 const preprocessModeUpdate = "update"
 
 // Preprocess 创建和更新前对参数进行预处理
-func (o *ContactWay) Preprocess(mode preprocessMode, item *models.ContactWay, extCorpID string, extCreatorID string) (err error) {
+func (o *ContactWay) Preprocess(ctx context.Context, mode preprocessMode, item *models.ContactWay, extCorpID string, extCreatorID string) (err error) {
 	// 公共部分
 	item.ExtCorpID = extCorpID
 	item.ExtCreatorID = extCreatorID
@@ -218,7 +219,7 @@ func (o *ContactWay) Preprocess(mode preprocessMode, item *models.ContactWay, ex
 	return
 }
 
-func (o *ContactWay) Create(req requests.CreateContactWayReq, extCorpID string, extCreatorID string) (item models.ContactWay, err error) {
+func (o *ContactWay) Create(ctx context.Context, req requests.CreateContactWayReq, extCorpID string, extCreatorID string) (item models.ContactWay, err error) {
 	err = copier.Copy(&item, req)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -227,7 +228,7 @@ func (o *ContactWay) Create(req requests.CreateContactWayReq, extCorpID string, 
 
 	item.ID = id_generator.StringID()
 
-	err = o.Preprocess(preprocessModeCreate, &item, extCorpID, extCreatorID)
+	err = o.Preprocess(ctx, preprocessModeCreate, &item, extCorpID, extCreatorID)
 	if err != nil {
 		err = errors.Wrap(err, "Preprocess failed")
 		return
@@ -236,7 +237,7 @@ func (o *ContactWay) Create(req requests.CreateContactWayReq, extCorpID string, 
 	return o.model.Create(item, extCorpID)
 }
 
-func (o *ContactWay) Update(id string, req requests.UpdateContactWayReq, extCorpID string) (item models.ContactWay, err error) {
+func (o *ContactWay) Update(ctx context.Context, id string, req requests.UpdateContactWayReq, extCorpID string) (item models.ContactWay, err error) {
 	err = copier.Copy(&item, req)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -245,7 +246,7 @@ func (o *ContactWay) Update(id string, req requests.UpdateContactWayReq, extCorp
 
 	item.ID = id
 
-	err = o.Preprocess(preprocessModeUpdate, &item, extCorpID, "")
+	err = o.Preprocess(ctx, preprocessModeUpdate, &item, extCorpID, "")
 	if err != nil {
 		err = errors.Wrap(err, "Preprocess failed")
 		return
@@ -254,11 +255,11 @@ func (o *ContactWay) Update(id string, req requests.UpdateContactWayReq, extCorp
 	return o.model.Update(id, item, extCorpID)
 }
 
-func (o *ContactWay) Delete(ids []string, extCorpID string) (total int64, err error) {
+func (o *ContactWay) Delete(ctx context.Context, ids []string, extCorpID string) (total int64, err error) {
 	return o.model.Delete(ids, extCorpID)
 }
 
-func (o *ContactWay) BatchUpdate(req requests.BatchUpdateContactWayReq, extCorpID string) (total int64, err error) {
+func (o *ContactWay) BatchUpdate(ctx context.Context, req requests.BatchUpdateContactWayReq, extCorpID string) (total int64, err error) {
 	param := models.ContactWay{}
 	err = copier.Copy(&param, req)
 	if err != nil {
@@ -270,7 +271,7 @@ func (o *ContactWay) BatchUpdate(req requests.BatchUpdateContactWayReq, extCorpI
 }
 
 // DealAddCustomerEvent 处理添加客户时，渠道码应该做的操作
-func (o *ContactWay) DealAddCustomerEvent(tx *gorm.DB, event workwx.EventAddExternalContact) (shouldSendWelcomeMsg bool, err error) {
+func (o *ContactWay) DealAddCustomerEvent(ctx context.Context, tx *gorm.DB, event workwx.EventAddExternalContact) (shouldSendWelcomeMsg bool, err error) {
 	if !strings.HasPrefix(event.GetState(), constants.ContactWayStatePrefix) {
 		return
 	}
@@ -336,7 +337,7 @@ func (o *ContactWay) DealAddCustomerEvent(tx *gorm.DB, event workwx.EventAddExte
 
 	if !shouldBlockAutoReply && contactWay.AutoReplyType == constants.ContactWayAutoReplyTypeCustom {
 		shouldSendWelcomeMsg = false
-		sendErr := staffSrv.SendWelcomeMsg(contactWay.AutoReply, event.GetWelcomeCode(), contactWay.ExtCorpID, contactWay.ExtCreatorID)
+		sendErr := staffSrv.SendWelcomeMsg(ctx, contactWay.AutoReply, event.GetWelcomeCode(), contactWay.ExtCorpID, contactWay.ExtCreatorID)
 		if sendErr != nil {
 			// 其他三方应用可能使用掉这里的WelcomeCode，导致发送报错
 			log.Sugar.Infow("SendWelcomeMsg failed", "contactWay", contactWay, "err", sendErr)

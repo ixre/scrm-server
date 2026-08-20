@@ -11,6 +11,8 @@ import (
 
 type Department struct {
 	Model
+	// 租户ID（多租户隔离，2D 阶段补字段；列已通过 migrations/0004 加 bigint）
+	TenantID string `gorm:"type:bigint;index;comment:租户ID" json:"tenant_id"`
 	// 外部企业ID
 	ExtCorpID string `json:"ext_corp_id" gorm:"index;uniqueIndex:idx_ext_corp_id_ext_dept_id;type:char(18);comment:外部企业ID"`
 	// 企业微信部门id

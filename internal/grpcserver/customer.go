@@ -24,7 +24,7 @@ func NewCustomerServer() *CustomerServer {
 }
 
 func (s *CustomerServer) Get(ctx context.Context, req *pb.GetCustomerRequest) (*pb.Customer, error) {
-	c, err := s.srv.Get(req.GetExtId(), req.GetCorpId(), true)
+	c, err := s.srv.Get(context.Background(), req.GetExtId(), req.GetCorpId(), true)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -42,7 +42,7 @@ func (s *CustomerServer) Query(ctx context.Context, req *pb.QueryCustomerRequest
 	if q.Pager.PageSize == 0 {
 		q.Pager.PageSize = 20
 	}
-	customers, total, err := s.srv.Query(q, req.GetCorpId(), &q.Pager)
+	customers, total, err := s.srv.Query(context.Background(), q, req.GetCorpId(), &q.Pager)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

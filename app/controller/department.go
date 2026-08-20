@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/entities"
@@ -43,7 +44,7 @@ func (d *Department) Query(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	departments, total, err := d.srv.Query(req, consoleStaff.ExtCorpID)
+	departments, total, err := d.srv.Query(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query departments failed")
 		handler.ResponseError(err)
@@ -66,7 +67,7 @@ func (d *Department) Sync(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	err = d.srv.Sync(consoleStaffInfo.ExtCorpID)
+	err = d.srv.Sync(context.Background(), consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "sync departments failed")
 		handler.ResponseError(err)
@@ -99,7 +100,7 @@ func (d *Department) Get(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	departments, err := d.srv.Get(req.ExtID, consoleStaff.ExtCorpID)
+	departments, err := d.srv.Get(context.Background(), req.ExtID, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get departments failed")
 		handler.ResponseError(err)

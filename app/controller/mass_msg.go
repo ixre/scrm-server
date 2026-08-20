@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"net/http"
@@ -48,7 +49,7 @@ func (ch MassMsg) Create(c *gin.Context) {
 		handler.ResponseError(err)
 		return
 	}
-	msg, err := ch.srv.Create(req, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
+	msg, err := ch.srv.Create(context.Background(), req, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -79,7 +80,7 @@ func (ch MassMsg) Get(c *gin.Context) {
 		return
 	}
 
-	result, err := ch.srv.Get(missionID, info.ExtCorpID)
+	result, err := ch.srv.Get(context.Background(), missionID, info.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
 		handler.ResponseError(err)
@@ -104,7 +105,7 @@ func (ch MassMsg) GetSendMassMsgResult(c *gin.Context) {
 		handler.ResponseBadRequestError(err)
 		return
 	}
-	result, err := ch.srv.GetSendMassMsgResult(missionID)
+	result, err := ch.srv.GetSendMassMsgResult(context.Background(), missionID)
 	if err != nil {
 		err = errors.Wrap(err, "get send group msg failed")
 		handler.ResponseError(err)
@@ -133,7 +134,7 @@ func (ch MassMsg) Delete(c *gin.Context) {
 		return
 	}
 
-	err = ch.srv.DeleteTimedMassMsg(req.IDs)
+	err = ch.srv.DeleteTimedMassMsg(context.Background(), req.IDs)
 	if err != nil {
 		err = errors.Wrap(err, "get send group msg failed")
 		handler.ResponseError(err)
@@ -166,7 +167,7 @@ func (ch MassMsg) Notify(c *gin.Context) {
 		return
 	}
 
-	err = ch.srv.Notify(req.IDs, consoleStaffInfo.ExtCorpID)
+	err = ch.srv.Notify(context.Background(), req.IDs, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)
@@ -198,7 +199,7 @@ func (ch MassMsg) Query(c *gin.Context) {
 		handler.ResponseError(err)
 		return
 	}
-	items, total, err := ch.srv.Query(info.ExtCorpID, &req.Sorter, &req.Pager)
+	items, total, err := ch.srv.Query(context.Background(), info.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err := errors.Wrap(err, "query group msg failed")
 		handler.ResponseError(err)
@@ -225,7 +226,7 @@ func (ch MassMsg) CustomerFilter(c *gin.Context) {
 		return
 	}
 
-	_, total, err := ch.srv.GetStaffsCustomers([]string{}, req.ExtCustomerFilterEnable, req.ExtCustomerFilter)
+	_, total, err := ch.srv.GetStaffsCustomers(context.Background(), []string{}, req.ExtCustomerFilterEnable, req.ExtCustomerFilter)
 	if err != nil {
 		err := errors.Wrap(err, "query group msg failed")
 		handler.ResponseError(err)
@@ -318,7 +319,7 @@ func (ch MassMsg) Update(c *gin.Context) {
 		handler.ResponseError(err)
 		return
 	}
-	msgID, err := ch.srv.UpdateMassMsg(req, id, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
+	msgID, err := ch.srv.UpdateMassMsg(context.Background(), req, id, consoleStaffInfo.Name, consoleStaffInfo.ExtCorpID)
 	if err != nil {
 		err := errors.Wrap(err, "send group msg failed")
 		handler.ResponseError(err)

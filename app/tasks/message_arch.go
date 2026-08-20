@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"context"
 	"core/app/services"
 	"core/common/log"
 	"time"
@@ -23,7 +24,7 @@ func (o Staff) UpdateMsgArchStatus() {
 		defer o.Unlock(taskKey)
 	}
 	//每小时刷新员工开通会话存档的状态
-	err = (services.NewStaffService()).UpdateStaffMsgArchStatus()
+	err = (services.NewStaffService()).UpdateStaffMsgArchStatus(context.Background())
 	if err != nil {
 		log.Sugar.Errorw("UpdateStaffMsgArchStatus failed", "err", err)
 		return

@@ -44,69 +44,69 @@ func init() {
 	Reg.Register(m, "SearchMsgs", msgArchSearchMsgs)
 }
 
-func staffEnable(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffEnable(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.EnableStaffs
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewStaffService().Enable(req, corpID)
+	return nil, services.NewStaffService().Enable(ctx, req, corpID)
 }
 
-func staffGetDetail(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffGetDetail(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewStaffService().GetDetail(req.ID, corpID)
+	return services.NewStaffService().GetDetail(ctx, req.ID, corpID)
 }
 
-func staffStaffInfoStatistics(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffStaffInfoStatistics(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewStaffService().StaffInfoStatistics(req.ID, corpID)
+	return services.NewStaffService().StaffInfoStatistics(ctx, req.ID, corpID)
 }
 
-func staffUpdateCustomerTag(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffUpdateCustomerTag(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateCustomerTagsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewStaffService().UpdateCustomerTag(req, req.ExtStaffID, corpID)
+	return nil, services.NewStaffService().UpdateCustomerTag(ctx, req, req.ExtStaffID, corpID)
 }
 
-func staffQueryMainInfo(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffQueryMainInfo(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.QueryMainStaffInfoReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewStaffService().QueryMainInfo(req, corpID, &req.Pager)
+	return services.NewStaffService().QueryMainInfo(ctx, req, corpID, &req.Pager)
 }
 
-func staffGetCustomerSummary(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffGetCustomerSummary(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewStaffService().GetCustomerSummary(req.ID, corpID)
+	return services.NewStaffService().GetCustomerSummary(ctx, req.ID, corpID)
 }
 
-func staffUpdateCustomerInternalTag(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func staffUpdateCustomerInternalTag(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateCustomerInternalTagsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewStaffService().UpdateCustomerInternalTag(req, corpID)
+	return nil, services.NewStaffService().UpdateCustomerInternalTag(ctx, req, corpID)
 }
 
-func permissionQuery(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func permissionQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[entities.QueryPermissionReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func permissionQuery(_ context.Context, _, _ string, params json.RawMessage) (an
 	return Result(items, total), nil
 }
 
-func permissionGet(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func permissionGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
@@ -128,7 +128,7 @@ func permissionGet(_ context.Context, _, _ string, params json.RawMessage) (any,
 	return services.NewDefaultPermission().Get(req.ID)
 }
 
-func loginStaffLogin(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func loginStaffLogin(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		State     string `json:"state"`
 		SourceURL string `json:"source_url"`
@@ -139,7 +139,7 @@ func loginStaffLogin(_ context.Context, corpID, _ string, params json.RawMessage
 	return services.NewDefaultLogin().StaffLogin(corpID, req.State, req.SourceURL)
 }
 
-func loginConsoleLogin(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func loginConsoleLogin(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		State     string `json:"state"`
 		SourceURL string `json:"source_url"`
@@ -150,7 +150,7 @@ func loginConsoleLogin(_ context.Context, corpID, _ string, params json.RawMessa
 	return services.NewDefaultLogin().ConsoleLogin(corpID, req.State, req.SourceURL)
 }
 
-func loginConsoleForceLogin(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func loginConsoleForceLogin(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ExtCorpID  string `json:"ext_corp_id"`
 		ExtStaffID string `json:"ext_staff_id"`
@@ -161,7 +161,7 @@ func loginConsoleForceLogin(_ context.Context, _, _ string, params json.RawMessa
 	return services.NewDefaultLogin().ForceConsoleLogin(req.ExtCorpID, req.ExtStaffID)
 }
 
-func jsApiGetJSConfig(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func jsApiGetJSConfig(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		URL string `json:"url"`
 	}
@@ -171,7 +171,7 @@ func jsApiGetJSConfig(_ context.Context, corpID, _ string, params json.RawMessag
 	return services.NewJsApiService().GetJSConfig(req.URL, corpID)
 }
 
-func jsApiGetJSAgentConfig(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func jsApiGetJSAgentConfig(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		URL string `json:"url"`
 	}
@@ -181,7 +181,7 @@ func jsApiGetJSAgentConfig(_ context.Context, corpID, _ string, params json.RawM
 	return services.NewJsApiService().GetJSAgentConfig(req.URL, corpID)
 }
 
-func utilParseLink(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func utilParseLink(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.ParseLinkReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func utilParseLink(_ context.Context, _, _ string, params json.RawMessage) (any,
 	return (&services.Util{}).ParseLink(req)
 }
 
-func utilGetSignedURL(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func utilGetSignedURL(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		FileName string `json:"file_name"`
 	}
@@ -199,7 +199,7 @@ func utilGetSignedURL(_ context.Context, _, _ string, params json.RawMessage) (a
 	return (&services.Util{}).GetSignedURL(req.FileName)
 }
 
-func msgArchQueryMsgs(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func msgArchQueryMsgs(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.QueryChatMsgReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func msgArchQueryMsgs(_ context.Context, corpID, _ string, params json.RawMessag
 	return services.NewMsgArch().QueryMsgs(req, corpID)
 }
 
-func msgArchQuerySessions(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func msgArchQuerySessions(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.QuerySessionReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ func msgArchQuerySessions(_ context.Context, corpID, _ string, params json.RawMe
 	return services.NewMsgArch().QuerySessions(req, corpID)
 }
 
-func msgArchSearchMsgs(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func msgArchSearchMsgs(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.SearchMsgReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -223,6 +223,6 @@ func msgArchSearchMsgs(_ context.Context, corpID, _ string, params json.RawMessa
 	return services.NewMsgArch().SearchMsgs(req, corpID)
 }
 
-func staffSync(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
-	return nil, services.NewStaffService().Sync(corpID)
+func staffSync(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return nil, services.NewStaffService().Sync(ctx, corpID)
 }

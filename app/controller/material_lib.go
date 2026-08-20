@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/requests"
@@ -43,7 +44,7 @@ func (o MaterialLib) Create(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Create(req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
+	item, err := o.srv.Create(context.Background(), req, consoleStaff.ExtCorpID, consoleStaff.ExtID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -78,7 +79,7 @@ func (o MaterialLib) Delete(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.Delete(req.IDs, consoleStaff.ExtCorpID)
+	total, err := o.srv.Delete(context.Background(), req.IDs, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
 		handler.ResponseError(err)
@@ -120,7 +121,7 @@ func (o MaterialLib) Update(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.Update(id, req, consoleStaff.ExtCorpID)
+	err = o.srv.Update(context.Background(), id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)
@@ -154,7 +155,7 @@ func (o MaterialLib) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID)
+	items, total, err := o.srv.Query(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -182,7 +183,7 @@ func (o MaterialLib) GetSidebarStatus(c *gin.Context) {
 		return
 	}
 
-	status, err := o.srv.GetSidebarStatus(consoleStaff.ExtCorpID)
+	status, err := o.srv.GetSidebarStatus(context.Background(), consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -216,7 +217,7 @@ func (o MaterialLib) UpdateSidebarStatus(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.UpdateGetSidebarStatus(req, consoleStaff.ExtCorpID)
+	err = o.srv.UpdateGetSidebarStatus(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)

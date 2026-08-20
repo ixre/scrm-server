@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/entities"
@@ -41,7 +42,7 @@ func (o CustomerHandler) Sync(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.Sync(consoleStaff.ExtCorpID)
+	err = o.srv.Sync(context.Background(), consoleStaff.ExtCorpID)
 	if err != nil {
 		log.TracedError("GetConsoleInfo failed", err)
 		handler.ResponseError(err)
@@ -73,7 +74,7 @@ func (o CustomerHandler) Get(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	customer, errs := o.srv.Get(ExtID, adminInfo.ExtCorpID, true)
+	customer, errs := o.srv.Get(context.Background(), ExtID, adminInfo.ExtCorpID, true)
 	if errs != nil {
 		errs := errors.Wrap(errs, "get customer_event by id failed")
 		handler.ResponseError(errs)
@@ -109,7 +110,7 @@ func (o CustomerHandler) Query(c *gin.Context) {
 	}
 
 	pager := app.Pager{Page: app.GetPage(c), PageSize: app.GetPageSize(c)}
-	customers, total, err := o.srv.Query(request, consoleStaff.ExtCorpID, &pager)
+	customers, total, err := o.srv.Query(context.Background(), request, consoleStaff.ExtCorpID, &pager)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)
@@ -144,7 +145,7 @@ func (o CustomerHandler) UpdateNotifyStaffRule(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.UpdateDeleteEventNotify(req, consoleStaff.ExtCorpID)
+	err = o.srv.UpdateDeleteEventNotify(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -168,7 +169,7 @@ func (o CustomerHandler) GetNotifyStaffRule(c *gin.Context) {
 		return
 	}
 
-	resp, err := o.srv.GetNotifyStaffRule(consoleStaff.ExtCorpID)
+	resp, err := o.srv.GetNotifyStaffRule(context.Background(), consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -199,7 +200,7 @@ func (o CustomerHandler) GetLossCustomers(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.GetCustomerLosses(req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
+	items, total, err := o.srv.GetCustomerLosses(context.Background(), req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -230,7 +231,7 @@ func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(req, consoleStaff.ExtCorpID)
+	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -266,7 +267,7 @@ func (o CustomerHandler) Export(c *gin.Context) {
 		return
 	}
 
-	buf, filename, err := o.srv.Export(req, consoleStaff.ExtCorpID, &req.Pager)
+	buf, filename, err := o.srv.Export(context.Background(), req, consoleStaff.ExtCorpID, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)
@@ -300,7 +301,7 @@ func (o CustomerHandler) Statistic(c *gin.Context) {
 		return
 	}
 
-	items, err := o.srv.CustomerStatistic(req, consoleStaff.ExtCorpID)
+	items, err := o.srv.CustomerStatistic(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")
 		handler.ResponseError(err)

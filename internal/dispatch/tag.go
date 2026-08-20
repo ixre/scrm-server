@@ -44,7 +44,7 @@ func init() {
 
 // -------- tag（标签） --------
 
-func tagCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func tagCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.CreateTagReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -52,11 +52,11 @@ func tagCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any
 	return services.NewTag().Create(&req, corpID)
 }
 
-func tagSync(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+func tagSync(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
 	return nil, services.NewTag().Sync(corpID)
 }
 
-func tagDeleteTagGroups(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func tagDeleteTagGroups(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.DeleteTagGroupsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func tagDeleteTagGroups(_ context.Context, _, _ string, params json.RawMessage) 
 
 // -------- tag_group（标签组） --------
 
-func tagGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func tagGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.TagListReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func tagGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) 
 	return Result(items, total), nil
 }
 
-func tagGroupCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func tagGroupCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.CreateTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func tagGroupCreate(_ context.Context, corpID, _ string, params json.RawMessage)
 	return services.NewTagGroupService().Create(req, corpID)
 }
 
-func tagGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func tagGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func tagGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage)
 	return services.NewTagGroupService().Update(req, corpID)
 }
 
-func tagGroupDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func tagGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.DeleteTagGroupsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func tagGroupDelete(_ context.Context, corpID, _ string, params json.RawMessage)
 	return services.NewTagGroupService().Delete(req, corpID)
 }
 
-func tagGroupExchangeOrder(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func tagGroupExchangeOrder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.ExchangeOrderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -113,28 +113,28 @@ func tagGroupExchangeOrder(_ context.Context, _, _ string, params json.RawMessag
 
 // -------- material_lib（素材库） --------
 
-func materialQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func materialQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryMaterialReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
 	MergePS(&p)
-	items, total, err := services.NewMaterial().Query(p.Query, corpID)
+	items, total, err := services.NewMaterial().Query(ctx, p.Query, corpID)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func materialCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func materialCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.UploadMaterialReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewMaterial().Create(req, corpID, staffID)
+	return services.NewMaterial().Create(ctx, req, corpID, staffID)
 }
 
-func materialUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func materialUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                     `json:"id"`
 		Req requests.UpdateMaterialReq `json:"req"`
@@ -142,34 +142,34 @@ func materialUpdate(_ context.Context, corpID, _ string, params json.RawMessage)
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewMaterial().Update(req.ID, req.Req, corpID)
+	return nil, services.NewMaterial().Update(ctx, req.ID, req.Req, corpID)
 }
 
-func materialDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func materialDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewMaterial().Delete(req.IDs, corpID)
+	return services.NewMaterial().Delete(ctx, req.IDs, corpID)
 }
 
-func materialGetSidebarStatus(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
-	return services.NewMaterial().GetSidebarStatus(corpID)
+func materialGetSidebarStatus(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return services.NewMaterial().GetSidebarStatus(ctx, corpID)
 }
 
-func materialUpdateGetSidebarStatus(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func materialUpdateGetSidebarStatus(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateGetSidebarStatusReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewMaterial().UpdateGetSidebarStatus(req, corpID)
+	return nil, services.NewMaterial().UpdateGetSidebarStatus(ctx, req, corpID)
 }
 
 // -------- material_lib_tag（素材标签） --------
 
-func materialLibTagQuery(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func materialLibTagQuery(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var p QueryParams[struct {
 		Name string `json:"name"`
 	}]
@@ -184,7 +184,7 @@ func materialLibTagQuery(_ context.Context, corpID, staffID string, params json.
 	return Result(items, total), nil
 }
 
-func materialLibTagCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func materialLibTagCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Names []string `json:"names"`
 	}
@@ -195,7 +195,7 @@ func materialLibTagCreate(_ context.Context, corpID, staffID string, params json
 	return services.NewMaterialLibTag().Create(req.Names, creator)
 }
 
-func materialLibTagDelete(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func materialLibTagDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -207,7 +207,7 @@ func materialLibTagDelete(_ context.Context, _, _ string, params json.RawMessage
 
 // -------- material_lib_tag_frontend（素材标签前端） --------
 
-func materialLibTagFrontendQuery(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func materialLibTagFrontendQuery(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var p QueryParams[struct {
 		Name string `json:"name"`
 	}]
@@ -224,7 +224,7 @@ func materialLibTagFrontendQuery(_ context.Context, corpID, staffID string, para
 
 // -------- temp_material（临时素材） --------
 
-func tempMaterialUploadMedia(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func tempMaterialUploadMedia(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.UploadMaterialReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err

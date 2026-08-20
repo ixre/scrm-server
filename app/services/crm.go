@@ -32,6 +32,21 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// syncTenantCtx 从 corp_id 反查对应的 tenant_id，包成 ctx 返回。
+// 用于 Syncs() 等没有 grpc ctx 的启动期同步任务。
+// 反查走 channel_link(wecom, tenant)；找不到则返回空 TenantID 的 ctx。
+func syncTenantCtx(corpID string) context.Context {
+	if corpID == "" {
+		return context.Background()
+	}
+	var link models.ChannelLink
+	if err := models.DB.Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom, "tenant", corpID).
+		First(&link).Error; err != nil {
+		return context.Background()
+	}
+	return identity.WithIdentity(context.Background(), identity.Identity{TenantID: link.EntityID})
+}
+
 // createCRM 创建记录，自动省略值为空的 FK 列。
 // 本地模型的可选外键是 bigint，空字符串会被 PG 拒绝，需以 NULL 表示"未设"。
 func createCRM(db *gorm.DB, v any, fkFields ...string) error {

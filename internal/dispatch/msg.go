@@ -21,7 +21,7 @@ func init() {
 	Reg.Register(s, "Notify", massMsgNotify)
 }
 
-func massMsgCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func massMsgCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        requests.SendMassMsgReq `json:"req"`
 		ExtStaffID string                  `json:"ext_staff_id"`
@@ -29,10 +29,10 @@ func massMsgCreate(_ context.Context, corpID, staffID string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewDefaultMassMsgService().Create(req.Req, req.ExtStaffID, corpID)
+	return services.NewDefaultMassMsgService().Create(ctx, req.Req, req.ExtStaffID, corpID)
 }
 
-func massMsgUpdate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func massMsgUpdate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                    `json:"id"`
 		Req requests.UpdateMassMsgReq `json:"req"`
@@ -40,49 +40,49 @@ func massMsgUpdate(_ context.Context, corpID, staffID string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewDefaultMassMsgService().UpdateMassMsg(req.Req, req.ID, staffID, corpID)
+	return services.NewDefaultMassMsgService().UpdateMassMsg(ctx, req.Req, req.ID, staffID, corpID)
 }
 
-func massMsgQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func massMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[struct{}]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewDefaultMassMsgService().Query(corpID, p.Sorter, p.Pager)
+	items, total, err := services.NewDefaultMassMsgService().Query(ctx, corpID, p.Sorter, p.Pager)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func massMsgGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func massMsgGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewDefaultMassMsgService().Get(req.ID, corpID)
+	return services.NewDefaultMassMsgService().Get(ctx, req.ID, corpID)
 }
 
-func massMsgDelete(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func massMsgDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewDefaultMassMsgService().DeleteTimedMassMsg(req.IDs)
+	return nil, services.NewDefaultMassMsgService().DeleteTimedMassMsg(ctx, req.IDs)
 }
 
-func massMsgNotify(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func massMsgNotify(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewDefaultMassMsgService().Notify(req.IDs, corpID)
+	return nil, services.NewDefaultMassMsgService().Notify(ctx, req.IDs, corpID)
 }
 
 // 欢迎语（welcome_msg）域适配器 —— 通用 JSON 透传分发。
@@ -95,7 +95,7 @@ func init() {
 	Reg.Register(s, "Delete", welcomeMsgDelete)
 }
 
-func welcomeMsgCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func welcomeMsgCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        requests.CreateWelcomeMsgReq `json:"req"`
 		ExtStaffID string                       `json:"ext_staff_id"`
@@ -106,7 +106,7 @@ func welcomeMsgCreate(_ context.Context, corpID, staffID string, params json.Raw
 	return services.NewWelcomeMsgService().Create(req.Req, corpID, req.ExtStaffID)
 }
 
-func welcomeMsgUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func welcomeMsgUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                       `json:"id"`
 		Req requests.UpdateWelcomeMsgReq `json:"req"`
@@ -117,7 +117,7 @@ func welcomeMsgUpdate(_ context.Context, corpID, _ string, params json.RawMessag
 	return services.NewWelcomeMsgService().Update(req.ID, req.Req, corpID)
 }
 
-func welcomeMsgQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func welcomeMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryWelcomeMsgReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func welcomeMsgQuery(_ context.Context, corpID, _ string, params json.RawMessage
 	return Result(items, total), nil
 }
 
-func welcomeMsgGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func welcomeMsgGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
@@ -139,7 +139,7 @@ func welcomeMsgGet(_ context.Context, corpID, _ string, params json.RawMessage) 
 	return services.NewWelcomeMsgService().Get(req.ID, corpID)
 }
 
-func welcomeMsgDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func welcomeMsgDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -158,7 +158,7 @@ func init() {
 	Reg.Register(s, "Delete", quickReplyDelete)
 }
 
-func quickReplyCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func quickReplyCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        entities.CreateQuickReplyReq `json:"req"`
 		ExtStaffID string                       `json:"ext_staff_id"`
@@ -170,7 +170,7 @@ func quickReplyCreate(_ context.Context, corpID, staffID string, params json.Raw
 	return services.NewQuickReply().Create(req.Req, staff)
 }
 
-func quickReplyUpdate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func quickReplyUpdate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        entities.UpdateQuickReplyReq `json:"req"`
 		ExtStaffID string                       `json:"ext_staff_id"`
@@ -182,7 +182,7 @@ func quickReplyUpdate(_ context.Context, corpID, staffID string, params json.Raw
 	return services.NewQuickReply().Update(req.Req, staff)
 }
 
-func quickReplyQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryQuickReplyReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func quickReplyQuery(_ context.Context, corpID, _ string, params json.RawMessage
 	return Result(items, total), nil
 }
 
-func quickReplyDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -214,7 +214,7 @@ func init() {
 	Reg.Register(s, "QueryQuickReply", quickReplyGroupQueryQuickReply)
 }
 
-func quickReplyGroupQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[struct{}]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func quickReplyGroupQuery(_ context.Context, corpID, _ string, params json.RawMe
 	return Result(items, total), nil
 }
 
-func quickReplyGroupQueryQuickReply(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyGroupQueryQuickReply(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryQuickReplyReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func quickReplyGroupQueryQuickReply(_ context.Context, corpID, _ string, params 
 	return Result(items, total), nil
 }
 
-func quickReplyGroupCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func quickReplyGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        entities.CreateQuickReplyGroupReq `json:"req"`
 		ExtStaffID string                            `json:"ext_staff_id"`
@@ -249,7 +249,7 @@ func quickReplyGroupCreate(_ context.Context, corpID, staffID string, params jso
 	return services.NewQuickReplyGroup().Create(req.Req, corpID, req.ExtStaffID)
 }
 
-func quickReplyGroupUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.UpdateQuickReplyGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -257,7 +257,7 @@ func quickReplyGroupUpdate(_ context.Context, corpID, _ string, params json.RawM
 	return services.NewQuickReplyGroup().Update(req, corpID)
 }
 
-func quickReplyGroupDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -273,7 +273,7 @@ func init() {
 	Reg.Register(s, "Query", quickReplyFrontendQuery)
 }
 
-func quickReplyFrontendQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func quickReplyFrontendQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryQuickReplyReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -292,7 +292,7 @@ func init() {
 	Reg.Register(s, "Delete", quickReplyGroupFrontendDelete)
 }
 
-func quickReplyGroupFrontendUpdate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func quickReplyGroupFrontendUpdate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		Req        entities.UpdateQuickReplyGroupReq `json:"req"`
 		ExtStaffID string                            `json:"ext_staff_id"`
@@ -303,7 +303,7 @@ func quickReplyGroupFrontendUpdate(_ context.Context, corpID, staffID string, pa
 	return services.NewQuickReplyGroupFrontend().Update(req.Req, corpID, req.ExtStaffID)
 }
 
-func quickReplyGroupFrontendDelete(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func quickReplyGroupFrontendDelete(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs        []string `json:"ids"`
 		ExtStaffID string   `json:"ext_staff_id"`

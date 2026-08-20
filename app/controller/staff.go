@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/requests"
@@ -34,7 +35,7 @@ func (s Staff) Sync(c *gin.Context) {
 		handler.ResponseBadRequestError(err)
 		return
 	}
-	err = s.staffService.Sync(adminInfo.ExtCorpID)
+	err = s.staffService.Sync(context.Background(), adminInfo.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -65,7 +66,7 @@ func (s Staff) Get(c *gin.Context) {
 		return
 	}
 
-	staff, err := s.staffService.Get(extStaffID, consoleStaff.ExtCorpID)
+	staff, err := s.staffService.Get(context.Background(), extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -96,7 +97,7 @@ func (s Staff) Update(c *gin.Context) {
 		return
 	}
 
-	err = s.staffService.Enable(req, consoleStaff.ExtCorpID)
+	err = s.staffService.Enable(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -120,7 +121,7 @@ func (s Staff) GetCurrent(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(consoleStaff.ExtID, consoleStaff.ExtCorpID)
+	item, err := s.staffService.GetDetail(context.Background(), consoleStaff.ExtID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -153,7 +154,7 @@ func (s Staff) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := s.staffService.Query(
+	items, total, err := s.staffService.Query(context.Background(), 
 		req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -185,7 +186,7 @@ func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.StaffInfoStatistics(extStaffID, consoleStaff.ExtCorpID)
+	staff, err := s.staffService.StaffInfoStatistics(context.Background(), extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return
@@ -220,7 +221,7 @@ func (s Staff) UpdateCustomerTag(c *gin.Context) {
 	//if req.ExtStaffID != "" {
 	//	extStaffID = req.ExtStaffID
 	//}
-	err = s.staffService.UpdateCustomerTag(req, extStaffID, consoleStaff.ExtCorpID)
+	err = s.staffService.UpdateCustomerTag(context.Background(), req, extStaffID, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -252,7 +253,7 @@ func (s Staff) UpdateCustomerInternalTag(c *gin.Context) {
 		return
 	}
 
-	err = s.staffService.UpdateCustomerInternalTag(req, consoleStaff.ExtCorpID)
+	err = s.staffService.UpdateCustomerInternalTag(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -284,7 +285,7 @@ func (s Staff) QueryMainInfo(c *gin.Context) {
 		return
 	}
 
-	res, err := s.staffService.QueryMainInfo(req, consoleStaff.ExtCorpID, &req.Pager)
+	res, err := s.staffService.QueryMainInfo(context.Background(), req, consoleStaff.ExtCorpID, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -315,7 +316,7 @@ func (s Staff) ExportDeleteCustomers(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	file, fileName, err := s.staffService.ExportDeleteCustomerList(req, consoleStaff.ExtCorpID)
+	file, fileName, err := s.staffService.ExportDeleteCustomerList(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -341,7 +342,7 @@ func (s Staff) GetCurrentFrontendStaff(c *gin.Context) {
 		log.TracedError("GetStaffInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(staff.ExtID, staff.ExtCorpID)
+	item, err := s.staffService.GetDetail(context.Background(), staff.ExtID, staff.ExtCorpID)
 	if err != nil {
 		handler.ResponseError(err)
 		return

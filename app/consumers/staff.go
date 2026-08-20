@@ -1,6 +1,7 @@
 package consumers
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"core/app/constants"
@@ -30,7 +31,7 @@ func SyncCustomerData(job delay_queue.Job) (err error) {
 
 		extStaffID := customerStaffRelation.ExtStaffID
 		extCustomerID := customerStaffRelation.ExtCustomerID
-		err = customerService.SyncSingleCustomerData(extStaffID, extCustomerID)
+		err = customerService.SyncSingleCustomerData(context.Background(), extStaffID, extCustomerID)
 		if err != nil {
 			log.Sugar.Error(err)
 			return

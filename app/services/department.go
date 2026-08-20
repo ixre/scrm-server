@@ -1,10 +1,13 @@
 package services
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"core/app/entities"
 	"core/app/models"
 	"core/common/id_generator"
+	"core/common/identity"
 	"core/common/log"
 	"core/common/we_work"
 )
@@ -15,8 +18,9 @@ type Department struct {
 
 // Query
 // Description: 查部门列表
-func (d Department) Query(req entities.GetSubDepartmentReq, extCorpID string) (res []models.Department, total int64, err error) {
+func (d Department) Query(ctx context.Context, req entities.GetSubDepartmentReq, extCorpID string) (res []models.Department, total int64, err error) {
 	res = make([]models.Department, 0)
+	_ = identity.TenantID(ctx) // 2D 后续：legacy 查询补 TenantScope
 	res, total, err = d.model.Query(req.ExtParentId, extCorpID, req.ExtIDs, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -25,7 +29,7 @@ func (d Department) Query(req entities.GetSubDepartmentReq, extCorpID string) (r
 	return
 }
 
-func (d Department) Sync(extCorpID string) error {
+func (d Department) Sync(ctx context.Context, extCorpID string) error {
 	wxClient, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		return err
@@ -42,6 +46,7 @@ func (d Department) Sync(extCorpID string) error {
 	for _, dept := range depts {
 		var department models.Department
 		department.ID = id_generator.StringID()
+		department.TenantID = identity.TenantID(ctx)
 		department.ExtCorpID = extCorpID
 		department.ExtID = dept.ID
 		department.ExtParentID = dept.ParentID
@@ -58,7 +63,8 @@ func (d Department) Sync(extCorpID string) error {
 	return nil
 }
 
-func (d Department) Get(extDeptID int64, extCorpID string) (models.Department, error) {
+func (d Department) Get(ctx context.Context, extDeptID int64, extCorpID string) (models.Department, error) {
+	_ = ctx
 	return d.model.Get(extDeptID, extCorpID)
 }
 

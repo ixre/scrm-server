@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/jinzhu/copier"
@@ -40,7 +41,7 @@ func NewDefaultMassMsgService() *MassMsgService {
 
 // Create
 // 定时和立即发送都统一异步发送
-func (o MassMsgService) Create(req requests.SendMassMsgReq, creator, extCorpID string) (msg models.MassMsg, err error) {
+func (o MassMsgService) Create(ctx context.Context, req requests.SendMassMsgReq, creator, extCorpID string) (msg models.MassMsg, err error) {
 	// 发送时间校验
 	if req.SendType == constants.Timed {
 		if req.SendAt.ToInt64() < time.Now().Unix() {
@@ -67,7 +68,7 @@ func (o MassMsgService) Create(req requests.SendMassMsgReq, creator, extCorpID s
 
 	// 员工:客户列表
 	// 找到需要发送的员工和对应的客户，写表。
-	staffsCustomers, total, err := o.GetStaffsCustomers(req.ExtStaffIDs, req.ExtCustomerFilterEnable, req.ExtCustomerFilter)
+	staffsCustomers, total, err := o.GetStaffsCustomers(ctx, req.ExtStaffIDs, req.ExtCustomerFilterEnable, req.ExtCustomerFilter)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -122,7 +123,7 @@ func (o MassMsgService) Create(req requests.SendMassMsgReq, creator, extCorpID s
 
 // UpdateMassMsg
 // 不支持删除立即发送消息
-func (o MassMsgService) UpdateMassMsg(
+func (o MassMsgService) UpdateMassMsg(ctx context.Context, 
 	req requests.UpdateMassMsgReq, id string, name string, extCorpID string) (msg models.MassMsg, err error) {
 
 	massMsg, err := o.massMsgRepo.Get(id)
@@ -176,7 +177,7 @@ func (o MassMsgService) UpdateMassMsg(
 
 	// 员工:客户列表
 	// 找到需要发送的员工和对应的客户，写表。
-	staffsCustomers, total, err := o.GetStaffsCustomers(req.ExtStaffIDs, req.ExtCustomerFilterEnable, req.ExtCustomerFilter)
+	staffsCustomers, total, err := o.GetStaffsCustomers(ctx, req.ExtStaffIDs, req.ExtCustomerFilterEnable, req.ExtCustomerFilter)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -208,7 +209,7 @@ func (o MassMsgService) UpdateMassMsg(
 	return
 }
 
-func (o MassMsgService) DeleteTimedMassMsg(ids []string) error {
+func (o MassMsgService) DeleteTimedMassMsg(ctx context.Context, ids []string) error {
 	MassMsgs, err := o.massMsgRepo.GetMsgs(ids)
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
@@ -235,7 +236,7 @@ func (o MassMsgService) DeleteTimedMassMsg(ids []string) error {
 	return nil
 }
 
-func (o MassMsgService) Get(msgID, extCorpID string) (res responses.MassMsgDetail, err error) {
+func (o MassMsgService) Get(ctx context.Context, msgID, extCorpID string) (res responses.MassMsgDetail, err error) {
 	msg, err := o.massMsgRepo.Get(msgID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -248,7 +249,7 @@ func (o MassMsgService) Get(msgID, extCorpID string) (res responses.MassMsgDetai
 // GetSendMassMsgResult
 // Description:  查询群发结果
 // Detail:
-func (o MassMsgService) GetSendMassMsgResult(missionID string) (*requests.SendMassMsgResp, error) {
+func (o MassMsgService) GetSendMassMsgResult(ctx context.Context, missionID string) (*requests.SendMassMsgResp, error) {
 	customer := models.Customer{}
 	msg, err := customer.GetMassMsg(missionID)
 	resp := &requests.SendMassMsgResp{MissionID: missionID, MissionStatus: constants.Sending}
@@ -272,7 +273,7 @@ func (o MassMsgService) GetSendMassMsgResult(missionID string) (*requests.SendMa
 // Detail:
 //	延迟队列的消息->req->we_work request
 //  同一个企业每个自然月内仅可针对一个客户/客户群发送4条消息，超过接收上限的客户将无法再收到群发消息。
-func (o MassMsgService) SendMassMsgToWx(body string, msgID string) (extMsgID string, err error) {
+func (o MassMsgService) SendMassMsgToWx(ctx context.Context, body string, msgID string) (extMsgID string, err error) {
 	log.Sugar.Debug(body)
 	req := requests.SendMassMsgReq{}
 	err = json.Unmarshal([]byte(body), &req)
@@ -355,7 +356,7 @@ func (o MassMsgService) SendMassMsgToWx(body string, msgID string) (extMsgID str
 
 // Notify
 // Description: 通知未发送群发的人员发送
-func (o MassMsgService) Notify(ids []string, extCorpID string) error {
+func (o MassMsgService) Notify(ctx context.Context, ids []string, extCorpID string) error {
 	// 找到需要发送的该消息的员工id-客户id
 	staffCustomerIDs, err := o.MassMsgStaffRepo.QueryExtStaffIds(ids)
 	if err != nil {
@@ -396,7 +397,7 @@ func (o MassMsgService) Notify(ids []string, extCorpID string) error {
 	return nil
 }
 
-func (o MassMsgService) Query(extCorpID string, sorter *app.Sorter, pager *app.Pager) (msgs []models.MassMsg, total int64, err error) {
+func (o MassMsgService) Query(ctx context.Context, extCorpID string, sorter *app.Sorter, pager *app.Pager) (msgs []models.MassMsg, total int64, err error) {
 	msgs = make([]models.MassMsg, 0)
 	msgs, total, err = o.massMsgRepo.Query(extCorpID, sorter, pager)
 	if err != nil {
@@ -408,7 +409,7 @@ func (o MassMsgService) Query(extCorpID string, sorter *app.Sorter, pager *app.P
 
 // GetStaffsCustomers
 // 员工-客户对应, 一个客户对应多个员工会随机去重
-func (o MassMsgService) GetStaffsCustomers(
+func (o MassMsgService) GetStaffsCustomers(ctx context.Context, 
 	extStaffIDs constants.StringArrayField,
 	filterEnable constants.Boolean,
 	filter constants.ExtCustomerFilter) (res []models.StaffsCustomers, total int64, err error) {

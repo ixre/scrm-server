@@ -55,7 +55,7 @@ func init() {
 
 // ---------- customer ----------
 
-func customerGetFullCustomerInfo(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerGetFullCustomerInfo(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ExtCustomerID string `json:"ext_customer_id"`
 		ExtStaffID    string `json:"ext_staff_id"`
@@ -63,42 +63,42 @@ func customerGetFullCustomerInfo(_ context.Context, corpID, _ string, params jso
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCustomer().GetFullCustomerInfo(req.ExtCustomerID, req.ExtStaffID, corpID)
+	return services.NewCustomer().GetFullCustomerInfo(ctx, req.ExtCustomerID, req.ExtStaffID, corpID)
 }
 
-func customerGetCustomerLosses(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerGetCustomerLosses(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryCustomerLossesReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCustomer().GetCustomerLosses(p.Query, corpID, p.Pager, p.Sorter)
+	items, total, err := services.NewCustomer().GetCustomerLosses(ctx, p.Query, corpID, p.Pager, p.Sorter)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
 }
 
-func customerStatistic(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerStatistic(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.QueryCustomerStatisticReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCustomer().CustomerStatistic(req, corpID)
+	return services.NewCustomer().CustomerStatistic(ctx, req, corpID)
 }
 
-func customerUpdateDeleteEventNotify(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerUpdateDeleteEventNotify(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.UpdateCustomerDeleteStaffNotifierReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCustomer().UpdateDeleteEventNotify(req, corpID)
+	return nil, services.NewCustomer().UpdateDeleteEventNotify(ctx, req, corpID)
 }
 
-func customerGetNotifyStaffRule(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
-	return services.NewCustomer().GetNotifyStaffRule(corpID)
+func customerGetNotifyStaffRule(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	return services.NewCustomer().GetNotifyStaffRule(ctx, corpID)
 }
 
-func customerUpsertCustomerPortrait(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerUpsertCustomerPortrait(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ExtCustomerID string `json:"ext_customer_id"`
 		ExtStaffID    string `json:"ext_staff_id"`
@@ -106,10 +106,10 @@ func customerUpsertCustomerPortrait(_ context.Context, _, _ string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCustomer().UpsertCustomerPortrait(req.ExtCustomerID, req.ExtStaffID)
+	return nil, services.NewCustomer().UpsertCustomerPortrait(ctx, req.ExtCustomerID, req.ExtStaffID)
 }
 
-func customerSyncSingleCustomerData(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerSyncSingleCustomerData(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ExtStaffID    string `json:"ext_staff_id"`
 		ExtCustomerID string `json:"ext_customer_id"`
@@ -117,12 +117,12 @@ func customerSyncSingleCustomerData(_ context.Context, _, _ string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewCustomer().SyncSingleCustomerData(req.ExtStaffID, req.ExtCustomerID)
+	return nil, services.NewCustomer().SyncSingleCustomerData(ctx, req.ExtStaffID, req.ExtCustomerID)
 }
 
 // ---------- customer_event ----------
 
-func customerEventQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerEventQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var p QueryParams[requests.QueryEventListReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func customerEventQuery(_ context.Context, corpID, _ string, params json.RawMess
 
 // ---------- customer_info ----------
 
-func customerInfoGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerInfoGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.GetCustomerInfoReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func customerInfoGet(_ context.Context, corpID, _ string, params json.RawMessage
 	return services.NewCustomerInfo().Get(req, corpID)
 }
 
-func customerInfoUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerInfoUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.UpdateCustomerInfoReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -154,11 +154,11 @@ func customerInfoUpdate(_ context.Context, corpID, _ string, params json.RawMess
 
 // ---------- customer_info_display_rules ----------
 
-func customerInfoDisplayRulesGet(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+func customerInfoDisplayRulesGet(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
 	return services.NewCustomerInfoDisplayRules().Get(corpID)
 }
 
-func customerInfoDisplayRulesUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerInfoDisplayRulesUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req entities.UpdateCustomerInfoDisplayRulesReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -168,11 +168,11 @@ func customerInfoDisplayRulesUpdate(_ context.Context, corpID, _ string, params 
 
 // ---------- customer_remark ----------
 
-func customerRemarkGet(_ context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+func customerRemarkGet(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
 	return services.NewCustomerRemarkService().Get(corpID)
 }
 
-func customerRemarkCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerRemarkCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.AddCustomerRemarkReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func customerRemarkCreate(_ context.Context, corpID, _ string, params json.RawMe
 	return services.NewCustomerRemarkService().Create(&req, corpID)
 }
 
-func customerRemarkUpdate(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerRemarkUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateRemarkReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func customerRemarkUpdate(_ context.Context, _, _ string, params json.RawMessage
 	return services.NewCustomerRemarkService().Update(&req)
 }
 
-func customerRemarkDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func customerRemarkDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -198,7 +198,7 @@ func customerRemarkDelete(_ context.Context, corpID, _ string, params json.RawMe
 	return nil, services.NewCustomerRemarkService().Delete(req.IDs, corpID)
 }
 
-func customerRemarkAddOption(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerRemarkAddOption(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.AddRemarkOptionReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -206,7 +206,7 @@ func customerRemarkAddOption(_ context.Context, _, _ string, params json.RawMess
 	return nil, services.NewCustomerRemarkService().AddRemarkOption(&req)
 }
 
-func customerRemarkUpdateOption(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerRemarkUpdateOption(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.UpdateRemarkOptionReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func customerRemarkUpdateOption(_ context.Context, _, _ string, params json.RawM
 	return nil, services.NewCustomerRemarkService().UpdateRemarkOption(&req)
 }
 
-func customerRemarkDeleteOption(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerRemarkDeleteOption(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -224,7 +224,7 @@ func customerRemarkDeleteOption(_ context.Context, _, _ string, params json.RawM
 	return nil, services.NewCustomerRemarkService().DeleteRemarkOption(req.IDs)
 }
 
-func customerRemarkExchangeOrder(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func customerRemarkExchangeOrder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	var req requests.ExchangeOrderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -234,7 +234,7 @@ func customerRemarkExchangeOrder(_ context.Context, _, _ string, params json.Raw
 
 // ---------- clue_manual ----------
 
-func clueManualCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func clueManualCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.CreateClueManualReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -242,7 +242,7 @@ func clueManualCreate(_ context.Context, corpID, staffID string, params json.Raw
 	return services.NewClueManual().Create(req, corpID, staffID)
 }
 
-func clueManualUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func clueManualUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                       `json:"id"`
 		Req requests.UpdateClueManualReq `json:"req"`
@@ -253,7 +253,7 @@ func clueManualUpdate(_ context.Context, corpID, _ string, params json.RawMessag
 	return services.NewClueManual().Update(req.ID, req.Req, corpID)
 }
 
-func clueManualDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func clueManualDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		IDs []string `json:"ids"`
 	}
@@ -265,7 +265,7 @@ func clueManualDelete(_ context.Context, corpID, _ string, params json.RawMessag
 
 // ---------- remainder ----------
 
-func remainderCreate(_ context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
+func remainderCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req requests.CreateRemainderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -273,7 +273,7 @@ func remainderCreate(_ context.Context, corpID, staffID string, params json.RawM
 	return services.NewRemainder().Create(req, corpID, staffID)
 }
 
-func remainderUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func remainderUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID  string                      `json:"id"`
 		Req requests.UpdateRemainderReq `json:"req"`
@@ -284,7 +284,7 @@ func remainderUpdate(_ context.Context, corpID, _ string, params json.RawMessage
 	return services.NewRemainder().Update(req.ID, req.Req, corpID)
 }
 
-func remainderDelete(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+func remainderDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}

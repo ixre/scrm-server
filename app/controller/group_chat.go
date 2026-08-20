@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"core/app/requests"
@@ -43,7 +44,7 @@ func (o GroupChat) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
+	items, total, err := o.srv.Query(context.Background(), req, consoleStaff.ExtCorpID, &req.Pager, &req.Sorter)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -72,7 +73,7 @@ func (o GroupChat) UpdateTags(c *gin.Context) {
 		return
 	}
 
-	err = o.srv.UpdateTags(req)
+	err = o.srv.UpdateTags(context.Background(), req)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -106,7 +107,7 @@ func (o GroupChat) Export(c *gin.Context) {
 		return
 	}
 
-	buf, filename, err := o.srv.Export(req, consoleStaff.ExtCorpID)
+	buf, filename, err := o.srv.Export(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -133,7 +134,7 @@ func (o GroupChat) GetAllOwners(c *gin.Context) {
 		return
 	}
 
-	items, err := o.srv.GetAllOwners(consoleStaff.ExtCorpID)
+	items, err := o.srv.GetAllOwners(context.Background(), consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -167,7 +168,7 @@ func (o GroupChat) GetAll(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.GetAll(req, consoleStaff.ExtCorpID)
+	items, total, err := o.srv.GetAll(context.Background(), req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)

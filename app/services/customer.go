@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"bytes"
 	errors2 "errors"
 	"fmt"
@@ -70,7 +71,7 @@ func NewCustomer() *CustomerService {
 //
 // Param: extCorpID 外部企业ID
 // return: err
-func (o CustomerService) Sync(extCorpID string) error {
+func (o CustomerService) Sync(ctx context.Context, extCorpID string) error {
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -83,7 +84,7 @@ func (o CustomerService) Sync(extCorpID string) error {
 		return err
 	}
 
-	totalExtCustomerIDs, err := o.BatchFetchCustomers(staffIds)
+	totalExtCustomerIDs, err := o.BatchFetchCustomers(ctx, staffIds)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
@@ -98,7 +99,7 @@ func (o CustomerService) Sync(extCorpID string) error {
 	}
 
 	// 员工-客户关系
-	contactInfoArr, err := o.BatchFetchContactInfo(uniqueExtCustomerIDs)
+	contactInfoArr, err := o.BatchFetchContactInfo(ctx, uniqueExtCustomerIDs)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
@@ -234,7 +235,7 @@ func NewCustomerStaffModel(contactInfo *workwx.ExternalContactInfo) (csRelations
 // SyncSingleCustomerData
 // Description: 同步单个客户数据
 // Detail: 用客户-员工外部ID 同步客户数据
-func (o CustomerService) SyncSingleCustomerData(extStaffID, extCustomerID string) error {
+func (o CustomerService) SyncSingleCustomerData(ctx context.Context, extStaffID, extCustomerID string) error {
 	extCorpID := conf.Settings.WeWork.ExtCorpID
 	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
@@ -279,21 +280,21 @@ func (o CustomerService) SyncSingleCustomerData(extStaffID, extCustomerID string
 	for _, followUser := range contactInfo.FollowUser {
 		if followUser.UserID == extStaffID {
 			// 更新员工-客户关系
-			customerStaffRelation, err := o.UpdateCustomerStaffRelation(followUser, extCustomerID)
+			customerStaffRelation, err := o.UpdateCustomerStaffRelation(ctx, followUser, extCustomerID)
 			if err != nil {
 				err = errors.WithStack(err)
 				return err
 			}
 
 			// 更新客户标签
-			err = o.UpdateCustomerTags(customerStaffRelation.ID, followUser.Tags)
+			err = o.UpdateCustomerTags(ctx, customerStaffRelation.ID, followUser.Tags)
 			if err != nil {
 				err = errors.WithStack(err)
 				return err
 			}
 
 			// upsert 客户画像
-			err = o.UpsertCustomerPortrait(extCustomerID, followUser.UserID)
+			err = o.UpsertCustomerPortrait(ctx, extCustomerID, followUser.UserID)
 			if err != nil {
 				err = errors.WithStack(err)
 				return err
@@ -327,7 +328,7 @@ func thumbAvatar(avatar string) (newAvatar string, err error) {
 
 // Query
 // Description: 查询客户条件
-func (o CustomerService) Query(
+func (o CustomerService) Query(ctx context.Context, 
 	req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) (customers []*models.Customer, total int64, err error) {
 
 	customers = make([]*models.Customer, 0)
@@ -342,14 +343,14 @@ func (o CustomerService) Query(
 // Get
 // Description: 客户详情
 // Detail: 用外部客户id查详情
-func (o CustomerService) Get(extID string, extCorpID string, withStaff bool) (models.Customer, error) {
+func (o CustomerService) Get(ctx context.Context, extID string, extCorpID string, withStaff bool) (models.Customer, error) {
 	return o.customerRepo.GetByExtID(extID, nil, true)
 }
 
 // UpdateCustomerStaffRelation
 // Description: 更新客户员工关系
 // Detail:	已经删除的关系记录,须将 deleted_at 置空
-func (o CustomerService) UpdateCustomerStaffRelation(staff workwx.FollowUser, extCustomerID string) (relation models.CustomerStaff, err error) {
+func (o CustomerService) UpdateCustomerStaffRelation(ctx context.Context, staff workwx.FollowUser, extCustomerID string) (relation models.CustomerStaff, err error) {
 
 	updateFields := models.CustomerStaff{
 		ExtCustomerID:  extCustomerID,
@@ -426,7 +427,7 @@ func NewCustomerModel(externalContactInfo *workwx.ExternalContactInfo) (customer
 // isNoCustomerErr
 // Description: 检查wx返回错误是否为 该员工没有客户
 // Param: err wrap过的错误
-func (o CustomerService) isNoCustomerErr(err error) bool {
+func (o CustomerService) isNoCustomerErr(ctx context.Context, err error) bool {
 
 	//检查wrap过的错误
 	//获取根错误
@@ -441,7 +442,7 @@ func (o CustomerService) isNoCustomerErr(err error) bool {
 
 // UpdateDeleteEventNotify
 // Description: 设置流失客户是否通知员工
-func (o CustomerService) UpdateDeleteEventNotify(req entities.UpdateCustomerDeleteStaffNotifierReq, extCorpID string) error {
+func (o CustomerService) UpdateDeleteEventNotify(ctx context.Context, req entities.UpdateCustomerDeleteStaffNotifierReq, extCorpID string) error {
 	notify := models.EventNotify{
 		ID:            id_generator.StringID(),
 		ExtCorpID:     extCorpID,
@@ -454,7 +455,7 @@ func (o CustomerService) UpdateDeleteEventNotify(req entities.UpdateCustomerDele
 // Description: 获取流失客户是否通知员工选项
 // Param: extCorpID 外部企业ID
 // return: 流失提醒开关状态
-func (o CustomerService) GetNotifyStaffRule(extCorpID string) (*entities.UpdateCustomerDeleteStaffNotifierResp, error) {
+func (o CustomerService) GetNotifyStaffRule(ctx context.Context, extCorpID string) (*entities.UpdateCustomerDeleteStaffNotifierResp, error) {
 	eventNotify, err := o.eventNotifyRepo.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -466,7 +467,7 @@ func (o CustomerService) GetNotifyStaffRule(extCorpID string) (*entities.UpdateC
 // GetCustomerLosses
 // Description: 客户流失记录
 // Detail: 关系流水表查流失记录
-func (o CustomerService) GetCustomerLosses(
+func (o CustomerService) GetCustomerLosses(ctx context.Context, 
 	req requests.QueryCustomerLossesReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) ([]models.CustomerLossInfo, int64, error) {
 	log.Sugar.Debugw("req", "req", req)
 	deletedStaffs, total, err := o.relationHistory.QueryCustomerDeleteStaff(req, extCorpID, sorter, pager)
@@ -482,7 +483,7 @@ func (o CustomerService) GetCustomerLosses(
 // Description: 流失提醒列表下载
 // Detail: 查询客户流失记录,写xlsx
 // Param: 查询流失记录请求 req
-func (o CustomerService) ExportDeleteStaffWarningList(req requests.QueryCustomerLossesReq, extCorpID string) (*bytes.Buffer, string, error) {
+func (o CustomerService) ExportDeleteStaffWarningList(ctx context.Context, req requests.QueryCustomerLossesReq, extCorpID string) (*bytes.Buffer, string, error) {
 
 	log.Sugar.Debugw("ExportDeleteStaffWarningList", "req", req)
 
@@ -558,7 +559,7 @@ func (o CustomerService) ExportDeleteStaffWarningList(req requests.QueryCustomer
 
 // Export
 // Description: 导出客户列表
-func (o CustomerService) Export(req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) (buf *bytes.Buffer, filename string, err error) {
+func (o CustomerService) Export(ctx context.Context, req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) (buf *bytes.Buffer, filename string, err error) {
 
 	log.Sugar.Infow("Export", "req", req)
 
@@ -672,7 +673,7 @@ func (o CustomerService) Export(req requests.QueryCustomerReq, extCorpID string,
 //	extCorpID 企业外部ID
 //
 // return: 客户基本信息，员工对客户的标记信息，客户与员工的时间流水
-func (o CustomerService) GetFullCustomerInfo(extCustomerID, extStaffID, extCorpID string) (responses.FullCustomerInfo, error) {
+func (o CustomerService) GetFullCustomerInfo(ctx context.Context, extCustomerID, extStaffID, extCorpID string) (responses.FullCustomerInfo, error) {
 	var res responses.FullCustomerInfo
 	customer, err := o.customerRepo.GetByExtID(extCustomerID, []string{extStaffID}, true)
 	if err != nil {
@@ -735,7 +736,7 @@ func (o CustomerService) GetFullCustomerInfo(extCustomerID, extStaffID, extCorpI
 //
 // Param:
 // return: 返回起止时间范围中的员工数量number
-func (o CustomerService) CustomerStatistic(
+func (o CustomerService) CustomerStatistic(ctx context.Context, 
 	req requests.QueryCustomerStatisticReq, extCorpID string) (resp []models.CustomerTrend, err error) {
 
 	res, err := o.csRepo.Query(req, extCorpID)
@@ -843,7 +844,7 @@ func (o CustomerService) CustomerStatistic(
 // Detail:
 // Param: relationID CustomerStaff 关系表的ID
 // Param: extTags wx返回的外部标签信息
-func (o CustomerService) UpdateCustomerTags(relationID string, extTags []workwx.FollowUserTag) (err error) {
+func (o CustomerService) UpdateCustomerTags(ctx context.Context, relationID string, extTags []workwx.FollowUserTag) (err error) {
 	tags := make([]models.CustomerStaffTag, 0)
 	extCorpID := conf.Settings.WeWork.ExtCorpID
 	for _, tag := range extTags {
@@ -883,7 +884,7 @@ func (o CustomerService) UpdateCustomerTags(relationID string, extTags []workwx.
 // Detail: 员工对客户的备注，侧边栏可以更改
 // Param: extCustomerID 外部客户ID
 // Param: extStaffID 外部员工ID
-func (o CustomerService) UpsertCustomerPortrait(extCustomerID string, extStaffID string) (err error) {
+func (o CustomerService) UpsertCustomerPortrait(ctx context.Context, extCustomerID string, extStaffID string) (err error) {
 	extCorpID := conf.Settings.WeWork.ExtCorpID
 	customerInfo := models.CustomerInfo{
 		ExtCorpModel:  models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID},
@@ -901,7 +902,7 @@ func (o CustomerService) UpsertCustomerPortrait(extCustomerID string, extStaffID
 // BatchFetchCustomers
 // Description: 并发获取员工的外部客户ID
 // Detail: 不用将员工与客户id数组对应
-func (o CustomerService) BatchFetchCustomers(staffIdInfos []*workwx.UserIdInfo) (totalExtCustomerIDs []string, err error) {
+func (o CustomerService) BatchFetchCustomers(ctx context.Context, staffIdInfos []*workwx.UserIdInfo) (totalExtCustomerIDs []string, err error) {
 	extCorpID := conf.Settings.WeWork.ExtCorpID
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
@@ -965,7 +966,7 @@ func (o CustomerService) BatchFetchCustomers(staffIdInfos []*workwx.UserIdInfo) 
 
 // BatchFetchContactInfo
 // Description: 批量请求员工-客户关系
-func (o CustomerService) BatchFetchContactInfo(extCustomerIDs []string) (cs []*workwx.ExternalContactInfo, err error) {
+func (o CustomerService) BatchFetchContactInfo(ctx context.Context, extCustomerIDs []string) (cs []*workwx.ExternalContactInfo, err error) {
 	extCorpID := conf.Settings.WeWork.ExtCorpID
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
@@ -997,7 +998,7 @@ func (o CustomerService) BatchFetchContactInfo(extCustomerIDs []string) (cs []*w
 			contactInfo, err := client.Customer.GetExternalContact(extCustomerID)
 			if err != nil {
 				log.Sugar.Errorf("GetExternalContact failed:%s, %#v", extCustomerID, err)
-				if o.isNoCustomerErr(err) {
+				if o.isNoCustomerErr(ctx, err) {
 					return nil
 				}
 				return err
