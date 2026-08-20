@@ -13,9 +13,12 @@ import "context"
 type identityKey struct{}
 
 // Identity 本地身份。企微 corp_id / staff_id 仅是可选渠道上下文，不入此结构。
+// IsPlatform/PlatformID 标记平台超管身份（独立于租户，用于 crm_tenant 等平台管理 API）。
 type Identity struct {
-	TenantID string // 本地租户（企业/组织）主键
-	UserID   string // 本地用户（销售账号）主键
+	TenantID   string // 本地租户（企业/组织）主键
+	UserID     string // 本地用户（销售账号）主键
+	IsPlatform bool   // 是否平台超管
+	PlatformID string // 平台超管主键
 }
 
 // WithIdentity 把本地身份注入 context。
@@ -34,3 +37,9 @@ func TenantID(ctx context.Context) string { return FromContext(ctx).TenantID }
 
 // UserID 从 context 读取本地用户 ID；为空字符串表示未注入。
 func UserID(ctx context.Context) string { return FromContext(ctx).UserID }
+
+// IsPlatform 从 context 读取是否平台超管。
+func IsPlatform(ctx context.Context) bool { return FromContext(ctx).IsPlatform }
+
+// PlatformID 从 context 读取平台超管 ID；为空字符串表示未注入。
+func PlatformID(ctx context.Context) string { return FromContext(ctx).PlatformID }

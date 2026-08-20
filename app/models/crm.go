@@ -17,10 +17,33 @@ import (
 type Tenant struct {
 	Model
 	Timestamp
-	Name   string `gorm:"type:varchar(128);comment:企业/组织名称" json:"name"`
-	Code   string `gorm:"type:varchar(64);uniqueIndex;comment:租户编码" json:"code"`
-	Status int    `gorm:"type:smallint;default:1;comment:1-启用 2-停用" json:"status"`
-	Remark string `gorm:"type:varchar(512);comment:备注" json:"remark"`
+	Name         string     `gorm:"type:varchar(128);comment:企业/组织名称" json:"name"`
+	Code         string     `gorm:"type:varchar(64);uniqueIndex;comment:租户编码" json:"code"`
+	Status       int        `gorm:"type:smallint;default:1;comment:1-启用 2-停用" json:"status"`
+	Remark       string     `gorm:"type:varchar(512);comment:备注" json:"remark"`
+	Plan         string     `gorm:"type:varchar(32);default:free;comment:套餐 free/standard/pro/enterprise" json:"plan"`
+	ExpireAt     *time.Time `gorm:"comment:套餐到期时间(NULL=永久)" json:"expire_at"`
+	ContactName  string     `gorm:"type:varchar(64);comment:联系人姓名" json:"contact_name"`
+	ContactPhone string     `gorm:"type:varchar(32);comment:联系人手机" json:"contact_phone"`
+	ContactEmail string     `gorm:"type:varchar(128);comment:联系人邮箱" json:"contact_email"`
+	Industry     string     `gorm:"type:varchar(64);comment:所属行业" json:"industry"`
+	Logo         string     `gorm:"type:varchar(255);comment:企业Logo URL" json:"logo"`
+	MaxUsers     int        `gorm:"type:int;default:0;comment:最大用户数(0=不限)" json:"max_users"`
+}
+
+// PlatformAdmin 平台超管（独立于租户，管理所有租户）。
+// 与租户内 User 解耦：不归属任何 tenant，专用登录入口，JWT 标记 is_platform。
+type PlatformAdmin struct {
+	Model
+	Timestamp
+	Username  string     `gorm:"type:varchar(64);uniqueIndex;comment:登录名(全局唯一)" json:"username"`
+	Password  string     `gorm:"type:varchar(256);comment:登录密码(哈希)" json:"-"`
+	Name      string     `gorm:"type:varchar(128);comment:显示名" json:"name"`
+	Mobile    string     `gorm:"type:varchar(32);comment:手机号" json:"mobile"`
+	Email     string     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
+	Role      string     `gorm:"type:varchar(32);default:super_admin;comment:平台角色 super_admin/operator" json:"role"`
+	Status    int        `gorm:"type:smallint;default:1;comment:1-启用 2-停用" json:"status"`
+	LastLogin *time.Time `gorm:"comment:最后登录时间" json:"last_login_at"`
 }
 
 // User 本地用户（销售/员工账号），取代企微 staff 作为鉴权与归属单元。

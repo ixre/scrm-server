@@ -33,9 +33,10 @@ func init() {
 	id_generator.SetupIDGenerator()
 	redis.Setup(conf.Settings.Redis.Host, conf.Settings.Redis.Password, conf.Settings.Redis.DBNumber)
 	models.SetupDB()
-	services.SeedCRMDefaults() // 为既有租户幂等补齐默认角色/销售阶段
-	services.SeedDemoAccount() // 非生产：幂等创建演示租户与登录账号（demo/admin/123456）
-	tasks.Start()              // 启动定时任务（公海回收 + openscrm 遗产 cron）
+	services.SeedCRMDefaults()   // 为既有租户幂等补齐默认角色/销售阶段
+	services.SeedDemoAccount()   // 非生产：幂等创建演示租户与登录账号（demo/admin/123456）
+	services.SeedPlatformAdmin() // 非生产：幂等创建平台超管账号（platform/admin123）
+	tasks.Start()                // 启动定时任务（公海回收 + openscrm 遗产 cron）
 }
 
 func main() {

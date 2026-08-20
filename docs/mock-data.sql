@@ -11,6 +11,9 @@
 --   manager  / 123456  — 销售经理（客户/销售/运营/营销/风控可见，企业管理不可见）
 --   sales    / 123456  — 销售（客户管理/线索/商机/智能名片/话术可见）
 --
+-- 平台超管（独立于租户，登录入口 /platform/login）：
+--   master   / 123456  — 平台超管（管理所有租户：创建/停用/删除/编辑）
+--
 -- 运行方式（scrm-dev-postgres 容器）：
 --   docker exec -i scrm-dev-postgres psql -U root -d scrm < docs/mock-data.sql
 --
@@ -86,6 +89,22 @@ SELECT 9010000000000000311, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 20871277140487
    SELECT 1 FROM "user" WHERE tenant_id = 2087127714048774144 AND username = 'sales' AND deleted_at IS NULL
  );
 
+COMMIT;
+
+-- ============================================================ 平台超管（platform_admin）
+-- 平台超管独立于租户，用于管理所有租户（创建/停用/删除/编辑）。
+-- 登录入口：/platform/login，账号 master / 123456。
+-- bcrypt hash of "123456"（与 CRM 用户一致）:
+--   $2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.
+BEGIN;
+INSERT INTO platform_admin
+  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+SELECT 9010000000000000400, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+   'master', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
+   '平台超管', '', '', 'super_admin', 1
+ WHERE NOT EXISTS (
+   SELECT 1 FROM platform_admin WHERE username = 'master' AND deleted_at IS NULL
+ );
 COMMIT;
 
 -- ============================================================ CRM 客户

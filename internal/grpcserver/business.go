@@ -28,9 +28,12 @@ func (s *BusinessServer) Invoke(ctx context.Context, req *pb.BusinessRequest) (*
 	}
 	// CRM 渠道无关身份（tenant_id/user_id）经 context 注入，供 CRM Adapter 读取；
 	// 既有企微 Adapter 继续用 corpID/staffID 入参，不受影响。
+	// is_platform/platform_id 标记平台超管身份，供 crm_tenant 等平台管理 API 鉴权。
 	ctx = identity.WithIdentity(ctx, identity.Identity{
-		TenantID: req.GetTenantId(),
-		UserID:   req.GetUserId(),
+		TenantID:   req.GetTenantId(),
+		UserID:     req.GetUserId(),
+		IsPlatform: req.GetIsPlatform(),
+		PlatformID: req.GetPlatformId(),
 	})
 	res, err := a(ctx, req.GetCorpId(), req.GetStaffId(), req.GetParams())
 	if err != nil {

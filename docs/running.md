@@ -64,6 +64,24 @@ Redis:
 
 ## 测试账号
 
+系统有两类登录入口：**平台超管**（管理租户）和**租户用户**（使用 CRM）。
+
+### 平台超管
+
+平台超管独立于租户，用于管理所有租户（创建/停用/删除/编辑租户、为租户创建管理员账号）。
+
+核心首次启动会自动创建平台超管账号（仅非生产环境执行，见 `app/services/crm.go` 的 `SeedPlatformAdmin`）。
+
+| 账号 | 密码 | 入口 | 功能 |
+|------|------|------|------|
+| `master` | `123456` | `/platform/login` | 租户管理（列表/创建/编辑/停用启用/删除） |
+
+访问 `http://localhost:3000/#/platform/login`，填入 `master` / `123456` 即可进入平台管理后台。
+
+> 平台超管也可通过 mock-data.sql 初始化（幂等），与 SeedPlatformAdmin 等效。
+
+### 租户用户
+
 核心首次启动会自动创建演示租户与登录账号（仅非生产环境执行，见 `app/services/crm.go` 的 `SeedDemoAccount`）。
 运行 `docs/mock-data.sql` 后可初始化完整角色账号（admin/manager/sales），实现不同角色不同菜单权限。
 
@@ -82,6 +100,22 @@ Redis:
 > docker exec -i scrm-dev-postgres psql -U root -d scrm < docs/mock-data.sql
 > ```
 > `admin` 账号由 `SeedDemoAccount` 自动创建，mock-data.sql 会为其绑定 admin 角色并新增 manager/sales 账号。
+> mock-data.sql 同时幂等创建平台超管 `master/123456`。
+
+### SaaS 租户管理
+
+系统支持 SaaS 多租户运营。平台超管通过 `/platform/login` 登录后，可在 `/platform/tenants` 页面管理所有租户：
+
+| 操作 | 说明 |
+|------|------|
+| 新建租户 | 填写企业名称、租户编码、套餐、到期时间、联系人等，同时创建该租户的管理员账号（密码可指定或自动生成） |
+| 编辑租户 | 修改名称、套餐、到期时间、联系人、行业、Logo、最大用户数等 |
+| 停用/启用 | 停用后该租户所有用户无法登录（登录时校验 `tenant.status`） |
+| 删除租户 | 软删除租户记录（不删业务数据） |
+
+**安全机制**：所有 `crm_tenant/*` API 均要求 `requirePlatformAdmin`（JWT 中 `is_platform=true`），租户用户和匿名请求一律拒绝。
+
+**数据隔离**：租户内所有 CRM 数据通过 `tenant_id` 分区，GORM `TenantScope` 自动追加 `WHERE tenant_id = ?`，详见 `app/models/tenant_scope.go`。
 
 
 ## 3. 启动闭源核心（gRPC :9002）

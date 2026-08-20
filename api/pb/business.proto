@@ -16,6 +16,8 @@ message BusinessRequest {
   bytes params = 5;     // 动作入参 JSON
   string tenant_id = 6; // 本地租户 id（CRM 渠道无关身份，网关鉴权注入）
   string user_id = 7;   // 本地用户 id（CRM 渠道无关身份，网关鉴权注入）
+  bool is_platform = 8; // 平台超管身份标记（网关鉴权注入；独立于租户）
+  string platform_id = 9; // 平台超管 id（网关鉴权注入；is_platform=true 时有效）
 }
 
 // BusinessResponse 通用 JSON 透传响应。data 为结果 JSON；失败时 code!=0 且带 msg。

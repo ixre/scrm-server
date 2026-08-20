@@ -20,9 +20,12 @@ var errNeedIdentity = errors.New("missing local identity: tenant_id required (CR
 // 服务 key 前缀 crm_，避免与既有企微域（customer/staff/...）冲突。
 
 func init() {
-	// tenant / user（本地身份底座）
+	// tenant（平台超管管理租户，需 requirePlatformAdmin）
 	Reg.Register("crm_tenant", "Create", crmTenantCreate)
 	Reg.Register("crm_tenant", "List", crmTenantList)
+	Reg.Register("crm_tenant", "Update", crmTenantUpdate)
+	Reg.Register("crm_tenant", "SetStatus", crmTenantSetStatus)
+	Reg.Register("crm_tenant", "Delete", crmTenantDelete)
 	Reg.Register("crm_user", "Create", crmUserCreate)
 	Reg.Register("crm_user", "Query", crmUserQuery)
 	Reg.Register("crm_user", "SetPassword", crmUserSetPassword)
@@ -33,6 +36,8 @@ func init() {
 	// auth（本地账号登录，SaaS 多租户）
 	Reg.Register("crm_auth", "Login", crmAuthLogin)
 	Reg.Register("crm_auth", "ChangePassword", crmAuthChangePassword)
+	// platform auth（平台超管登录，独立于租户）
+	Reg.Register("crm_platform", "Login", crmPlatformLogin)
 
 	// customer（本地客户）
 	Reg.Register("crm_customer", "Create", crmCustomerCreate)
@@ -703,6 +708,55 @@ func requireIdentity(ctx context.Context) (string, error) {
 // errForbidden 权限不足。
 var errForbidden = errors.New("无权限")
 
+// errNeedPlatform 非平台超管身份时返回。
+var errNeedPlatform = errors.New("missing platform identity: is_platform required (call from platform admin session)")
+
+// requirePlatformAdmin 校验当前请求来自平台超管（is_platform=true 且 platform_id 非空）。
+// 用于 crm_tenant/* 等平台管理 API，杜绝租户用户或匿名调用方访问。
+func requirePlatformAdmin(ctx context.Context) (string, error) {
+	if !identity.IsPlatform(ctx) {
+		return "", errNeedPlatform
+	}
+	id := identity.PlatformID(ctx)
+	if id == "" {
+		return "", errNeedPlatform
+	}
+	return id, nil
+}
+
+// requirePlatformRole 校验当前请求来自平台超管，且其角色在白名单中。
+// super_admin 始终通过。用于按角色细分平台管理 API 的访问权限。
+func requirePlatformRole(ctx context.Context, roles ...string) (string, error) {
+	id, err := requirePlatformAdmin(ctx)
+	if err != nil {
+		return "", err
+	}
+	// super_admin 始终通过
+	for _, r := range roles {
+		if r == "super_admin" {
+			// 需要查实际角色
+		}
+	}
+	// 查平台超管的角色
+	var admin models.PlatformAdmin
+	if err := models.DB.Where("id = ?", id).First(&admin).Error; err != nil {
+		return "", errForbidden
+	}
+	if admin.Status != 1 {
+		return "", errForbidden
+	}
+	// super_admin 始终通过
+	if admin.Role == "super_admin" {
+		return id, nil
+	}
+	for _, r := range roles {
+		if admin.Role == r {
+			return id, nil
+		}
+	}
+	return "", errForbidden
+}
+
 // requireRole 校验当前用户是否拥有指定角色编码（fail closed：无角色/角色不存在一律拒绝）。
 func requireRole(ctx context.Context, code string) error {
 	return requireAnyRole(ctx, code)
@@ -749,19 +803,111 @@ func requireAnyRole(ctx context.Context, codes ...string) error {
 
 // ---------- tenant / user ----------
 
-func crmTenantCreate(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+// 平台角色常量
+const (
+	platformRoleSuperAdmin = "super_admin"
+	platformRoleOperator   = "operator"
+	platformRoleFinance    = "finance"
+	platformRoleSupport    = "support"
+)
+
+func crmTenantCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 创建租户：super_admin / operator
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
+	var req services.TenantCreateReq
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewTenant().Create(req)
+}
+
+func crmTenantList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	// 列出租户：所有平台角色均可
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	return services.NewTenant().List()
+}
+
+func crmTenantUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 编辑租户：super_admin / operator
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
 	var req struct {
-		Name string `json:"name"`
-		Code string `json:"code"`
+		ID   string                   `json:"id"`
+		Data services.TenantUpdateReq `json:"data"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewTenant().Create(req.Name, req.Code)
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if err := services.NewTenant().Update(req.ID, req.Data); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
 }
 
-func crmTenantList(_ context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	return services.NewTenant().List()
+func crmTenantSetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 停用/启用租户：super_admin / operator
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID     string `json:"id"`
+		Status int    `json:"status"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if req.Status != 1 && req.Status != 2 {
+		return nil, errors.New("status 只能是 1(启用) 或 2(停用)")
+	}
+	if err := services.NewTenant().SetStatus(req.ID, req.Status); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
+}
+
+func crmTenantDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 删除租户：仅 super_admin
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if err := services.NewTenant().Delete(req.ID); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
+}
+
+func crmPlatformLogin(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.Username == "" || req.Password == "" {
+		return nil, errors.New("username/password 不能为空")
+	}
+	return services.NewPlatformAuth().Login(req.Username, req.Password)
 }
 
 func crmUserCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
