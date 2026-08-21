@@ -113,37 +113,37 @@ COMMIT;
 --   support1   / 123456  — 客服
 BEGIN;
 INSERT INTO platform_admin
-  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+  (id, created_at, updated_at, username, password, name, avatar, mobile, email, role, status)
 SELECT 9010000000000000400, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
    'master', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
-   '平台超管', '', '', 'super_admin', 1
+   '超级管理员', '', '', '', 'super_admin', 1
  WHERE NOT EXISTS (
    SELECT 1 FROM platform_admin WHERE username = 'master' AND deleted_at IS NULL
 );
 
 INSERT INTO platform_admin
-  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+  (id, created_at, updated_at, username, password, name, avatar, mobile, email, role, status)
 SELECT 9010000000000000401, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
    'operator1', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
-   '运营小李', '', '', 'operator', 1
+   '运营小李', '', '', '', 'operator', 1
  WHERE NOT EXISTS (
    SELECT 1 FROM platform_admin WHERE username = 'operator1' AND deleted_at IS NULL
 );
 
 INSERT INTO platform_admin
-  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+  (id, created_at, updated_at, username, password, name, avatar, mobile, email, role, status)
 SELECT 9010000000000000402, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
    'finance1', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
-   '财务小张', '', '', 'finance', 1
+   '财务小张', '', '', '', 'finance', 1
  WHERE NOT EXISTS (
    SELECT 1 FROM platform_admin WHERE username = 'finance1' AND deleted_at IS NULL
 );
 
 INSERT INTO platform_admin
-  (id, created_at, updated_at, username, password, name, mobile, email, role, status)
+  (id, created_at, updated_at, username, password, name, avatar, mobile, email, role, status)
 SELECT 9010000000000000403, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
    'support1', '$2a$10$XB0Gf8Gkq0kVFVlhdZZUBeCcDfEwUWRWUtFqSnb2Tb71mpBZOAD2.',
-   '客服小王', '', '', 'support', 1
+   '客服小王', '', '', '', 'support', 1
  WHERE NOT EXISTS (
    SELECT 1 FROM platform_admin WHERE username = 'support1' AND deleted_at IS NULL
 );
