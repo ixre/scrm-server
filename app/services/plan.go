@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -265,10 +266,16 @@ func (s PlanService) Update(id string, req PlanUpdateReq) error {
 
 // Delete 删除套餐（软删除）
 func (s PlanService) Delete(id string) error {
-	// 检查是否有租户在用
+	// 先查出套餐编码，检查是否有租户在用
+	var plan models.Plan
+	if err := models.DB.Where("id = ?", id).First(&plan).Error; err != nil {
+		return errors.New("套餐不存在")
+	}
 	var cnt int64
-	models.DB.Model(&models.Tenant{}).Where("plan_code = ?", id).Count(&cnt)
-	// 不阻断删除，因为 Tenant.Plan 存的是 code 字符串而非外键
+	models.DB.Model(&models.Tenant{}).Where("plan = ?", plan.Code).Count(&cnt)
+	if cnt > 0 {
+		return fmt.Errorf("该套餐已被 %d 个租户使用，无法删除（请先停用）", cnt)
+	}
 	res := models.DB.Where("id = ?", id).Delete(&models.Plan{})
 	if res.Error != nil {
 		return res.Error

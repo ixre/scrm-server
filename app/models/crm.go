@@ -39,11 +39,26 @@ type PlatformAdmin struct {
 	Username  string     `gorm:"type:varchar(64);uniqueIndex;comment:登录名(全局唯一)" json:"username"`
 	Password  string     `gorm:"type:varchar(256);comment:登录密码(哈希)" json:"-"`
 	Name      string     `gorm:"type:varchar(128);comment:显示名" json:"name"`
+	Avatar    string     `gorm:"type:varchar(512);comment:头像URL" json:"avatar"`
 	Mobile    string     `gorm:"type:varchar(32);comment:手机号" json:"mobile"`
 	Email     string     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
-	Role      string     `gorm:"type:varchar(32);default:super_admin;comment:平台角色 super_admin/operator" json:"role"`
+	Role      string     `gorm:"type:varchar(32);default:super_admin;comment:平台角色 super_admin/operator/finance/support" json:"role"`
 	Status    int        `gorm:"type:smallint;default:1;comment:1-启用 2-停用" json:"status"`
 	LastLogin *time.Time `gorm:"comment:最后登录时间" json:"last_login_at"`
+}
+
+// PlatformOperationLog 平台操作日志（记录平台超管对租户/套餐/支付等资源的操作）。
+type PlatformOperationLog struct {
+	Model
+	Timestamp
+	AdminID    string `gorm:"type:bigint;index;comment:操作人(PlatformAdmin.ID)" json:"admin_id"`
+	AdminName  string `gorm:"type:varchar(128);comment:操作人姓名" json:"admin_name"`
+	AdminRole  string `gorm:"type:varchar(32);comment:操作人角色" json:"admin_role"`
+	Action     string `gorm:"type:varchar(64);index;comment:操作类型(如 tenant.create/plan.delete)" json:"action"`
+	Resource   string `gorm:"type:varchar(32);comment:资源类型(tenant/plan/payment/order/admin)" json:"resource"`
+	ResourceID string `gorm:"type:varchar(64);comment:资源ID" json:"resource_id"`
+	Detail     string `gorm:"type:text;comment:操作详情(JSON)" json:"detail"`
+	IP         string `gorm:"type:varchar(64);comment:操作IP" json:"ip"`
 }
 
 // User 本地用户（销售/员工账号），取代企微 staff 作为鉴权与归属单元。

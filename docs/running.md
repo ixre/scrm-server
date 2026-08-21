@@ -121,6 +121,23 @@ Redis:
 
 **数据隔离**：租户内所有 CRM 数据通过 `tenant_id` 分区，GORM `TenantScope` 自动追加 `WHERE tenant_id = ?`，详见 `app/models/tenant_scope.go`。
 
+### 平台管理功能一览
+
+平台管理后台包含以下模块（菜单按平台角色权限动态显示）：
+
+| 模块 | 路由 | 角色权限 | 说明 |
+|------|------|----------|------|
+| 租户列表 | `/platform/tenants` | super_admin/operator/finance/support | 租户CRUD、搜索、详情、续期、重置管理员密码 |
+| 套餐管理 | `/platform/plans` | super_admin/operator/finance | 套餐CRUD、模块开关、定价、折扣、试用/免费 |
+| 支付方式 | `/platform/payments` | super_admin/operator/finance | 支付配置CRUD、启停 |
+| 用量统计 | `/platform/stats` | super_admin/operator/finance/support | 平台概览、套餐分布、租户用量明细、趋势 |
+| 操作日志 | `/platform/logs` | super_admin/operator/finance/support | 平台操作审计日志，支持搜索/筛选/分页 |
+| 平台账号 | `/platform/settings` | super_admin | 平台超管账号CRUD、角色分配、重置密码、启停 |
+
+**操作日志**：平台超管对租户/套餐/支付/账号等资源的操作自动记录到 `platform_operation_log` 表，包含操作人、角色、操作类型、资源ID、详情等字段。
+
+**平台账号管理**：仅 `super_admin` 可管理平台账号。支持创建（用户名/密码/角色/联系方式）、编辑、重置密码、启停、删除。保护机制：不允许停用/删除最后一个超级管理员。
+
 
 ## 3. 启动闭源核心（gRPC :9002）
 

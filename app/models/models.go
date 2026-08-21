@@ -122,7 +122,10 @@ func AutoMigrate(db *gorm.DB) error {
 		// CRM 原生模型（渠道无关，本地身份底座）
 		&Tenant{},
 		&PlatformAdmin{},
+		&PlatformOperationLog{},
 		&Plan{},
+		&PaymentConfig{},
+		&TenantOrder{},
 		&User{},
 		&ChannelLink{},
 		&CrmCustomer{},

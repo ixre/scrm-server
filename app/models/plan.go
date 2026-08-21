@@ -42,13 +42,6 @@ type PlanModuleDef struct {
 	Group string `json:"group"`
 }
 
-// PlanBillingPeriod 计费周期。
-const (
-	BillingMonthly   = "monthly"   // 按月
-	BillingQuarterly = "quarterly" // 按季
-	BillingYearly    = "yearly"    // 按年
-)
-
 // PlanPrice 单个计费周期的价格配置。
 type PlanPrice struct {
 	// 新购价格（分）
