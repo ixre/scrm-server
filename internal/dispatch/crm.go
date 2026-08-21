@@ -23,9 +23,21 @@ func init() {
 	// tenant（平台超管管理租户，需 requirePlatformAdmin）
 	Reg.Register("crm_tenant", "Create", crmTenantCreate)
 	Reg.Register("crm_tenant", "List", crmTenantList)
+	Reg.Register("crm_tenant", "ListPaged", crmTenantListPaged)
+	Reg.Register("crm_tenant", "GetDetail", crmTenantGetDetail)
+	Reg.Register("crm_tenant", "ListUsers", crmTenantListUsers)
+	Reg.Register("crm_tenant", "ResetAdminPassword", crmTenantResetAdminPassword)
+	Reg.Register("crm_tenant", "Renew", crmTenantRenew)
 	Reg.Register("crm_tenant", "Update", crmTenantUpdate)
 	Reg.Register("crm_tenant", "SetStatus", crmTenantSetStatus)
 	Reg.Register("crm_tenant", "Delete", crmTenantDelete)
+	// 套餐管理
+	Reg.Register("crm_plan", "Create", crmPlanCreate)
+	Reg.Register("crm_plan", "List", crmPlanList)
+	Reg.Register("crm_plan", "Update", crmPlanUpdate)
+	Reg.Register("crm_plan", "SetStatus", crmPlanSetStatus)
+	Reg.Register("crm_plan", "Delete", crmPlanDelete)
+	Reg.Register("crm_plan", "ListModules", crmPlanListModules)
 	Reg.Register("crm_user", "Create", crmUserCreate)
 	Reg.Register("crm_user", "Query", crmUserQuery)
 	Reg.Register("crm_user", "SetPassword", crmUserSetPassword)
@@ -894,6 +906,176 @@ func crmTenantDelete(ctx context.Context, _, _ string, params json.RawMessage) (
 		return nil, err
 	}
 	return map[string]any{"ok": true}, nil
+}
+
+func crmTenantListPaged(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	var req services.TenantListReq
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewTenant().ListPaged(req)
+}
+
+func crmTenantGetDetail(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return services.NewTenant().GetDetail(req.ID)
+}
+
+func crmTenantListUsers(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	var req struct {
+		TenantID string `json:"tenant_id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.TenantID == "" {
+		return nil, errors.New("tenant_id 不能为空")
+	}
+	return services.NewTenant().ListUsers(req.TenantID)
+}
+
+func crmTenantResetAdminPassword(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	var req struct {
+		TenantID string `json:"tenant_id"`
+		UserID   string `json:"user_id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.TenantID == "" || req.UserID == "" {
+		return nil, errors.New("tenant_id 和 user_id 不能为空")
+	}
+	pw, err := services.NewTenant().ResetAdminPassword(req.TenantID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"new_password": pw}, nil
+}
+
+func crmTenantRenew(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance); err != nil {
+		return nil, err
+	}
+	var req services.RenewReq
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.TenantID == "" {
+		return nil, errors.New("tenant_id 不能为空")
+	}
+	return services.NewTenant().Renew(req)
+}
+
+// ---------- plan（套餐管理）----------
+
+func crmPlanCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 创建套餐：super_admin / operator / finance
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance); err != nil {
+		return nil, err
+	}
+	var req services.PlanCreateReq
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewPlanService().Create(req)
+}
+
+func crmPlanList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	// 列出套餐：所有平台角色
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	return services.NewPlanService().List()
+}
+
+func crmPlanUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 编辑套餐：super_admin / operator / finance
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID   string                 `json:"id"`
+		Data services.PlanUpdateReq `json:"data"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if err := services.NewPlanService().Update(req.ID, req.Data); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
+}
+
+func crmPlanSetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 启用/停用套餐：super_admin / operator
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID     string `json:"id"`
+		Status int    `json:"status"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if err := services.NewPlanService().SetStatus(req.ID, req.Status); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
+}
+
+func crmPlanDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	// 删除套餐：仅 super_admin
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if err := services.NewPlanService().Delete(req.ID); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
+}
+
+func crmPlanListModules(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	// 列出系统模块定义：所有平台角色
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+		return nil, err
+	}
+	return services.NewPlanService().ListModules(), nil
 }
 
 func crmPlatformLogin(_ context.Context, _, _ string, params json.RawMessage) (any, error) {

@@ -213,6 +213,154 @@ func (s TenantService) List() ([]models.Tenant, error) {
 	return ts, err
 }
 
+// TenantListReq 搜索/分页参数。
+type TenantListReq struct {
+	Keyword  string `json:"keyword"` // 按名称或编码模糊搜索
+	Status   int    `json:"status"`  // 0=全部 1=启用 2=停用
+	Plan     string `json:"plan"`    // 空=全部
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+}
+
+// TenantListResult 分页结果。
+type TenantListResult struct {
+	Total int64           `json:"total"`
+	List  []models.Tenant `json:"list"`
+}
+
+// ListPaged 分页+搜索列出租户。
+func (s TenantService) ListPaged(req TenantListReq) (TenantListResult, error) {
+	var result TenantListResult
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+	if req.PageSize > 200 {
+		req.PageSize = 200
+	}
+	q := models.DB.Model(&models.Tenant{})
+	if req.Keyword != "" {
+		kw := "%" + req.Keyword + "%"
+		q = q.Where("name LIKE ? OR code LIKE ?", kw, kw)
+	}
+	if req.Status == 1 || req.Status == 2 {
+		q = q.Where("status = ?", req.Status)
+	}
+	if req.Plan != "" {
+		q = q.Where("plan = ?", req.Plan)
+	}
+	if err := q.Count(&result.Total).Error; err != nil {
+		return result, err
+	}
+	var ts []models.Tenant
+	offset := (req.Page - 1) * req.PageSize
+	if err := q.Order("id DESC").Offset(offset).Limit(req.PageSize).Find(&ts).Error; err != nil {
+		return result, err
+	}
+	result.List = ts
+	return result, nil
+}
+
+// TenantDetail 租户详情（含统计信息）。
+type TenantDetail struct {
+	models.Tenant
+	UserCount       int64 `json:"user_count"`
+	CustomerCount   int64 `json:"customer_count"`
+	ActiveUserCount int64 `json:"active_user_count"`
+}
+
+// GetDetail 获取租户详情（含用户数、客户数等统计）。
+func (s TenantService) GetDetail(id string) (TenantDetail, error) {
+	var detail TenantDetail
+	if err := models.DB.Where("id = ?", id).First(&detail.Tenant).Error; err != nil {
+		return detail, err
+	}
+	models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", id).Count(&detail.UserCount)
+	models.DB.Model(&models.User{}).Where("tenant_id = ? AND status = 1 AND deleted_at IS NULL", id).Count(&detail.ActiveUserCount)
+	models.DB.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND deleted_at IS NULL", id).Count(&detail.CustomerCount)
+	return detail, nil
+}
+
+// ListUsers 列出租户下的用户（供平台超管查看）。
+func (s TenantService) ListUsers(tenantID string) ([]map[string]any, error) {
+	var users []models.User
+	if err := models.DB.Where("tenant_id = ?", tenantID).Order("created_at").Find(&users).Error; err != nil {
+		return nil, err
+	}
+	result := make([]map[string]any, 0, len(users))
+	for _, u := range users {
+		roleName := ""
+		if u.RoleID != "" {
+			var role models.CrmRole
+			models.DB.Where("id = ?", u.RoleID).First(&role)
+			roleName = role.Name
+		}
+		result = append(result, map[string]any{
+			"id":         u.ID,
+			"username":   u.Username,
+			"name":       u.Name,
+			"mobile":     u.Mobile,
+			"status":     u.Status,
+			"role_name":  roleName,
+			"created_at": u.CreatedAt,
+		})
+	}
+	return result, nil
+}
+
+// ResetAdminPassword 重置租户管理员密码。返回新密码（明文，仅此一次）。
+func (s TenantService) ResetAdminPassword(tenantID, userID string) (string, error) {
+	var u models.User
+	if err := models.DB.Where("id = ? AND tenant_id = ?", userID, tenantID).First(&u).Error; err != nil {
+		return "", errors.New("用户不存在")
+	}
+	pw, err := randPassword(12)
+	if err != nil {
+		return "", err
+	}
+	h, err := hashPassword(pw)
+	if err != nil {
+		return "", err
+	}
+	if err := models.DB.Model(&models.User{}).Where("id = ?", userID).Update("password", h).Error; err != nil {
+		return "", err
+	}
+	return pw, nil
+}
+
+// RenewReq 续期参数。
+type RenewReq struct {
+	TenantID string     `json:"tenant_id"`
+	ExpireAt *time.Time `json:"expire_at"` // 新的到期时间（覆盖）
+	AddDays  int        `json:"add_days"`  // 或在现有基础上加天数（expire_at 为空时使用）
+}
+
+// Renew 续期/延长租户有效期。
+func (s TenantService) Renew(req RenewReq) (models.Tenant, error) {
+	var t models.Tenant
+	if err := models.DB.Where("id = ?", req.TenantID).First(&t).Error; err != nil {
+		return t, errors.New("租户不存在")
+	}
+	if req.ExpireAt != nil {
+		t.ExpireAt = req.ExpireAt
+	} else if req.AddDays > 0 {
+		base := time.Now()
+		if t.ExpireAt != nil && t.ExpireAt.After(base) {
+			base = *t.ExpireAt
+		}
+		newExpire := base.AddDate(0, 0, req.AddDays)
+		t.ExpireAt = &newExpire
+	} else {
+		return t, errors.New("请指定新的到期时间或延长天数")
+	}
+	if err := models.DB.Model(&models.Tenant{}).Where("id = ?", req.TenantID).Update("expire_at", t.ExpireAt).Error; err != nil {
+		return t, err
+	}
+	return t, nil
+}
+
 // TenantUpdateReq 更新租户入参（平台超管调用）。Code 不可改。
 type TenantUpdateReq struct {
 	Name         string     `json:"name"`

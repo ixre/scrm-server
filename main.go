@@ -35,7 +35,8 @@ func init() {
 	models.SetupDB()
 	services.SeedCRMDefaults()   // 为既有租户幂等补齐默认角色/销售阶段
 	services.SeedDemoAccount()   // 非生产：幂等创建演示租户与登录账号（demo/admin/123456）
-	services.SeedPlatformAdmin() // 非生产：幂等创建平台超管账号（platform/admin123）
+	services.SeedPlatformAdmin() // 非生产：幂等创建平台超管账号（master/123456）
+	services.SeedDefaultPlans()  // 幂等创建默认套餐（free/standard/pro/enterprise）
 	tasks.Start()                // 启动定时任务（公海回收 + openscrm 遗产 cron）
 }
 
