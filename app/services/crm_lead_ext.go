@@ -185,3 +185,96 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 	}
 	return &cust, nil
 }
+
+// MarkContacted 标记线索为已联系：Status=contacted。自动写入跟进记录。
+func (s CrmLeadExtService) MarkContacted(ctx context.Context, userID, id, content string) error {
+	tenantID := identity.TenantID(ctx)
+
+	if id == "" {
+		return errors.New("id 不能为空")
+	}
+	var lead models.CrmLead
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&lead).Error; err != nil {
+		return err
+	}
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).
+		Where("id = ? AND status = ?", id, "new").
+		Update("status", "contacted")
+	if res.Error != nil {
+		log.Sugar.Errorw("crm lead mark contacted failed", "err", res.Error)
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("线索不存在或非新线索状态")
+	}
+	// 自动写入跟进记录
+	s.recordFollowup(ctx, userID, tenantID, lead, "other", "标记已联系", "标记已联系："+content)
+	return nil
+}
+
+// MarkLost 标记线索为已流失：Status=lost。自动写入跟进记录。
+func (s CrmLeadExtService) MarkLost(ctx context.Context, userID, id, reason string) error {
+	tenantID := identity.TenantID(ctx)
+
+	if id == "" {
+		return errors.New("id 不能为空")
+	}
+	var lead models.CrmLead
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&lead).Error; err != nil {
+		return err
+	}
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).
+		Where("id = ? AND status IN ?", id, []string{"new", "contacted"}).
+		Update("status", "lost")
+	if res.Error != nil {
+		log.Sugar.Errorw("crm lead mark lost failed", "err", res.Error)
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("线索不存在或已转化/已流失")
+	}
+	s.recordFollowup(ctx, userID, tenantID, lead, "other", "标记流失", "标记流失："+reason)
+	return nil
+}
+
+// recordFollowup 写入一条自动跟进记录。
+func (s CrmLeadExtService) recordFollowup(ctx context.Context, userID, tenantID string, lead models.CrmLead, fType, result, content string) {
+	f := models.CrmFollowup{
+		Model:    models.Model{ID: id_generator.StringID()},
+		TenantID: tenantID,
+		LeadID:   lead.ID,
+		UserID:   userID,
+		Type:     fType,
+		Content:  content,
+		Result:   result,
+	}
+	if err := createCRM(models.DB, &f, "CustomerID", "LeadID", "OpportunityID", "UserID", "ContactID"); err != nil {
+		log.Sugar.Errorw("crm lead status change followup create failed", "err", err)
+	}
+}
+
+// Reopen 恢复已流失线索为可跟进：Status=contacted。自动写入跟进记录。
+// 不允许恢复已转化（qualified）线索。
+func (s CrmLeadExtService) Reopen(ctx context.Context, userID, id string) error {
+	tenantID := identity.TenantID(ctx)
+
+	if id == "" {
+		return errors.New("id 不能为空")
+	}
+	var lead models.CrmLead
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&lead).Error; err != nil {
+		return err
+	}
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).
+		Where("id = ? AND status = ?", id, "lost").
+		Update("status", "contacted")
+	if res.Error != nil {
+		log.Sugar.Errorw("crm lead reopen failed", "err", res.Error)
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("线索不存在或非流失状态")
+	}
+	s.recordFollowup(ctx, userID, tenantID, lead, "other", "恢复跟进", "恢复为可跟进状态")
+	return nil
+}

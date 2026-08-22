@@ -317,6 +317,50 @@ func crmLeadConvertToCustomer(ctx context.Context, _, _ string, params json.RawM
 	return c, nil
 }
 
+func crmLeadMarkContacted(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	u := identity.UserID(ctx)
+	var req struct {
+		ID      string `json:"id"`
+		Content string `json:"content"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmLeadExt().MarkContacted(ctx, u, req.ID, req.Content)
+}
+
+func crmLeadMarkLost(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	u := identity.UserID(ctx)
+	var req struct {
+		ID     string `json:"id"`
+		Reason string `json:"reason"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmLeadExt().MarkLost(ctx, u, req.ID, req.Reason)
+}
+
+func crmLeadReopen(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	u := identity.UserID(ctx)
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmLeadExt().Reopen(ctx, u, req.ID)
+}
+
 // ---------- 回收站 dispatch handlers ----------
 
 func crmRecycleList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {

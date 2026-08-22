@@ -208,6 +208,7 @@ type CrmFollowup struct {
 	Timestamp
 	TenantID       string     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
 	CustomerID     string     `gorm:"type:bigint;index;comment:关联客户ID" json:"customer_id"`
+	LeadID         string     `gorm:"type:bigint;index;comment:关联线索ID(可空)" json:"lead_id"`
 	OpportunityID  string     `gorm:"type:bigint;index;comment:关联商机ID(可空)" json:"opportunity_id"`
 	UserID         string     `gorm:"type:bigint;index;comment:跟进人用户ID" json:"user_id"`
 	Type           string     `gorm:"type:varchar(32);comment:call/visit/message/meeting/other" json:"type"`

@@ -98,7 +98,6 @@ func init() {
 	Reg.Register("crm_lead", "Delete", crmLeadDelete)
 	Reg.Register("crm_lead", "Get", crmLeadGet)
 	Reg.Register("crm_lead", "Query", crmLeadQuery)
-	Reg.Register("crm_lead", "Convert", crmLeadConvert)
 	Reg.Register("crm_lead", "BatchImport", crmLeadBatchImport)
 
 	// pipeline stage
@@ -120,6 +119,7 @@ func init() {
 	Reg.Register("crm_followup", "Delete", crmFollowupDelete)
 	Reg.Register("crm_followup", "ListByCustomer", crmFollowupListByCustomer)
 	Reg.Register("crm_followup", "ListByOpportunity", crmFollowupListByOpportunity)
+	Reg.Register("crm_followup", "ListByLead", crmFollowupListByLead)
 
 	// order
 	Reg.Register("crm_order", "Create", crmOrderCreate)
@@ -604,6 +604,9 @@ func init() {
 	Reg.Register("crm_lead", "ListPool", crmLeadListPool)
 	Reg.Register("crm_lead", "Transfer", crmLeadTransfer)
 	Reg.Register("crm_lead", "ConvertToCustomer", crmLeadConvertToCustomer)
+	Reg.Register("crm_lead", "MarkContacted", crmLeadMarkContacted)
+	Reg.Register("crm_lead", "MarkLost", crmLeadMarkLost)
+	Reg.Register("crm_lead", "Reopen", crmLeadReopen)
 	// 回收站
 	Reg.Register("crm_recycle", "List", crmRecycleList)
 	Reg.Register("crm_recycle", "Restore", crmRecycleRestore)
@@ -1929,31 +1932,18 @@ func crmLeadQuery(ctx context.Context, _, _ string, params json.RawMessage) (any
 		Query struct {
 			Status      string `json:"status"`
 			OwnerUserID string `json:"owner_user_id"`
+			Keyword     string `json:"keyword"`
 		} `json:"query"`
 		Pager *app.Pager `json:"pager"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmLead().Query(ctx, req.Query.Status, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Pager)
+	items, total, err := services.NewCrmLead().Query(ctx, req.Query.Status, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Keyword, req.Pager)
 	if err != nil {
 		return nil, err
 	}
 	return Result(items, total), nil
-}
-
-func crmLeadConvert(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	_, err := requireIdentity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var req struct {
-		ID string `json:"id"`
-	}
-	if err := Bind(params, &req); err != nil {
-		return nil, err
-	}
-	return services.NewCrmLead().Convert(ctx, identity.UserID(ctx), req.ID)
 }
 
 // ---------- crm_pipeline ----------
@@ -2153,6 +2143,20 @@ func crmFollowupListByOpportunity(ctx context.Context, _, _ string, params json.
 		return nil, err
 	}
 	return services.NewCrmFollowup().ListByOpportunity(ctx, req.OpportunityID)
+}
+
+func crmFollowupListByLead(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		LeadID string `json:"lead_id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmFollowup().ListByLead(ctx, req.LeadID)
 }
 
 // ---------- crm_order ----------

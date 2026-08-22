@@ -1868,7 +1868,7 @@ func (s CrmLeadService) Get(ctx context.Context, id string) (models.CrmLead, err
 	return l, err
 }
 
-func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID string, pager *app.Pager) ([]models.CrmLead, int64, error) {
+func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID string, keyword string, pager *app.Pager) ([]models.CrmLead, int64, error) {
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -1881,6 +1881,10 @@ func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID st
 	if ownerUserID != "" {
 		db = db.Where("owner_user_id = ?", ownerUserID)
 	}
+	if kw := strings.TrimSpace(keyword); kw != "" {
+		like := "%" + kw + "%"
+		db = db.Where("title LIKE ? OR name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like, like)
+	}
 	var total int64
 	if err := db.Model(&models.CrmLead{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -1888,50 +1892,6 @@ func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID st
 	var ls []models.CrmLead
 	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&ls).Error
 	return ls, total, err
-}
-
-// Convert 线索→客户转化：据线索创建 CrmCustomer 并回写线索的 customer_id、标记为 qualified。
-// 幂等：线索已关联客户则直接返回，不重复创建。
-// 若线索带手机号且已有同手机号客户，则直接关联已有客户（去重）。
-func (s CrmLeadService) Convert(ctx context.Context, userID, leadID string) (models.CrmCustomer, error) {
-	tenantID := identity.TenantID(ctx)
-
-	l, err := s.Get(ctx, leadID)
-	if err != nil {
-		return models.CrmCustomer{}, err
-	}
-	if l.CustomerID != "" {
-		c, err := NewCrmCustomer().Get(ctx, l.CustomerID)
-		return c, err
-	}
-	// 去重：同手机号已有客户则直接关联
-	if l.Mobile != "" {
-		var exist models.CrmCustomer
-		if err := models.MustFor(ctx).Where("mobile = ?", l.Mobile).First(&exist).Error; err == nil {
-			models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", leadID).
-				Updates(map[string]any{"customer_id": exist.ID, "status": "qualified"})
-			return exist, nil
-		}
-	}
-	cust := models.CrmCustomer{
-		Model:       models.Model{ID: id_generator.StringID()},
-		TenantID:    tenantID,
-		Name:        l.Name,
-		Company:     l.Company,
-		Mobile:      l.Mobile,
-		Source:      l.Source,
-		OwnerUserID: userID,
-		Level:       1,
-	}
-	if err := createCRM(models.DB, &cust, "OwnerUserID", "ReassignFrom"); err != nil {
-		log.Sugar.Errorw("crm lead convert: create customer failed", "err", err)
-		return models.CrmCustomer{}, err
-	}
-	if err := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", leadID).
-		Updates(map[string]any{"customer_id": cust.ID, "status": "qualified"}).Error; err != nil {
-		return cust, err
-	}
-	return cust, nil
 }
 
 // ---------- CrmPipelineStage ----------
@@ -2150,7 +2110,7 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 	if req.UserID == "" {
 		req.UserID = userID
 	}
-	err := createCRM(models.DB, &req, "CustomerID", "OpportunityID", "UserID")
+	err := createCRM(models.DB, &req, "CustomerID", "LeadID", "OpportunityID", "UserID")
 	if err != nil {
 		log.Sugar.Errorw("crm followup create failed", "err", err)
 	} else if req.CustomerID != "" {
@@ -2177,6 +2137,14 @@ func (s CrmFollowupService) ListByOpportunity(ctx context.Context, opportunityID
 
 	var fs []models.CrmFollowup
 	err := models.MustFor(ctx).Where("opportunity_id = ?", opportunityID).
+		Order("created_at desc").Find(&fs).Error
+	return fs, err
+}
+
+func (s CrmFollowupService) ListByLead(ctx context.Context, leadID string) ([]models.CrmFollowup, error) {
+
+	var fs []models.CrmFollowup
+	err := models.MustFor(ctx).Where("lead_id = ?", leadID).
 		Order("created_at desc").Find(&fs).Error
 	return fs, err
 }
@@ -2282,7 +2250,7 @@ func (s CrmOrderService) Create(ctx context.Context, userID string, req models.C
 			}
 		}
 	}
-	err := createCRM(models.DB, &req, "CustomerID", "OpportunityID", "UserID")
+	err := createCRM(models.DB, &req, "CustomerID", "LeadID", "OpportunityID", "UserID")
 	if err != nil {
 		log.Sugar.Errorw("crm order create failed", "err", err)
 	} else if req.CustomerID != "" {
