@@ -267,13 +267,20 @@ func crmLeadListPool(ctx context.Context, _, _ string, params json.RawMessage) (
 		return nil, err
 	}
 	var req struct {
-		Keyword string `json:"keyword"`
-		*app.Pager
+		Query struct {
+			Keyword string `json:"keyword"`
+		} `json:"query"`
+		Pager *app.Pager `json:"pager"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.LeadPoolQueryReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
+	p := req.Pager
+	if p == nil {
+		p = &app.Pager{}
+	}
+	p.SetDefault()
+	q := services.LeadPoolQueryReq{Page: p.Page, PageSize: p.PageSize, Keyword: req.Query.Keyword}
 	items, total, err := services.NewCrmLeadExt().ListPool(ctx, q)
 	if err != nil {
 		return nil, err

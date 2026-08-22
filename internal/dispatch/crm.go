@@ -890,6 +890,10 @@ func currentUserRoleCode(ctx context.Context) string {
 //   - sales：强制返回当前用户 ID（只能看自己的数据）
 //   - 角色未知：强制返回当前用户 ID（fail-closed，最小权限）
 func EffectiveOwnerFilter(ctx context.Context, requestedOwner string) string {
+	// __me__ 表示当前用户自己的数据
+	if requestedOwner == "__me__" {
+		return identity.UserID(ctx)
+	}
 	role := currentUserRoleCode(ctx)
 	switch role {
 	case "admin", "manager":
