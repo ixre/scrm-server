@@ -303,13 +303,14 @@ func crmLeadConvertToCustomer(ctx context.Context, _, _ string, params json.RawM
 	}
 	u := identity.UserID(ctx)
 	var req struct {
-		ID     string `json:"id"`
-		Remark string `json:"remark"`
+		ID          string `json:"id"`
+		OwnerUserID string `json:"owner_user_id"`
+		Remark      string `json:"remark"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	c, err := services.NewCrmLeadExt().ConvertToCustomer(ctx, u, req.ID, req.Remark)
+	c, err := services.NewCrmLeadExt().ConvertToCustomer(ctx, u, req.ID, req.OwnerUserID, req.Remark)
 	if err != nil {
 		return nil, err
 	}

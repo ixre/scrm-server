@@ -1519,10 +1519,14 @@ func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUser
 }
 
 // Export 导出客户列表为 Excel（最多 10000 行）。
-func (s CrmCustomerService) Export(ctx context.Context) (*bytes.Buffer, string, error) {
+func (s CrmCustomerService) Export(ctx context.Context, ownerUserID string) (*bytes.Buffer, string, error) {
 
+	db := models.MustFor(ctx).Limit(10000).Order("id desc")
+	if ownerUserID != "" {
+		db = db.Where("owner_user_id = ?", ownerUserID)
+	}
 	var cs []models.CrmCustomer
-	if err := models.MustFor(ctx).Limit(10000).Order("id desc").Find(&cs).Error; err != nil {
+	if err := db.Find(&cs).Error; err != nil {
 		return nil, "", err
 	}
 	f := excelize.NewFile()
@@ -2145,7 +2149,7 @@ func (s CrmOrderService) Delete(ctx context.Context, ids []string) (int64, error
 	return res.RowsAffected, res.Error
 }
 
-func (s CrmOrderService) Query(ctx context.Context, status string, pager *app.Pager) ([]models.CrmOrder, int64, error) {
+func (s CrmOrderService) Query(ctx context.Context, status string, ownerUserID string, pager *app.Pager) ([]models.CrmOrder, int64, error) {
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -2154,6 +2158,9 @@ func (s CrmOrderService) Query(ctx context.Context, status string, pager *app.Pa
 	db := models.MustFor(ctx)
 	if status != "" {
 		db = db.Where("status = ?", status)
+	}
+	if ownerUserID != "" {
+		db = db.Where("user_id = ?", ownerUserID)
 	}
 	var total int64
 	if err := db.Model(&models.CrmOrder{}).Count(&total).Error; err != nil {

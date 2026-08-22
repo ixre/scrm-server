@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 	"time"
@@ -38,12 +38,11 @@ func NewCrmLeadExt() *CrmLeadExtService { return &CrmLeadExtService{} }
 func (s CrmLeadExtService) MoveToPool(ctx context.Context, ids []string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
 	now := time.Now()
-	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
 		Updates(map[string]any{"pool_status": 1, "pool_at": now, "owner_user_id": ""})
 	if res.Error != nil {
 		log.Sugar.Errorw("crm lead move to pool failed", "err", res.Error)
@@ -55,11 +54,10 @@ func (s CrmLeadExtService) MoveToPool(ctx context.Context, ids []string) error {
 func (s CrmLeadExtService) ReceiveFromPool(ctx context.Context, userID, id string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
-	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND pool_status = ?",  id,  1).
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND pool_status = ?", id, 1).
 		Updates(map[string]any{"pool_status": 0, "pool_at": nil, "owner_user_id": userID})
 	if res.Error != nil {
 		log.Sugar.Errorw("crm lead receive from pool failed", "err", res.Error)
@@ -74,9 +72,8 @@ func (s CrmLeadExtService) ReceiveFromPool(ctx context.Context, userID, id strin
 // ListPool 线索池列表（PoolStatus=1）。
 func (s CrmLeadExtService) ListPool(ctx context.Context, req LeadPoolQueryReq) ([]models.CrmLead, int64, error) {
 
-
 	p := req.pager()
-	db := models.MustFor(ctx).Where("pool_status = ?",  1)
+	db := models.MustFor(ctx).Where("pool_status = ?", 1)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("title LIKE ? OR name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like, like)
@@ -94,14 +91,13 @@ func (s CrmLeadExtService) ListPool(ctx context.Context, req LeadPoolQueryReq) (
 func (s CrmLeadExtService) Transfer(ctx context.Context, id, toUserID string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
 	if toUserID == "" {
 		return errors.New("to_user_id 不能为空")
 	}
-	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Update("owner_user_id", toUserID)
 	if res.Error != nil {
 		log.Sugar.Errorw("crm lead transfer failed", "err", res.Error)
@@ -110,10 +106,16 @@ func (s CrmLeadExtService) Transfer(ctx context.Context, id, toUserID string) er
 }
 
 // ConvertToCustomer 线索转客户：创建 CrmCustomer，更新 CrmLead 的 ConvertCustomerID/ConvertAt/Status。
+// ownerUserID 指定客户归属人（为空则默认为当前操作人 userID）。
 // 幂等：线索已转化（ConvertCustomerID 非空）则直接返回已有客户。
-func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, remark string) (*models.CrmCustomer, error) {
+func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ownerUserID, remark string) (*models.CrmCustomer, error) {
 	tenantID := identity.TenantID(ctx)
 
+	// 归属人默认为操作人
+	custOwner := ownerUserID
+	if custOwner == "" {
+		custOwner = userID
+	}
 
 	if id == "" {
 		return nil, errors.New("id 不能为空")
@@ -133,7 +135,7 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, re
 	// 去重：同手机号已有客户则直接关联。
 	if l.Mobile != "" {
 		var exist models.CrmCustomer
-		if err := models.MustFor(ctx).Where("mobile = ?",  l.Mobile).First(&exist).Error; err == nil {
+		if err := models.MustFor(ctx).Where("mobile = ?", l.Mobile).First(&exist).Error; err == nil {
 			now := time.Now()
 			models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 				Updates(map[string]any{"convert_customer_id": exist.ID, "convert_at": now, "status": "qualified", "convert_remark": remark})
@@ -150,7 +152,7 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, re
 		Position:    l.Position,
 		Address:     l.Address,
 		Source:      l.Source,
-		OwnerUserID: userID,
+		OwnerUserID: custOwner,
 		Level:       1,
 	}
 	if err := createCRM(models.DB, &cust, "OwnerUserID", "ReassignFrom", "OpportunityID", "LeadID"); err != nil {
@@ -158,9 +160,28 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, re
 		return nil, err
 	}
 	now := time.Now()
+	// 线索在池中：自动领取，保持线索与客户归属一致。
+	updates := map[string]any{"convert_customer_id": cust.ID, "convert_at": now, "status": "qualified", "convert_remark": remark}
+	if l.PoolStatus == 1 {
+		updates["pool_status"] = 0
+		updates["pool_at"] = nil
+		updates["owner_user_id"] = custOwner
+	}
 	if err := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Updates(map[string]any{"convert_customer_id": cust.ID, "convert_at": now, "status": "qualified", "convert_remark": remark}).Error; err != nil {
+		Updates(updates).Error; err != nil {
 		return &cust, err
+	}
+	// SOP 触发：新客户（与 CrmCustomerService.Create 保持一致）
+	NewCrmSop().Trigger(ctx, "new_customer", map[string]string{
+		"customer_id": cust.ID,
+		"source":      cust.Source,
+	})
+	// SOP 触发：公海认领（线索从池中直接转化）
+	if l.PoolStatus == 1 {
+		NewCrmSop().Trigger(ctx, "pool_claim", map[string]string{
+			"pool_type":   "lead",
+			"customer_id": cust.ID,
+		})
 	}
 	return &cust, nil
 }

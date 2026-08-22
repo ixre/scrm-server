@@ -240,7 +240,7 @@ func crmCustomerExport(ctx context.Context, _, _ string, _ json.RawMessage) (any
 	if err != nil {
 		return nil, err
 	}
-	buf, filename, err := services.NewCrmCustomer().Export(ctx)
+	buf, filename, err := services.NewCrmCustomer().Export(ctx, EffectiveOwnerFilter(ctx, ""))
 	if err != nil {
 		return nil, err
 	}

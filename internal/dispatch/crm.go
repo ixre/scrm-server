@@ -849,6 +849,45 @@ func requireAnyRole(ctx context.Context, codes ...string) error {
 	return errForbidden
 }
 
+// currentUserRoleCode 返回当前用户的角色编码（admin/manager/sales），查询失败返回空串。
+func currentUserRoleCode(ctx context.Context) string {
+	t, err := requireIdentity(ctx)
+	if err != nil {
+		return ""
+	}
+	u := identity.UserID(ctx)
+	if u == "" {
+		return ""
+	}
+	var usr models.User
+	if err := models.DB.Scopes(models.TenantScope(t)).Where("id = ?", u).First(&usr).Error; err != nil {
+		return ""
+	}
+	if usr.RoleID == "" {
+		return ""
+	}
+	var r models.CrmRole
+	if err := models.DB.Scopes(models.TenantScope(t)).Where("id = ?", usr.RoleID).First(&r).Error; err != nil {
+		return ""
+	}
+	return r.Code
+}
+
+// EffectiveOwnerFilter 数据权限分层：根据角色返回有效的 owner_user_id 过滤值。
+//   - admin/manager：返回 requestedOwner（允许查看全部，也可按指定归属人筛选）
+//   - sales：强制返回当前用户 ID（只能看自己的数据）
+//   - 角色未知：强制返回当前用户 ID（fail-closed，最小权限）
+func EffectiveOwnerFilter(ctx context.Context, requestedOwner string) string {
+	role := currentUserRoleCode(ctx)
+	switch role {
+	case "admin", "manager":
+		return requestedOwner
+	default:
+		// sales 或未知角色：只能看自己的数据
+		return identity.UserID(ctx)
+	}
+}
+
 // ---------- tenant / user ----------
 
 // 平台角色常量
@@ -1808,7 +1847,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 	case string:
 		poolStatus, _ = strconv.Atoi(v)
 	}
-	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, req.Query.OwnerUserID, req.Query.Source, outFlow, poolStatus, req.Pager)
+	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Source, outFlow, poolStatus, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -1887,7 +1926,7 @@ func crmLeadQuery(ctx context.Context, _, _ string, params json.RawMessage) (any
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmLead().Query(ctx, req.Query.Status, req.Query.OwnerUserID, req.Pager)
+	items, total, err := services.NewCrmLead().Query(ctx, req.Query.Status, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -2028,7 +2067,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, req.Query.OwnerUserID, req.Pager)
+	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -2156,14 +2195,15 @@ func crmOrderQuery(ctx context.Context, _, _ string, params json.RawMessage) (an
 	}
 	var req struct {
 		Query struct {
-			Status string `json:"status"`
+			Status      string `json:"status"`
+			OwnerUserID string `json:"owner_user_id"`
 		} `json:"query"`
 		Pager *app.Pager `json:"pager"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOrder().Query(ctx, req.Query.Status, req.Pager)
+	items, total, err := services.NewCrmOrder().Query(ctx, req.Query.Status, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Pager)
 	if err != nil {
 		return nil, err
 	}
