@@ -22,6 +22,7 @@ import (
 	"core/common/id_generator"
 	"core/common/identity"
 	"core/common/log"
+	"core/common/storage"
 	"core/common/util"
 	"core/common/we_work"
 	"core/conf"
@@ -59,16 +60,36 @@ func syncTenantCtx(corpID string) context.Context {
 
 // createCRM 创建记录，自动省略值为空的 FK 列。
 // 本地模型的可选外键是 bigint，空字符串会被 PG 拒绝，需以 NULL 表示"未设"。
+// 两层防护：
+//  1. 自动扫描 struct 的 gorm tag，凡是 `type:bigint` 的 string 字段且值为 "" 都 omit
+//     （覆盖所有未显式列出的 FK，避免漏写导致 22P02）；
+//  2. 显式传入的 fkFields 仍然按原逻辑保留（兼容历史调用方）。
 func createCRM(db *gorm.DB, v any, fkFields ...string) error {
-	if len(fkFields) == 0 {
-		return db.Create(v).Error
-	}
 	rv := reflect.ValueOf(v).Elem()
-	omits := []string{}
+	rt := rv.Type()
+	explicit := make(map[string]bool, len(fkFields))
 	for _, f := range fkFields {
-		fv := rv.FieldByName(f)
+		explicit[f] = true
+	}
+	omits := []string{}
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		if explicit[f.Name] {
+			continue // 由外层 fkFields 循环处理（语义一致）
+		}
+		if !strings.Contains(f.Tag.Get("gorm"), "type:bigint") {
+			continue
+		}
+		fv := rv.Field(i)
 		if fv.IsValid() && fv.Kind() == reflect.String && fv.String() == "" {
-			omits = append(omits, f)
+			omits = append(omits, f.Name)
+		}
+	}
+	// 显式列出的 FK 也按值决定 omit
+	for _, fname := range fkFields {
+		fv := rv.FieldByName(fname)
+		if fv.IsValid() && fv.Kind() == reflect.String && fv.String() == "" {
+			omits = append(omits, fname)
 		}
 	}
 	if len(omits) == 0 {
@@ -78,6 +99,7 @@ func createCRM(db *gorm.DB, v any, fkFields ...string) error {
 }
 
 // updatesCRM 从更新 map 中剔除值为空字符串的 FK 列（避免空串写入 bigint）。
+// 同时剔除所有 type:bigint 的空字符串字段（与 createCRM 对齐）。
 func updatesCRM(m map[string]any, fkFields ...string) map[string]any {
 	for _, f := range fkFields {
 		if v, ok := m[f]; ok {
@@ -895,11 +917,9 @@ func (s UserService) Create(ctx context.Context, req UserCreateReq) (models.User
 	}
 
 	if req.RoleID == "" {
-		var r models.CrmRole
-		if err := models.MustFor(ctx).Where("code = ?", "sales").First(&r).Error; err == nil {
-			req.RoleID = r.ID
-		}
+		req.RoleID = "sales"
 	}
+	req.RoleID = resolveRoleID(ctx, req.RoleID)
 	u := models.User{
 		Model:        models.Model{ID: id_generator.StringID()},
 		TenantID:     tenantID,
@@ -996,6 +1016,7 @@ func (s UserService) Query(ctx context.Context, pager *app.Pager) ([]map[string]
 			"name":          u.Name,
 			"mobile":        u.Mobile,
 			"email":         u.Email,
+			"avatar":        u.Avatar,
 			"role_id":       u.RoleID,
 			"role_code":     roleCodeMap[u.RoleID],
 			"position":      u.Position,
@@ -1007,32 +1028,139 @@ func (s UserService) Query(ctx context.Context, pager *app.Pager) ([]map[string]
 	return result, total, nil
 }
 
-// UserUpdateReq 更新本地用户的入参。
+// UserUpdateReq 管理员更新本地用户的入参。
+// 指针字段区分「未传(nil)」vs「清空(*"")」vs「赋值(*"xxx")」；
+// 未传的字段保持原值，允许管理员把字段显式清空。
 type UserUpdateReq struct {
-	Name         string `json:"name"`
-	Mobile       string `json:"mobile"`
-	RoleID       string `json:"role_id"`
-	Position     string `json:"position"`
-	DepartmentID string `json:"department_id"`
-	Status       *int   `json:"status"`
+	Name         *string `json:"name"`
+	Mobile       *string `json:"mobile"`
+	Email        *string `json:"email"`
+	Avatar       *string `json:"avatar"`
+	RoleID       string  `json:"role_id"`
+	Position     *string `json:"position"`
+	DepartmentID string  `json:"department_id"`
+	Status       *int    `json:"status"`
+}
+
+// resolveRoleID 把角色编码(admin/manager/sales)解析为 CrmRole.ID。
+// 入参为空时默认取 sales 角色；若按 code 查不到则视为已是角色ID原样返回。
+func resolveRoleID(ctx context.Context, roleID string) string {
+	code := roleID
+	if code == "" {
+		code = "sales"
+	}
+	var r models.CrmRole
+	if err := models.MustFor(ctx).Scopes(models.TenantScope(identity.TenantID(ctx))).
+		Where("code = ?", code).First(&r).Error; err == nil {
+		return r.ID
+	}
+	return roleID
 }
 
 func (s UserService) Update(ctx context.Context, userID string, req UserUpdateReq) error {
 
-	m := map[string]any{
-		"name":          req.Name,
-		"mobile":        req.Mobile,
-		"position":      req.Position,
-		"department_id": req.DepartmentID,
+	m := map[string]any{}
+	if req.Name != nil {
+		v := strings.TrimSpace(*req.Name)
+		if v == "" {
+			return errors.New("姓名不能为空")
+		}
+		m["name"] = v
+	}
+	if req.Mobile != nil {
+		m["mobile"] = strings.TrimSpace(*req.Mobile)
+	}
+	if req.Email != nil {
+		v := strings.TrimSpace(*req.Email)
+		if v != "" && !strings.Contains(v, "@") {
+			return errors.New("邮箱格式不正确")
+		}
+		m["email"] = v
+	}
+	if req.Position != nil {
+		m["position"] = strings.TrimSpace(*req.Position)
+	}
+	if req.Avatar != nil {
+		m["avatar"] = *req.Avatar
+	}
+	if req.DepartmentID != "" {
+		m["department_id"] = req.DepartmentID
 	}
 	if req.RoleID != "" {
-		m["role_id"] = req.RoleID
+		m["role_id"] = resolveRoleID(ctx, req.RoleID)
 	}
 	if req.Status != nil {
 		m["status"] = *req.Status
 	}
 	m = updatesCRM(m, "RoleID", "DepartmentID")
 	return models.MustFor(ctx).Model(&models.User{}).Where("id = ?", userID).Updates(m).Error
+}
+
+// GetCurrent 返回 ctx 中本地用户（user_id）的完整 User 行，供前端 header/个人中心使用。
+func (s UserService) GetCurrent(ctx context.Context) (models.User, error) {
+	uid := identity.UserID(ctx)
+	if uid == "" {
+		return models.User{}, errors.New("missing user identity")
+	}
+	var u models.User
+	if err := models.MustFor(ctx).Where("id = ?", uid).First(&u).Error; err != nil {
+		return models.User{}, err
+	}
+	return u, nil
+}
+
+// UserUpdateProfileReq 自助改资料的入参（PATCH 语义）。
+// 指针字段区分「未传(nil)」vs「清空(*"")」vs「赋值(*"xxx")」。
+// 必填校验：Name 非 nil 时不允许为空串。
+type UserUpdateProfileReq struct {
+	Name     *string `json:"name"`
+	Mobile   *string `json:"mobile"`
+	Email    *string `json:"email"`
+	Position *string `json:"position"`
+	Avatar   *string `json:"avatar"`
+}
+
+// UpdateProfile 自助更新自己的基本资料：name/mobile/email/position/avatar。
+// 禁止修改 username/password/role_id/department_id/status（这些由 crm_user/Update 管理）。
+func (s UserService) UpdateProfile(ctx context.Context, req UserUpdateProfileReq) (models.User, error) {
+	uid := identity.UserID(ctx)
+	tenantID := identity.TenantID(ctx)
+	if uid == "" {
+		return models.User{}, errors.New("missing user identity")
+	}
+	m := map[string]any{}
+	if req.Name != nil {
+		v := strings.TrimSpace(*req.Name)
+		if v == "" {
+			return models.User{}, errors.New("姓名不能为��")
+		}
+		m["name"] = v
+	}
+	if req.Mobile != nil {
+		m["mobile"] = strings.TrimSpace(*req.Mobile)
+	}
+	if req.Email != nil {
+		v := strings.TrimSpace(*req.Email)
+		if v != "" && !strings.Contains(v, "@") {
+			return models.User{}, errors.New("邮箱格式不正确")
+		}
+		m["email"] = v
+	}
+	if req.Position != nil {
+		m["position"] = strings.TrimSpace(*req.Position)
+	}
+	if req.Avatar != nil {
+		m["avatar"] = *req.Avatar
+	}
+	if len(m) == 0 {
+		// 幂等：什么都不改，直接回查
+		return s.GetCurrent(ctx)
+	}
+	if err := models.MustFor(ctx).Model(&models.User{}).
+		Where("id = ? AND tenant_id = ?", uid, tenantID).Updates(m).Error; err != nil {
+		return models.User{}, err
+	}
+	return s.GetCurrent(ctx)
 }
 
 // BindWecom 将本地用户与企微员工绑定（创建或更新 ChannelLink）。
@@ -1074,6 +1202,48 @@ func (s UserService) UnbindWecom(ctx context.Context, userID string) error {
 
 	return models.MustFor(ctx).Where("channel = ? AND entity_type = ? AND entity_id = ?", constants.ChannelWecom, "user", userID).
 		Delete(&models.ChannelLink{}).Error
+}
+
+// ---------- 头像直传（OSS/COS 预签 URL） ----------
+
+// UserStorageService 提供用户/租户侧的存储上传 URL（仅签名，不上传二进制）。
+type UserStorageService struct{}
+
+func NewUserStorage() *UserStorageService { return &UserStorageService{} }
+
+var avatarMimeToExt = map[string]string{
+	"image/png":  "png",
+	"image/jpeg": "jpg",
+	"image/webp": "webp",
+}
+
+// GetAvatarUploadURL 为当前用户返回头像直传的预签 PUT URL。
+// 前端流程：调本接口拿到 upload_url + object_key；PUT 文件到 upload_url；
+// 再调 crm_user/UpdateProfile { avatar: object_key } 落到 User.Avatar。
+func (s UserStorageService) GetAvatarUploadURL(ctx context.Context, mimeType string) (map[string]any, error) {
+	uid := identity.UserID(ctx)
+	tenantID := identity.TenantID(ctx)
+	if uid == "" {
+		return nil, errors.New("missing user identity")
+	}
+	ext, ok := avatarMimeToExt[mimeType]
+	if !ok {
+		return nil, errors.New("仅支持 png/jpeg/webp 图片")
+	}
+	if storage.FileStorage == nil {
+		return nil, errors.New("存储未初始化")
+	}
+	objectKey := fmt.Sprintf("tenants/%s/users/%s/avatar-%d.%s", tenantID, uid, time.Now().Unix(), ext)
+	uploadURL, err := storage.FileStorage.SignURL(objectKey, constants.HTTPPut, 3600)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"upload_url": uploadURL,
+		"object_key": objectKey,
+		"expires_in": 3600,
+		"mime_type":  mimeType,
+	}, nil
 }
 
 // ---------- 密码工具 ----------
@@ -1893,7 +2063,7 @@ func (s CrmOpportunityService) Get(ctx context.Context, id string) (models.CrmOp
 	return o, err
 }
 
-func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID string, ownerUserID string, pager *app.Pager) ([]models.CrmOpportunity, int64, error) {
+func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID string, ownerUserID string, keyword string, pager *app.Pager) ([]models.CrmOpportunity, int64, error) {
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -1908,6 +2078,9 @@ func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID
 	}
 	if ownerUserID != "" {
 		db = db.Where("owner_user_id = ?", ownerUserID)
+	}
+	if kw := strings.TrimSpace(keyword); kw != "" {
+		db = db.Where("title LIKE ?", "%"+kw+"%")
 	}
 	var total int64
 	if err := db.Model(&models.CrmOpportunity{}).Count(&total).Error; err != nil {

@@ -231,12 +231,14 @@ func crmOpportunityWin(ctx context.Context, _, _ string, params json.RawMessage)
 		return nil, err
 	}
 	var req struct {
-		ID string `json:"id"`
+		ID           string  `json:"id"`
+		WonReason    string  `json:"won_reason"`
+		ActualAmount float64 `json:"actual_amount"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmOpportunityExt().Win(ctx, req.ID)
+	return ok, services.NewCrmOpportunityExt().Win(ctx, req.ID, req.WonReason, req.ActualAmount)
 }
 
 func crmOpportunityLose(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
@@ -270,6 +272,19 @@ func crmOpportunityBatchChangeStage(ctx context.Context, _, _ string, params jso
 		return nil, errNeedIdentity
 	}
 	return ok, services.NewCrmOpportunityExt().BatchChangeStage(ctx, req.IDs, req.StageID)
+}
+
+func crmOpportunityReopen(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmOpportunityExt().Reopen(ctx, req.ID)
 }
 
 // ---------- 合同扩展 dispatch handlers ----------
@@ -342,8 +357,8 @@ func crmReceivablesGeneratePlan(ctx context.Context, _, _ string, params json.Ra
 		return nil, err
 	}
 	var req struct {
-		OrderID  string                  `json:"order_id"`
-		Periods  []services.PlanPeriod   `json:"periods"`
+		OrderID string                `json:"order_id"`
+		Periods []services.PlanPeriod `json:"periods"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -471,8 +486,8 @@ func crmQuoteBatchTransfer(ctx context.Context, _, _ string, params json.RawMess
 		return nil, err
 	}
 	var req struct {
-		IDs     []string `json:"ids"`
-		ToUserID string  `json:"to_user_id"`
+		IDs      []string `json:"ids"`
+		ToUserID string   `json:"to_user_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err

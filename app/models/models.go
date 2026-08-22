@@ -232,6 +232,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmAutoAllocation{},
 		&CrmSeasType{},
 		&CrmCustomerSetting{},
+		&CrmLeadSource{},
+		&CrmReasonDict{},
 		// 财务扩展
 		&CrmIncomeCategory{},
 		&CrmOtherIncome{},

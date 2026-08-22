@@ -575,6 +575,14 @@ func init() {
 	Reg.Register("crm_seas_type", "SetDefault", crmSeasTypeSetDefault)
 	Reg.Register("crm_customer_setting", "Get", crmCustomerSettingGet)
 	Reg.Register("crm_customer_setting", "Save", crmCustomerSettingSave)
+	Reg.Register("crm_lead_source", "List", crmLeadSourceList)
+	Reg.Register("crm_lead_source", "Create", crmLeadSourceCreate)
+	Reg.Register("crm_lead_source", "Update", crmLeadSourceUpdate)
+	Reg.Register("crm_lead_source", "Delete", crmLeadSourceDelete)
+	Reg.Register("crm_reason_dict", "List", crmReasonDictList)
+	Reg.Register("crm_reason_dict", "Create", crmReasonDictCreate)
+	Reg.Register("crm_reason_dict", "Update", crmReasonDictUpdate)
+	Reg.Register("crm_reason_dict", "Delete", crmReasonDictDelete)
 
 	// 客户池扩展
 	Reg.Register("crm_customer", "Lock", crmCustomerLock)
@@ -719,6 +727,7 @@ func init() {
 	Reg.Register("crm_opportunity", "Win", crmOpportunityWin)
 	Reg.Register("crm_opportunity", "Lose", crmOpportunityLose)
 	Reg.Register("crm_opportunity", "BatchChangeStage", crmOpportunityBatchChangeStage)
+	Reg.Register("crm_opportunity", "Reopen", crmOpportunityReopen)
 
 	// ---- 合同扩展（作废 / 变更 / 关联项目工单）----
 	Reg.Register("crm_order", "Revoke", crmOrderRevoke)
@@ -2061,13 +2070,14 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 			Status      string `json:"status"`
 			StageID     string `json:"stage_id"`
 			OwnerUserID string `json:"owner_user_id"`
+			Keyword     string `json:"keyword"`
 		} `json:"query"`
 		Pager *app.Pager `json:"pager"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Pager)
+	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Keyword, req.Pager)
 	if err != nil {
 		return nil, err
 	}

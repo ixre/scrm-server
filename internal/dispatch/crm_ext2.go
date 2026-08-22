@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"core/app/models"
 	"core/app/services"
@@ -569,4 +570,133 @@ func crmCustomerSettingSave(ctx context.Context, _, _ string, params json.RawMes
 		return nil, err
 	}
 	return ok, services.NewCrmCustomerSetting().Save(ctx, &cs)
+}
+
+// ---------- 线索来源 ----------
+
+func crmLeadSourceList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	items, err := services.NewCrmLeadSource().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, int64(len(items))), nil
+}
+
+func crmLeadSourceCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var src models.CrmLeadSource
+	if err := Bind(params, &src); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmLeadSource().Create(ctx, &src)
+}
+
+func crmLeadSourceUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var src models.CrmLeadSource
+	if err := Bind(params, &src); err != nil {
+		return nil, err
+	}
+	// id 在顶层
+	var idHolder struct {
+		ID string `json:"id"`
+	}
+	_ = Bind(params, &idHolder)
+	if idHolder.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return ok, services.NewCrmLeadSource().Update(ctx, idHolder.ID, &src)
+}
+
+func crmLeadSourceDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if len(req.IDs) == 0 {
+		return nil, errNeedIdentity
+	}
+	_, e := services.NewCrmLeadSource().Delete(ctx, req.IDs)
+	return ok, e
+}
+
+// ---------- 赢单/输单原因字典 ----------
+
+func crmReasonDictList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		Query struct {
+			Category string `json:"category"`
+		} `json:"query"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	items, err := services.NewCrmReasonDict().List(ctx, req.Query.Category)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, int64(len(items))), nil
+}
+
+func crmReasonDictCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var item models.CrmReasonDict
+	if err := Bind(params, &item); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmReasonDict().Create(ctx, &item)
+}
+
+func crmReasonDictUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	// 前端发送 { id, name, sort, enabled }，直接绑定到 CrmReasonDict
+	var item models.CrmReasonDict
+	if err := Bind(params, &item); err != nil {
+		return nil, err
+	}
+	// id 在顶层
+	var idHolder struct {
+		ID string `json:"id"`
+	}
+	_ = Bind(params, &idHolder)
+	if idHolder.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return ok, services.NewCrmReasonDict().Update(ctx, idHolder.ID, &item)
+}
+
+func crmReasonDictDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if len(req.IDs) == 0 {
+		return nil, errNeedIdentity
+	}
+	_, e := services.NewCrmReasonDict().Delete(ctx, req.IDs)
+	return ok, e
 }

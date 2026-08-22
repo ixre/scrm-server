@@ -196,6 +196,8 @@ type CrmOpportunity struct {
 	Competitor        string                     `gorm:"type:varchar(255);comment:竞争对手" json:"competitor"`
 	NextStep          string                     `gorm:"type:varchar(512);comment:下一步行动" json:"next_step"`
 	LostReason        string                     `gorm:"type:varchar(512);comment:输单原因" json:"lost_reason"`
+	WonReason         string                     `gorm:"type:varchar(512);comment:赢单原因" json:"won_reason"`
+	ActualAmount      float64                    `gorm:"type:decimal(16,2);comment:实际成交金额" json:"actual_amount"`
 	WonAt             *time.Time                 `gorm:"comment:赢单时间" json:"won_at"`
 	LostAt            *time.Time                 `gorm:"comment:输单时间" json:"lost_at"`
 }
@@ -1555,6 +1557,28 @@ type CrmAutoAllocation struct {
 	TargetIDs  constants.StringArrayField `gorm:"type:jsonb;comment:目标用户ID列表" json:"target_ids"`
 	IsEnabled  bool                       `gorm:"type:bool;default:true;comment:是否启用" json:"is_enabled"`
 	Priority   int                        `gorm:"type:int;comment:优先级" json:"priority"`
+}
+
+// CrmLeadSource 线索来源选项（租户级，管理员在设置页维护）。
+type CrmLeadSource struct {
+	Model
+	Timestamp
+	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Name     string `gorm:"type:varchar(64);comment:来源名称" json:"name"`
+	Sort     int    `gorm:"type:int;default:0;comment:排序(越小越靠前)" json:"sort"`
+	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
+}
+
+// CrmReasonDict 赢单/输单原因字典（租户级，管理员在设置页维护）。
+// Category: "win" 赢单原因 / "lose" 输单原因。
+type CrmReasonDict struct {
+	Model
+	Timestamp
+	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Category string `gorm:"type:varchar(16);index;comment:win/lose" json:"category"`
+	Name     string `gorm:"type:varchar(64);comment:原因名称" json:"name"`
+	Sort     int    `gorm:"type:int;default:0;comment:排序(越小越靠前)" json:"sort"`
+	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
 }
 
 // CrmSeasType 公海类型。

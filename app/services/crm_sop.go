@@ -239,7 +239,8 @@ func (s CrmSopService) executeTask(task models.CrmSopTask) {
 			Type:          "other",
 			Content:       fmt.Sprintf("[SOP自动] %s", task.ActionContent),
 		}
-		if err := createCRM(models.DB, &followup, "CustomerID", "OpportunityID", "UserID"); err != nil {
+		// ContactID 也可能为空；一并 omit 避免写入 bigint 列空串触发 22P02。
+		if err := createCRM(models.DB, &followup, "CustomerID", "OpportunityID", "UserID", "ContactID"); err != nil {
 			log.Sugar.Errorw("sop execute: create followup failed", "err", err, "task", task.ID)
 			return
 		}
