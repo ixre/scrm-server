@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 
@@ -15,12 +15,12 @@ import (
 
 // BatchExecReq 批量操作执行入参。
 type BatchExecReq struct {
-	OpType     string   `json:"op_type"`      // change/seas/lock/unlock/blacklist/remove_blacklist/edit_field
-	EntityType string   `json:"entity_type"`  // customer/lead
-	EntityIDs  []string `json:"entity_ids"`   // 实体ID列表
-	ToUserID   string   `json:"to_user_id"`   // 转移目标用户ID（op_type=change）
-	FieldKey   string   `json:"field_key"`    // 字段名（op_type=edit_field）
-	FieldValue string   `json:"field_value"`  // 字段值（op_type=edit_field）
+	OpType     string   `json:"op_type"`     // change/seas/lock/unlock/blacklist/remove_blacklist/edit_field
+	EntityType string   `json:"entity_type"` // customer/lead
+	EntityIDs  []string `json:"entity_ids"`  // 实体ID列表
+	ToUserID   string   `json:"to_user_id"`  // 转移目标用户ID（op_type=change）
+	FieldKey   string   `json:"field_key"`   // 字段名（op_type=edit_field）
+	FieldValue string   `json:"field_value"` // 字段值（op_type=edit_field）
 }
 
 type CrmBatchService struct{}
@@ -30,7 +30,6 @@ func NewCrmBatch() *CrmBatchService { return &CrmBatchService{} }
 // Execute 执行批量操作并记录。
 func (s CrmBatchService) Execute(ctx context.Context, userID string, req BatchExecReq) (*models.CrmBatchOp, error) {
 	tenantID := identity.TenantID(ctx)
-
 
 	if len(req.EntityIDs) == 0 {
 		return nil, errors.New("entity_ids 不能为空")
@@ -69,7 +68,6 @@ func (s CrmBatchService) Execute(ctx context.Context, userID string, req BatchEx
 
 // dispatch 根据 op_type 调用对应 service 方法，返回 (成功数, 失败数, 备注, error)。
 func (s CrmBatchService) dispatch(ctx context.Context, userID string, req BatchExecReq) (int, int, string, error) {
-
 
 	total := len(req.EntityIDs)
 	remark := ""
@@ -126,7 +124,17 @@ func (s CrmBatchService) dispatch(ctx context.Context, userID string, req BatchE
 }
 
 // batchUpdateField 批量更新实体某字段（仅支持 customer/lead）。
+// 字段白名单：排除状态/关联/转化等关键字段，防止批量操作破坏状态一致性。
 func batchUpdateField(ctx context.Context, entityType string, ids []string, fieldKey, fieldValue string) (int64, error) {
+	// 允许批量修改的字段白名单。
+	allowedFields := map[string]bool{
+		"name": true, "mobile": true, "email": true, "company": true, "industry": true,
+		"level": true, "address": true, "remark": true, "source": true, "tags": true,
+		"position": true, "gender": true, "birthday": true, "next_followup_at": true,
+	}
+	if !allowedFields[fieldKey] {
+		return 0, errors.New("不支持批量修改字段: " + fieldKey)
+	}
 	switch entityType {
 	case "customer":
 		res := models.MustFor(ctx).Model(&models.CrmCustomer{}).

@@ -1789,12 +1789,23 @@ func (s CrmLeadService) Update(ctx context.Context, id string, req models.CrmLea
 
 	req.ID = id
 	req.TenantID = tenantID
+
+	// 已转化线索不允许修改状态（防止状态被改回 new/contacted 导致流程断裂）
+	var existing models.CrmLead
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
+		return req, err
+	}
+	statusVal := req.Status
+	if existing.ConvertCustomerID != "" || existing.Status == "qualified" {
+		statusVal = existing.Status
+	}
+
 	err := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Select("customer_id", "owner_user_id", "title", "company", "name", "mobile", "source", "status", "remark").
 		Updates(updatesCRM(map[string]any{
 			"customer_id": req.CustomerID, "owner_user_id": req.OwnerUserID, "title": req.Title,
 			"company": req.Company, "name": req.Name, "mobile": req.Mobile, "source": req.Source,
-			"status": req.Status, "remark": req.Remark,
+			"status": statusVal, "remark": req.Remark,
 		}, "customer_id", "owner_user_id")).Error
 	if err != nil {
 		log.Sugar.Errorw("crm lead update failed", "err", err)
@@ -1983,8 +1994,17 @@ func (s CrmOpportunityService) Update(ctx context.Context, id string, req models
 
 	req.ID = id
 	req.TenantID = tenantID
-	// stage 是状态的唯一真相：改 stage 时按目标阶段的终态推导 status，避免与 MoveStage 不一致。
-	if req.StageID != "" {
+
+	// 已关闭（赢单/输单）商机不允许通过编辑改 status/stage_id，必须用 Reopen 恢复。
+	var existing models.CrmOpportunity
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
+		return req, err
+	}
+	if existing.Status == "won" || existing.Status == "lost" {
+		req.Status = existing.Status
+		req.StageID = existing.StageID
+	} else if req.StageID != "" {
+		// stage 是状态的唯一真相：改 stage 时按目标阶段的终态推导 status，避免与 MoveStage 不一致。
 		var stage models.CrmPipelineStage
 		if err := models.MustFor(ctx).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
 			switch {
@@ -2270,12 +2290,23 @@ func (s CrmOrderService) Update(ctx context.Context, id string, req models.CrmOr
 
 	req.ID = id
 	req.TenantID = tenantID
+	// 已作废/已完成的订单不允许通过编辑改 status/pay_status，必须用专用操作。
+	var existing models.CrmOrder
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
+		return req, err
+	}
+	statusVal := req.Status
+	payStatusVal := req.PayStatus
+	if existing.Status == "cancelled" || existing.Status == "completed" {
+		statusVal = existing.Status
+		payStatusVal = existing.PayStatus
+	}
 	err := models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Select("customer_id", "opportunity_id", "user_id", "title", "amount", "paid_amount", "status", "pay_status", "signed_at", "remark").
 		Updates(updatesCRM(map[string]any{
 			"customer_id": req.CustomerID, "opportunity_id": req.OpportunityID, "user_id": req.UserID,
 			"title": req.Title, "amount": req.Amount, "paid_amount": req.PaidAmount,
-			"status": req.Status, "pay_status": req.PayStatus,
+			"status": statusVal, "pay_status": payStatusVal,
 			"signed_at": req.SignedAt, "remark": req.Remark,
 		}, "customer_id", "opportunity_id", "user_id")).Error
 	if err != nil {

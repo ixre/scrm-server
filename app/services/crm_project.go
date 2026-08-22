@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 
@@ -30,7 +30,6 @@ func NewCrmProject() *CrmProjectService { return &CrmProjectService{} }
 func (s CrmProjectService) Create(ctx context.Context, p *models.CrmProject) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if p == nil {
 		return errors.New("项目不能为空")
 	}
@@ -55,7 +54,6 @@ func (s CrmProjectService) Create(ctx context.Context, p *models.CrmProject) err
 // Update 更新项目。
 func (s CrmProjectService) Update(ctx context.Context, id string, p *models.CrmProject) error {
 
-
 	if p == nil {
 		return errors.New("项目不能为空")
 	}
@@ -68,6 +66,15 @@ func (s CrmProjectService) Update(ctx context.Context, id string, p *models.CrmP
 	if p.Progress > 100 {
 		p.Progress = 100
 	}
+	// 已完成/已取消的项目不允许通过编辑改 status，必须用 ChangeStatus 操作。
+	var existing models.CrmProject
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
+		return errors.New("项目不存在")
+	}
+	statusVal := p.Status
+	if existing.Status == "completed" || existing.Status == "cancelled" {
+		statusVal = existing.Status
+	}
 	m := map[string]any{
 		"name":        p.Name,
 		"type":        p.Type,
@@ -77,12 +84,12 @@ func (s CrmProjectService) Update(ctx context.Context, id string, p *models.CrmP
 		"amount":      p.Amount,
 		"start_date":  p.StartDate,
 		"end_date":    p.EndDate,
-		"status":      p.Status,
+		"status":      statusVal,
 		"progress":    p.Progress,
 		"remark":      p.Remark,
 	}
 	updatesCRM(m, "customer_id", "order_id", "manager_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -91,20 +98,18 @@ func (s CrmProjectService) Update(ctx context.Context, id string, p *models.CrmP
 // Delete 删除项目。
 func (s CrmProjectService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmProject{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmProject{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 获取项目详情。
 func (s CrmProjectService) Get(ctx context.Context, id string) (*models.CrmProject, error) {
 
-
 	var item models.CrmProject
-	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +118,6 @@ func (s CrmProjectService) Get(ctx context.Context, id string) (*models.CrmProje
 
 // Query 分页查询项目。
 func (s CrmProjectService) Query(ctx context.Context, req ProjectQueryReq) ([]models.CrmProject, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -145,11 +149,10 @@ func (s CrmProjectService) Query(ctx context.Context, req ProjectQueryReq) ([]mo
 func (s CrmProjectService) ChangeStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if status == "" {
 		return errors.New("状态不能为空")
 	}
-	return models.DB.Model(&models.CrmProject{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+	return models.DB.Model(&models.CrmProject{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Update("status", status).Error
 }
 
@@ -163,7 +166,6 @@ func NewCrmProjectTask() *CrmProjectTaskService { return &CrmProjectTaskService{
 // Create 创建项目任务。
 func (s CrmProjectTaskService) Create(ctx context.Context, t *models.CrmProjectTask) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if t == nil {
 		return errors.New("任务不能为空")
@@ -189,7 +191,6 @@ func (s CrmProjectTaskService) Create(ctx context.Context, t *models.CrmProjectT
 // Update 更新项目任务。
 func (s CrmProjectTaskService) Update(ctx context.Context, id string, t *models.CrmProjectTask) error {
 
-
 	if t == nil {
 		return errors.New("任务不能为空")
 	}
@@ -205,7 +206,7 @@ func (s CrmProjectTaskService) Update(ctx context.Context, id string, t *models.
 		"sort":        t.Sort,
 	}
 	updatesCRM(m, "assignee_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -214,20 +215,18 @@ func (s CrmProjectTaskService) Update(ctx context.Context, id string, t *models.
 // Delete 删除项目任务。
 func (s CrmProjectTaskService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmProjectTask{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmProjectTask{})
 	return res.RowsAffected, res.Error
 }
 
 // ListByProject 按项目列出任务。
 func (s CrmProjectTaskService) ListByProject(ctx context.Context, projectID string) ([]models.CrmProjectTask, error) {
 
-
 	var items []models.CrmProjectTask
-	err := models.MustFor(ctx).Where("project_id = ?",  projectID).
+	err := models.MustFor(ctx).Where("project_id = ?", projectID).
 		Order("sort asc, id desc").Find(&items).Error
 	return items, err
 }
@@ -236,10 +235,9 @@ func (s CrmProjectTaskService) ListByProject(ctx context.Context, projectID stri
 func (s CrmProjectTaskService) UpdateStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if status == "" {
 		return errors.New("状态不能为空")
 	}
-	return models.DB.Model(&models.CrmProjectTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+	return models.DB.Model(&models.CrmProjectTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Update("status", status).Error
 }

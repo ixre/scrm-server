@@ -36,8 +36,16 @@ func (s CrmOpportunityExtService) ChangeStage(ctx context.Context, id, stageID s
 	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
 		return errors.New("阶段不存在")
 	}
+	// 根据目标阶段推导 status，与 MoveStage 保持一致。
+	newStatus := "open"
+	switch {
+	case stage.IsWon:
+		newStatus = "won"
+	case stage.IsLost:
+		newStatus = "lost"
+	}
 	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Updates(map[string]any{"stage_id": stageID, "probability": stage.Probability})
+		Updates(map[string]any{"stage_id": stageID, "probability": stage.Probability, "status": newStatus})
 	if res.Error != nil {
 		log.Sugar.Errorw("opportunity change stage failed", "err", res.Error)
 		return res.Error
@@ -136,7 +144,7 @@ func formatFloat(v float64) string {
 	return strconv.FormatFloat(v, 'f', 2, 64)
 }
 
-// BatchChangeStage 批量改阶段。
+// BatchChangeStage 批量改阶段。根据目标阶段自动推导 status，与 MoveStage/ChangeStage 保持一致。
 func (s CrmOpportunityExtService) BatchChangeStage(ctx context.Context, ids []string, stageID string) error {
 	tenantID := identity.TenantID(ctx)
 
@@ -150,8 +158,16 @@ func (s CrmOpportunityExtService) BatchChangeStage(ctx context.Context, ids []st
 	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
 		return errors.New("阶段不存在")
 	}
+	// 根据目标阶段推导 status。
+	newStatus := "open"
+	switch {
+	case stage.IsWon:
+		newStatus = "won"
+	case stage.IsLost:
+		newStatus = "lost"
+	}
 	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Updates(map[string]any{"stage_id": stageID, "probability": stage.Probability})
+		Updates(map[string]any{"stage_id": stageID, "probability": stage.Probability, "status": newStatus})
 	if res.Error != nil {
 		log.Sugar.Errorw("opportunity batch change stage failed", "err", res.Error)
 	}

@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 
@@ -34,7 +34,6 @@ func NewCrmAccount() *CrmAccountService { return &CrmAccountService{} }
 func (s CrmAccountService) Create(ctx context.Context, a *models.CrmAccount) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if a == nil {
 		return errors.New("账户不能为空")
 	}
@@ -53,7 +52,6 @@ func (s CrmAccountService) Create(ctx context.Context, a *models.CrmAccount) err
 // Update 更新财务账户。
 func (s CrmAccountService) Update(ctx context.Context, id string, a *models.CrmAccount) error {
 
-
 	if a == nil {
 		return errors.New("账户不能为空")
 	}
@@ -67,7 +65,7 @@ func (s CrmAccountService) Update(ctx context.Context, id string, a *models.CrmA
 		"status": a.Status,
 		"remark": a.Remark,
 	}
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -76,20 +74,18 @@ func (s CrmAccountService) Update(ctx context.Context, id string, a *models.CrmA
 // Delete 删除财务账户。
 func (s CrmAccountService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmAccount{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmAccount{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 获取财务账户详情。
 func (s CrmAccountService) Get(ctx context.Context, id string) (*models.CrmAccount, error) {
 
-
 	var item models.CrmAccount
-	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +94,6 @@ func (s CrmAccountService) Get(ctx context.Context, id string) (*models.CrmAccou
 
 // Query 分页查询财务账户。
 func (s CrmAccountService) Query(ctx context.Context, req AccountQueryReq) ([]models.CrmAccount, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -146,7 +141,6 @@ func NewCrmFinanceRecord() *CrmFinanceRecordService { return &CrmFinanceRecordSe
 func (s CrmFinanceRecordService) Create(ctx context.Context, r *models.CrmFinanceRecord) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if r == nil {
 		return errors.New("收支记录不能为空")
 	}
@@ -181,27 +175,35 @@ func (s CrmFinanceRecordService) Create(ctx context.Context, r *models.CrmFinanc
 // Update 更新财务收支记录（仅允许 pending 状态编辑；已确认记录需先作废再重建）。
 func (s CrmFinanceRecordService) Update(ctx context.Context, id string, r *models.CrmFinanceRecord) error {
 
-
 	if r == nil {
 		return errors.New("收支记录不能为空")
 	}
 	if r.Amount <= 0 {
 		return errors.New("金额必须大于 0")
 	}
+	// 已作废的记录不允许通过编辑改 status。
+	var existing models.CrmFinanceRecord
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
+		return errors.New("收支记录不存在")
+	}
+	statusVal := r.Status
+	if existing.Status == "void" {
+		statusVal = existing.Status
+	}
 	m := map[string]any{
-		"type":         r.Type,
-		"category":     r.Category,
-		"account_id":   r.AccountID,
+		"type":          r.Type,
+		"category":      r.Category,
+		"account_id":    r.AccountID,
 		"to_account_id": r.ToAccountID,
-		"amount":       r.Amount,
-		"occur_date":   r.OccurDate,
-		"order_id":     r.OrderID,
-		"customer_id":  r.CustomerID,
-		"status":       r.Status,
-		"remark":       r.Remark,
+		"amount":        r.Amount,
+		"occur_date":    r.OccurDate,
+		"order_id":      r.OrderID,
+		"customer_id":   r.CustomerID,
+		"status":        statusVal,
+		"remark":        r.Remark,
 	}
 	updatesCRM(m, "account_id", "to_account_id", "order_id", "customer_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -210,17 +212,15 @@ func (s CrmFinanceRecordService) Update(ctx context.Context, id string, r *model
 // Delete 删除财务收支记录。
 func (s CrmFinanceRecordService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmFinanceRecord{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmFinanceRecord{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询财务收支记录。
 func (s CrmFinanceRecordService) Query(ctx context.Context, req FinanceRecordQueryReq) ([]models.CrmFinanceRecord, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -252,10 +252,9 @@ func (s CrmFinanceRecordService) Query(ctx context.Context, req FinanceRecordQue
 func (s CrmFinanceRecordService) Void(ctx context.Context, id string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmFinanceRecord
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
+		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
 			return err
 		}
 		if r.Status == "void" {
@@ -267,7 +266,7 @@ func (s CrmFinanceRecordService) Void(ctx context.Context, id string) error {
 				return err
 			}
 		}
-		return tx.Model(&models.CrmFinanceRecord{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+		return tx.Model(&models.CrmFinanceRecord{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 			Update("status", "void").Error
 	})
 }
@@ -276,17 +275,17 @@ func (s CrmFinanceRecordService) Void(ctx context.Context, id string) error {
 func applyFinanceEffect(tx *gorm.DB, tenantID string, r *models.CrmFinanceRecord) error {
 	switch r.Type {
 	case "income":
-		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.AccountID).
+		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.AccountID).
 			UpdateColumn("balance", gorm.Expr("balance + ?", r.Amount)).Error
 	case "expense":
-		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.AccountID).
+		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.AccountID).
 			UpdateColumn("balance", gorm.Expr("balance - ?", r.Amount)).Error
 	case "transfer":
-		if err := tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.AccountID).
+		if err := tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.AccountID).
 			UpdateColumn("balance", gorm.Expr("balance - ?", r.Amount)).Error; err != nil {
 			return err
 		}
-		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.ToAccountID).
+		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.ToAccountID).
 			UpdateColumn("balance", gorm.Expr("balance + ?", r.Amount)).Error
 	}
 	return nil
@@ -296,17 +295,17 @@ func applyFinanceEffect(tx *gorm.DB, tenantID string, r *models.CrmFinanceRecord
 func reverseFinanceEffect(tx *gorm.DB, tenantID string, r *models.CrmFinanceRecord) error {
 	switch r.Type {
 	case "income":
-		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.AccountID).
+		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.AccountID).
 			UpdateColumn("balance", gorm.Expr("balance - ?", r.Amount)).Error
 	case "expense":
-		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.AccountID).
+		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.AccountID).
 			UpdateColumn("balance", gorm.Expr("balance + ?", r.Amount)).Error
 	case "transfer":
-		if err := tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.AccountID).
+		if err := tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.AccountID).
 			UpdateColumn("balance", gorm.Expr("balance + ?", r.Amount)).Error; err != nil {
 			return err
 		}
-		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.ToAccountID).
+		return tx.Model(&models.CrmAccount{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.ToAccountID).
 			UpdateColumn("balance", gorm.Expr("balance - ?", r.Amount)).Error
 	}
 	return nil
@@ -332,7 +331,6 @@ func NewCrmInvoice() *CrmInvoiceService { return &CrmInvoiceService{} }
 func (s CrmInvoiceService) Create(ctx context.Context, i *models.CrmInvoice) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if i == nil {
 		return errors.New("发票不能为空")
 	}
@@ -354,12 +352,20 @@ func (s CrmInvoiceService) Create(ctx context.Context, i *models.CrmInvoice) err
 // Update 更新发票。
 func (s CrmInvoiceService) Update(ctx context.Context, id string, i *models.CrmInvoice) error {
 
-
 	if i == nil {
 		return errors.New("发票不能为空")
 	}
 	if strings.TrimSpace(i.InvoiceNo) == "" {
 		return errors.New("发票号不能为空")
+	}
+	// 已作废的发票不允许通过编辑改 status。
+	var existing models.CrmInvoice
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
+		return errors.New("发票不存在")
+	}
+	statusVal := i.Status
+	if existing.Status == "void" {
+		statusVal = existing.Status
 	}
 	m := map[string]any{
 		"invoice_no":  i.InvoiceNo,
@@ -371,10 +377,10 @@ func (s CrmInvoiceService) Update(ctx context.Context, id string, i *models.CrmI
 		"title":       i.Title,
 		"tax_no":      i.TaxNo,
 		"issue_date":  i.IssueDate,
-		"status":      i.Status,
+		"status":      statusVal,
 	}
 	updatesCRM(m, "order_id", "customer_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -383,17 +389,15 @@ func (s CrmInvoiceService) Update(ctx context.Context, id string, i *models.CrmI
 // Delete 删除发票。
 func (s CrmInvoiceService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmInvoice{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmInvoice{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询发票。
 func (s CrmInvoiceService) Query(ctx context.Context, req InvoiceQueryReq) ([]models.CrmInvoice, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -425,14 +429,13 @@ func (s CrmInvoiceService) Query(ctx context.Context, req InvoiceQueryReq) ([]mo
 func (s CrmInvoiceService) Void(ctx context.Context, id string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	var i models.CrmInvoice
-	if err := models.MustFor(ctx).Where("id = ?",  id).First(&i).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).First(&i).Error; err != nil {
 		return err
 	}
 	if i.Status == "void" {
 		return nil
 	}
-	return models.DB.Model(&models.CrmInvoice{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+	return models.DB.Model(&models.CrmInvoice{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Update("status", "void").Error
 }
