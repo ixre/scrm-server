@@ -26,6 +26,7 @@ func init() {
 	Reg.Register("crm_tenant", "List", crmTenantList)
 	Reg.Register("crm_tenant", "ListPaged", crmTenantListPaged)
 	Reg.Register("crm_tenant", "GetDetail", crmTenantGetDetail)
+	Reg.Register("crm_tenant", "GetCurrentInfo", crmTenantGetCurrentInfo)
 	Reg.Register("crm_tenant", "ListUsers", crmTenantListUsers)
 	Reg.Register("crm_tenant", "ResetAdminPassword", crmTenantResetAdminPassword)
 	Reg.Register("crm_tenant", "Renew", crmTenantRenew)
@@ -965,6 +966,17 @@ func crmTenantGetDetail(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, errors.New("id 不能为空")
 	}
 	return services.NewTenant().GetDetail(req.ID)
+}
+
+// crmTenantGetCurrentInfo 租户端：当前登录用户查询本租户的套餐/到期信息 + 自己的角色。
+// 任何租户用户均可调用（前端按 role_code 控制是否展示套餐管理入口）。
+func crmTenantGetCurrentInfo(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	tenantID, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	userID := identity.UserID(ctx)
+	return services.NewTenant().GetCurrentInfo(tenantID, userID)
 }
 
 func crmTenantListUsers(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {

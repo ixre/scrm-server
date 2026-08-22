@@ -29,6 +29,7 @@ type Tenant struct {
 	Industry     string     `gorm:"type:varchar(64);comment:所属行业" json:"industry"`
 	Logo         string     `gorm:"type:varchar(255);comment:企业Logo URL" json:"logo"`
 	MaxUsers     int        `gorm:"type:int;default:0;comment:最大用户数(0=不限)" json:"max_users"`
+	MaxCustomers int        `gorm:"type:int;default:0;comment:最大客户数(0=不限)" json:"max_customers"`
 }
 
 // PlatformAdmin 平台超管（独立于租户，管理所有租户）。

@@ -365,6 +365,19 @@ func generateQrCodeBase64(content string) (string, error) {
 }
 
 // Create 创建订单（租户端调用）
+// checkSeatLimit 检查降级兼容性：如果新套餐的 MaxUsers > 0 且小于当前用户数，返回错误。
+// MaxUsers=0 表示不限坐席，始终放行。
+func checkSeatLimit(tenantID string, plan models.Plan) error {
+	if plan.MaxUsers > 0 {
+		var count int64
+		models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", tenantID).Count(&count)
+		if int(count) > plan.MaxUsers {
+			return fmt.Errorf("当前已有 %d 个用户，超过「%s」套餐的坐席上限(%d)，请先删除或停用多余用户再切换套餐", count, plan.Name, plan.MaxUsers)
+		}
+	}
+	return nil
+}
+
 func (s TenantOrderService) Create(tenantID string, req OrderCreateReq) (OrderCreateResult, error) {
 	var result OrderCreateResult
 	if tenantID == "" {
@@ -383,6 +396,14 @@ func (s TenantOrderService) Create(tenantID string, req OrderCreateReq) (OrderCr
 	var plan models.Plan
 	if err := models.DB.Where("id = ? AND status = 1", req.PlanID).First(&plan).Error; err != nil {
 		return result, errors.New("套餐不存在或已停用")
+	}
+
+	// 降级坐席数检查：新购/升级时，如果新套餐坐席数 < 当前用户数，阻止下单。
+	// 续费同套餐不拦截（max_users 不变）。
+	if req.Type == models.OrderTypePurchase || req.Type == models.OrderTypeUpgrade {
+		if err := checkSeatLimit(tenantID, plan); err != nil {
+			return result, err
+		}
 	}
 
 	// 免费/试用套餐允许 payment_method=none，付费套餐必须选 wechat/alipay
@@ -437,7 +458,9 @@ func (s TenantOrderService) Create(tenantID string, req OrderCreateReq) (OrderCr
 			return result, err
 		}
 		// 直接更新租户套餐和到期时间
-		s.applyOrderToTenant(order, plan)
+		if err := s.applyOrderToTenant(order, plan); err != nil {
+			return result, err
+		}
 		result.Order = order
 		return result, nil
 	}
@@ -461,37 +484,43 @@ func (s TenantOrderService) Create(tenantID string, req OrderCreateReq) (OrderCr
 	return result, nil
 }
 
-// applyOrderToTenant 将订单效果应用到租户（更新套餐和到期时间）。
-func (s TenantOrderService) applyOrderToTenant(order models.TenantOrder, plan models.Plan) {
+// applyOrderToTenant 将订单效果应用到租户（更新套餐、到期时间、坐席上限）。
+func (s TenantOrderService) applyOrderToTenant(order models.TenantOrder, plan models.Plan) error {
 	var tenant models.Tenant
 	if err := models.DB.Where("id = ?", order.TenantID).First(&tenant).Error; err != nil {
-		return
+		return fmt.Errorf("租户不存在: %s", order.TenantID)
 	}
 	// 试用套餐：按 trial_days 设置到期，从当前时间开始
 	if plan.IsTrial == 1 && plan.TrialDays > 0 {
 		base := time.Now().AddDate(0, 0, plan.TrialDays)
-		models.DB.Model(&tenant).Updates(map[string]any{
-			"plan":      order.PlanCode,
-			"expire_at": &base,
+		models.DB.Model(&tenant).Where("id = ?", tenant.ID).Updates(map[string]any{
+			"plan":          order.PlanCode,
+			"expire_at":     &base,
+			"max_users":     plan.MaxUsers,
+			"max_customers": plan.MaxCustomers,
 		})
-		return
+		return nil
 	}
 	// 永久免费套餐（free_days=0）：到期时间设为 NULL（永久）
 	if plan.IsFree == 1 && plan.FreeDays == 0 {
-		models.DB.Model(&tenant).Updates(map[string]any{
-			"plan":      order.PlanCode,
-			"expire_at": nil,
+		models.DB.Model(&tenant).Where("id = ?", tenant.ID).Updates(map[string]any{
+			"plan":          order.PlanCode,
+			"expire_at":     nil,
+			"max_users":     plan.MaxUsers,
+			"max_customers": plan.MaxCustomers,
 		})
-		return
+		return nil
 	}
 	// 限期免费套餐（free_days>0）：按 free_days 设置到期
 	if plan.IsFree == 1 && plan.FreeDays > 0 {
 		base := time.Now().AddDate(0, 0, plan.FreeDays)
-		models.DB.Model(&tenant).Updates(map[string]any{
-			"plan":      order.PlanCode,
-			"expire_at": &base,
+		models.DB.Model(&tenant).Where("id = ?", tenant.ID).Updates(map[string]any{
+			"plan":          order.PlanCode,
+			"expire_at":     &base,
+			"max_users":     plan.MaxUsers,
+			"max_customers": plan.MaxCustomers,
 		})
-		return
+		return nil
 	}
 	// 付费套餐：按计费周期和年数延长
 	base := time.Now()
@@ -505,10 +534,13 @@ func (s TenantOrderService) applyOrderToTenant(order models.TenantOrder, plan mo
 	case models.BillingYearly:
 		base = base.AddDate(totalYears, 0, 0)
 	}
-	models.DB.Model(&tenant).Updates(map[string]any{
-		"plan":      order.PlanCode,
-		"expire_at": &base,
+	models.DB.Model(&tenant).Where("id = ?", tenant.ID).Updates(map[string]any{
+		"plan":          order.PlanCode,
+		"expire_at":     &base,
+		"max_users":     plan.MaxUsers,
+		"max_customers": plan.MaxCustomers,
 	})
+	return nil
 }
 
 // ListOrders 列出租户订单
@@ -570,7 +602,7 @@ func (s TenantOrderService) GetQrCode(tenantID, orderID string) (string, error) 
 
 // ---------- 平台端订单管理 ----------
 
-// ListAllOrders 平台端列出所有订单（分页）
+// ListAllOrders 平台端列出所有订单（分页，含租户名称）
 func (s TenantOrderService) ListAllOrders(req OrderListReq) (OrderListResult, error) {
 	var result OrderListResult
 	if req.Page <= 0 {
@@ -596,7 +628,26 @@ func (s TenantOrderService) ListAllOrders(req OrderListReq) (OrderListResult, er
 	offset := (req.Page - 1) * req.PageSize
 	var orders []models.TenantOrder
 	q.Order("created_at DESC").Offset(offset).Limit(req.PageSize).Find(&orders)
-	result.List = orders
+	// 批量查询租户名称
+	tenantNames := map[string]string{}
+	if len(orders) > 0 {
+		tenantIDs := make([]string, 0, len(orders))
+		for _, o := range orders {
+			tenantIDs = append(tenantIDs, o.TenantID)
+		}
+		var tenants []models.Tenant
+		models.DB.Where("id IN ?", tenantIDs).Find(&tenants)
+		for _, t := range tenants {
+			tenantNames[t.ID] = t.Name
+		}
+	}
+	// 构造带租户名称的列表
+	for _, o := range orders {
+		result.List = append(result.List, OrderListItem{
+			TenantOrder: o,
+			TenantName:  tenantNames[o.TenantID],
+		})
+	}
 	return result, nil
 }
 
@@ -609,10 +660,16 @@ type OrderListReq struct {
 	PageSize  int    `json:"page_size"`
 }
 
+// OrderListItem 订单列表项（含租户名称）
+type OrderListItem struct {
+	models.TenantOrder
+	TenantName string `json:"tenant_name"`
+}
+
 // OrderListResult 订单列表结果
 type OrderListResult struct {
-	Total int64                `json:"total"`
-	List  []models.TenantOrder `json:"list"`
+	Total int64           `json:"total"`
+	List  []OrderListItem `json:"list"`
 }
 
 // ManualConfirmPay 平台端手动确认支付（模拟支付回调，用于测试/线下收款）
@@ -626,6 +683,15 @@ func (s TenantOrderService) ManualConfirmPay(orderID string) error {
 	}
 	if order.PayStatus != models.PayStatusPending {
 		return errors.New("订单状态不允许确认支付")
+	}
+	// 降级坐席数检查：新购/升级时，如果新套餐坐席数 < 当前用户数，阻止确认收款。
+	if order.Type == models.OrderTypePurchase || order.Type == models.OrderTypeUpgrade {
+		var plan models.Plan
+		if err := models.DB.Where("id = ?", order.PlanID).First(&plan).Error; err == nil {
+			if err := checkSeatLimit(order.TenantID, plan); err != nil {
+				return err
+			}
+		}
 	}
 	// 允许对已过期订单手动确认（线下收款场景），但给出提示
 	now := time.Now()
@@ -644,6 +710,9 @@ func (s TenantOrderService) ManualConfirmPay(orderID string) error {
 			if err := tx.Where("id = ?", order.TenantID).First(&tenant).Error; err != nil {
 				return err
 			}
+			// 获取套餐信息以同步 max_users/max_customers
+			var plan models.Plan
+			tx.Where("id = ?", order.PlanID).First(&plan)
 			// 更新套餐
 			tenant.Plan = order.PlanCode
 			// 计算新的到期时间
@@ -664,10 +733,16 @@ func (s TenantOrderService) ManualConfirmPay(orderID string) error {
 			case models.BillingYearly:
 				base = base.AddDate(totalYears, 0, 0)
 			}
-			if err := tx.Model(&tenant).Updates(map[string]any{
+			updates := map[string]any{
 				"plan":      order.PlanCode,
 				"expire_at": &base,
-			}).Error; err != nil {
+			}
+			// 同步坐席上限（plan 查到时才更新）
+			if plan.ID != "" {
+				updates["max_users"] = plan.MaxUsers
+				updates["max_customers"] = plan.MaxCustomers
+			}
+			if err := tx.Model(&tenant).Updates(updates).Error; err != nil {
 				return err
 			}
 		}

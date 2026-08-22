@@ -283,6 +283,55 @@ func (s TenantService) GetDetail(id string) (TenantDetail, error) {
 	return detail, nil
 }
 
+// CurrentTenantInfo 租户端当前套餐/到期信息 + 当前用户角色。
+type CurrentTenantInfo struct {
+	Name      string     `json:"name"`
+	Code      string     `json:"code"`
+	Plan      string     `json:"plan"`
+	PlanName  string     `json:"plan_name"`
+	ExpireAt  *time.Time `json:"expire_at"`
+	MaxUsers  int        `json:"max_users"`
+	UserCount int64      `json:"user_count"`
+	RoleCode  string     `json:"role_code"`
+	IsAdmin   bool       `json:"is_admin"`
+}
+
+// GetCurrentInfo 租户端：当前登录用户查看本租户套餐信息 + 自己的角色编码。
+func (s TenantService) GetCurrentInfo(tenantID, userID string) (CurrentTenantInfo, error) {
+	var info CurrentTenantInfo
+	var t models.Tenant
+	if err := models.DB.Where("id = ?", tenantID).First(&t).Error; err != nil {
+		return info, err
+	}
+	info.Name = t.Name
+	info.Code = t.Code
+	info.Plan = t.Plan
+	info.ExpireAt = t.ExpireAt
+	info.MaxUsers = t.MaxUsers
+	// 查询套餐名称
+	if t.Plan != "" {
+		var plan models.Plan
+		if err := models.DB.Where("code = ?", t.Plan).First(&plan).Error; err == nil {
+			info.PlanName = plan.Name
+		}
+	}
+	models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", tenantID).Count(&info.UserCount)
+
+	if userID != "" {
+		var u models.User
+		if err := models.DB.Where("id = ? AND tenant_id = ?", userID, tenantID).First(&u).Error; err == nil {
+			if u.RoleID != "" {
+				var role models.CrmRole
+				if err := models.DB.Where("id = ?", u.RoleID).First(&role).Error; err == nil {
+					info.RoleCode = role.Code
+				}
+			}
+		}
+	}
+	info.IsAdmin = info.RoleCode == "admin"
+	return info, nil
+}
+
 // ListUsers 列出租户下的用户（供平台超管查看）。
 func (s TenantService) ListUsers(tenantID string) ([]map[string]any, error) {
 	var users []models.User
@@ -832,6 +881,18 @@ type UserCreateReq struct {
 
 func (s UserService) Create(ctx context.Context, req UserCreateReq) (models.User, string, error) {
 	tenantID := identity.TenantID(ctx)
+
+	// 套餐坐席数限制：MaxUsers > 0 时检查当前用户数是否已达上限。
+	var tenant models.Tenant
+	if err := models.DB.Where("id = ?", tenantID).First(&tenant).Error; err == nil {
+		if tenant.MaxUsers > 0 {
+			var count int64
+			models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", tenantID).Count(&count)
+			if int(count) >= tenant.MaxUsers {
+				return models.User{}, "", errors.New("当前套餐坐席数已达上限(" + strconv.Itoa(tenant.MaxUsers) + ")，请升级套餐或联系平台管理员")
+			}
+		}
+	}
 
 	if req.RoleID == "" {
 		var r models.CrmRole
