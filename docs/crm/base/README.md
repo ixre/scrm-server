@@ -24,11 +24,16 @@
 
 | 模块 | 文件 |
 |------|------|
-| 租户 | `services/tenant.go` |
-| 角色/权限 | `services/rbac.go` |
-| 员工 | `services/staff.go` |
-| 字典 | `services/dict.go` |
-| 自定义字段 | `services/custom_field.go` |
+| 租户/平台超管 | `models/crm.go`（Tenant/PlatformAdmin）、`services/crm.go`（TenantService） |
+| CRM 原生角色 | `models/crm.go`（CrmRole）、`services/crm.go`（seedTenantDefaults） |
+| 企微域角色 | `models/role.go`、`services/role.go` |
+| 企微员工 | `models/staff.go`、`services/staff.go` |
+| CRM 原生用户 | `models/crm.go`（User）、`services/crm.go`（UserService） |
+| 部门 | `models/department.go`、`services/department.go` |
+| 租户隔离 | `models/tenant_scope.go` |
+| 字典 | `dispatch/crm.go`（crm_dict.AddWay，部分实现） |
+| 自定义字段 | `models/crm.go`（CrmFieldDef/CrmFieldValue）、`services/crm_field.go` |
+| 列表场景 | `models/crm.go`（CrmScene）、`services/crm_scene.go` |
 
 ## 相关文档
 - [CRM 主文档](../README.md)

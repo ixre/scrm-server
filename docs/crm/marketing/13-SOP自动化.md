@@ -4,7 +4,7 @@
 基于客户行为或状态变化，自动触发跟进/打标/发消息等操作。
 
 ## 入口
-- 工作台 → 营销中心 → SOP
+- 客户管理 → 客户运营 → SOP自动化
 - 规则配置 + 执行日志
 
 ## 数据模型
@@ -19,16 +19,16 @@
 | `actions` | 执行动作 JSON 数组 |
 | `status` | active / disabled |
 
-## 4 种触发类型
+## 触发类型
 
-`models/crm.go:473-486` + `services/crm_sop.go:matchRule`：
+当前已实现 `stage_change` 和 `tag_added` 两种触发匹配。
+
+`models/crm.go:512-` + `services/crm_sop.go:matchTriggerCond`：
 
 | trigger_type | 含义 | 触发时机 |
 |--------------|------|----------|
 | `stage_change` | 商机阶段变更 | Opportunity.ChangeStage 时 |
 | `tag_added` | 添加标签 | CrmCustomerTag.Create 时 |
-| `pool_claim` | 公海领取 | CrmCustomer.ClaimFromPool 时 |
-| `new_customer` | 新客户创建 | CrmCustomer.Create 时 |
 
 ## 操作步骤
 
@@ -120,7 +120,7 @@ func (s CrmSopService) matchRule(tenantID string, event SopEvent) {
 
 ## 当前限制（**产品补强点**）
 
-- 仅 4 种触发类型，缺少：
+- 仅 2 种触发类型（stage_change / tag_added），缺少：
   - `birthday`（生日触发）
   - `holiday`（节日触发）
   - `order_completed`（订单完成触发）

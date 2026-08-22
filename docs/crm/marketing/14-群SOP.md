@@ -4,7 +4,7 @@
 针对企业微信客户群，按群周期事件自动发消息/素材，提升群活跃度。
 
 ## 入口
-- 工作台 → 营销中心 → 群 SOP
+- 客户管理 → 客户运营 → 群SOP
 - 群运营后台
 
 ## 数据模型
@@ -21,7 +21,7 @@
 
 ## 3 种触发类型
 
-`models/crm.go:667-678` + `services/crm_risk.go:353-426`：
+`models/crm.go:706-` + `services/crm_risk.go:388-`：
 
 | trigger_type | 含义 | 触发时机 |
 |--------------|------|----------|
@@ -109,12 +109,14 @@ func (s CrmGroupSopService) Create(tenantID, triggerConfig, actions) error {
 
 **接口**：`crm_group_sop.Update / Delete`
 
+> ⚠️ `crm_group_sop.Update` **未在 dispatch 注册**（dispatch 仅注册 List/Create/Delete/ListTasks/DoneTask，无 Update）。`Delete` 已注册。
+
 ## 注意事项
 
 - **群范围**：`daily` 类型可指定 `groups: [group_id...]`，如不指定则全群。
 - **关键词冲突**：同一关键词多个 SOP 时，**触发顺序按创建时间**。
 - **风控**：连续触发可能被微信风控（**当前未实现限频**）。
-- **已实现位置**：`services/crm_risk.go:353-426`（虽然文件命名 rsk，但包含 CrmGroupSopService）。
+- **已实现位置**：`services/crm_risk.go:388-`（虽然文件命名 risk，但包含 CrmGroupSopService）。
 
 ## 当前限制（**产品补强点**）
 
