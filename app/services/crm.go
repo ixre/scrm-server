@@ -1325,6 +1325,11 @@ func (s CrmCustomerService) Create(ctx context.Context, userID string, req model
 	if err := upsertCustomerChannelLink(ctx, req); err != nil {
 		log.Sugar.Errorw("crm customer channel link upsert failed", "err", err)
 	}
+	// SOP 触发：新客户
+	NewCrmSop().Trigger(ctx, "new_customer", map[string]string{
+		"customer_id": req.ID,
+		"source":      req.Source,
+	})
 	return req, nil
 }
 
@@ -1629,6 +1634,59 @@ func (s CrmLeadService) Delete(ctx context.Context, ids []string) (int64, error)
 	return res.RowsAffected, res.Error
 }
 
+// BatchImport 批量导入线索。rows 为解析后的行列映射。
+// 导入的线索默认 status=new，source=import；无归属人时进入线索池。
+func (s CrmLeadService) BatchImport(ctx context.Context, userID string, rows []map[string]string) (int, int, error) {
+	tenantID := identity.TenantID(ctx)
+
+	success, fail := 0, 0
+	for _, r := range rows {
+		lead := models.CrmLead{
+			Model:    models.Model{ID: id_generator.StringID()},
+			TenantID: tenantID,
+			Title:    r["标题"],
+			Name:     r["姓名"],
+			Mobile:   r["手机"],
+			Company:  r["公司"],
+			Email:    r["邮箱"],
+			Position: r["职位"],
+			Source:   constants.SourceImport,
+			Status:   "new",
+		}
+		// 标题为空且姓名为空时跳过
+		if lead.Title == "" && lead.Name == "" {
+			fail++
+			continue
+		}
+		// 标题为空时用姓名补
+		if lead.Title == "" {
+			lead.Title = lead.Name
+		}
+		// 去重：mobile 非空时查同租户是否已存在
+		if lead.Mobile != "" {
+			var cnt int64
+			models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("mobile = ?", lead.Mobile).Count(&cnt)
+			if cnt > 0 {
+				fail++
+				continue
+			}
+		}
+		// 无归属人 → 进入线索池
+		if lead.OwnerUserID == "" {
+			lead.PoolStatus = 1
+			now := time.Now()
+			lead.PoolAt = &now
+		}
+		if err := createCRM(models.DB, &lead, "CustomerID", "OwnerUserID", "ConvertCustomerID"); err != nil {
+			log.Sugar.Errorw("batch import lead failed", "err", err, "title", lead.Title)
+			fail++
+			continue
+		}
+		success++
+	}
+	return success, fail, nil
+}
+
 func (s CrmLeadService) Get(ctx context.Context, id string) (models.CrmLead, error) {
 
 	var l models.CrmLead
@@ -1894,6 +1952,9 @@ func (s CrmOpportunityService) MoveStage(ctx context.Context, id, stageID string
 			"opportunity_id": o.ID,
 			"stage_id":       stageID,
 		})
+		if o.CustomerID != "" {
+			TriggerScoreUpdate(tenantID, o.CustomerID)
+		}
 	}
 	return o, err
 }
@@ -1915,6 +1976,8 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 	err := createCRM(models.DB, &req, "CustomerID", "OpportunityID", "UserID")
 	if err != nil {
 		log.Sugar.Errorw("crm followup create failed", "err", err)
+	} else if req.CustomerID != "" {
+		TriggerScoreUpdate(tenantID, req.CustomerID)
 	}
 	return req, err
 }
@@ -2045,6 +2108,14 @@ func (s CrmOrderService) Create(ctx context.Context, userID string, req models.C
 	err := createCRM(models.DB, &req, "CustomerID", "OpportunityID", "UserID")
 	if err != nil {
 		log.Sugar.Errorw("crm order create failed", "err", err)
+	} else if req.CustomerID != "" {
+		TriggerScoreUpdate(tenantID, req.CustomerID)
+		// SOP 触发：下单
+		NewCrmSop().Trigger(ctx, "order_created", map[string]string{
+			"customer_id":  req.CustomerID,
+			"order_id":     req.ID,
+			"order_status": req.Status,
+		})
 	}
 	return req, err
 }

@@ -99,6 +99,7 @@ func init() {
 	Reg.Register("crm_lead", "Get", crmLeadGet)
 	Reg.Register("crm_lead", "Query", crmLeadQuery)
 	Reg.Register("crm_lead", "Convert", crmLeadConvert)
+	Reg.Register("crm_lead", "BatchImport", crmLeadBatchImport)
 
 	// pipeline stage
 	Reg.Register("crm_pipeline", "Create", crmStageCreate)
@@ -478,6 +479,8 @@ func init() {
 	Reg.Register("crm_stock_record", "List", crmStockRecordList)
 	Reg.Register("crm_stock_record", "Create", crmStockRecordCreate)
 	Reg.Register("crm_stock_record", "Delete", crmStockRecordDelete)
+	Reg.Register("crm_product", "StockBalance", crmProductStockBalance)
+	Reg.Register("crm_product", "StockWarning", crmProductStockWarning)
 
 	// P3: 工单管理
 	Reg.Register("crm_workorder", "List", crmWorkorderList)

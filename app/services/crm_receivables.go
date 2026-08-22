@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 	"time"
@@ -35,7 +35,6 @@ func NewCrmReceivablesPlan() *CrmReceivablesPlanService { return &CrmReceivables
 func (s CrmReceivablesPlanService) Create(ctx context.Context, p *models.CrmReceivablesPlan) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if p == nil {
 		return errors.New("回款计划不能为空")
 	}
@@ -53,7 +52,6 @@ func (s CrmReceivablesPlanService) Create(ctx context.Context, p *models.CrmRece
 // Update 更新回款计划。
 func (s CrmReceivablesPlanService) Update(ctx context.Context, id string, p *models.CrmReceivablesPlan) error {
 
-
 	if p == nil {
 		return errors.New("回款计划不能为空")
 	}
@@ -67,7 +65,7 @@ func (s CrmReceivablesPlanService) Update(ctx context.Context, id string, p *mod
 		"remark":      p.Remark,
 	}
 	updatesCRM(m, "OrderID", "CustomerID")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -76,20 +74,18 @@ func (s CrmReceivablesPlanService) Update(ctx context.Context, id string, p *mod
 // Delete 删除回款计划（软删除）。
 func (s CrmReceivablesPlanService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmReceivablesPlan{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmReceivablesPlan{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 读取单条回款计划。
 func (s CrmReceivablesPlanService) Get(ctx context.Context, id string) (*models.CrmReceivablesPlan, error) {
 
-
 	var item models.CrmReceivablesPlan
-	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +94,6 @@ func (s CrmReceivablesPlanService) Get(ctx context.Context, id string) (*models.
 
 // Query 分页查询回款计划，支持按 order_id/customer_id/status 筛选。
 func (s CrmReceivablesPlanService) Query(ctx context.Context, req PlanQueryReq) ([]models.CrmReceivablesPlan, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -130,7 +125,6 @@ func (s CrmReceivablesPlanService) Query(ctx context.Context, req PlanQueryReq) 
 func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []models.CrmReceivablesPlan) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if len(plans) == 0 {
 		return errors.New("plans 不能为空")
 	}
@@ -153,9 +147,8 @@ func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []mode
 func (s CrmReceivablesPlanService) MarkOverdue(ctx context.Context) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	now := time.Now()
-	res := models.DB.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("status = ? AND plan_date < ?",  "pending",  now).
+	res := models.DB.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("status = ? AND plan_date < ?", "pending", now).
 		Update("status", "overdue")
 	if res.Error != nil {
 		log.Sugar.Errorw("crm receivables plan mark overdue failed", "tenant", tenantID, "err", res.Error)
@@ -187,7 +180,6 @@ func NewCrmReceivables() *CrmReceivablesService { return &CrmReceivablesService{
 func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivables) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if r == nil {
 		return errors.New("回款登记不能为空")
 	}
@@ -204,18 +196,25 @@ func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivab
 			return err
 		}
 		if r.PlanID != "" {
-			if err := tx.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.PlanID).
+			if err := tx.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.PlanID).
 				Update("status", "received").Error; err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+	// SOP 触发：回款
+	if r.CustomerID != "" {
+		NewCrmSop().Trigger(context.Background(), "payment_received", map[string]string{
+			"customer_id": r.CustomerID,
+			"order_id":    r.OrderID,
+		})
+	}
+	return nil
 }
 
 // Update 更新回款登记。
 func (s CrmReceivablesService) Update(ctx context.Context, id string, r *models.CrmReceivables) error {
-
 
 	if r == nil {
 		return errors.New("回款登记不能为空")
@@ -234,7 +233,7 @@ func (s CrmReceivablesService) Update(ctx context.Context, id string, r *models.
 		"remark":      r.Remark,
 	}
 	updatesCRM(m, "OrderID", "CustomerID", "PlanID")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -243,20 +242,18 @@ func (s CrmReceivablesService) Update(ctx context.Context, id string, r *models.
 // Delete 删除回款登记（软删除）。
 func (s CrmReceivablesService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmReceivables{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmReceivables{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 读取单条回款登记。
 func (s CrmReceivablesService) Get(ctx context.Context, id string) (*models.CrmReceivables, error) {
 
-
 	var item models.CrmReceivables
-	err := models.MustFor(ctx).Where("id = ?",  id).First(&item).Error
+	err := models.MustFor(ctx).Where("id = ?", id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +262,6 @@ func (s CrmReceivablesService) Get(ctx context.Context, id string) (*models.CrmR
 
 // Query 分页查询回款登记，支持按 order_id/customer_id/plan_id/status 筛选。
 func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]models.CrmReceivables, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -300,21 +296,20 @@ func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]m
 func (s CrmReceivablesService) Void(ctx context.Context, id string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmReceivables
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
+		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
 			return err
 		}
 		if r.Status == "void" {
 			return nil
 		}
-		if err := tx.Model(&models.CrmReceivables{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+		if err := tx.Model(&models.CrmReceivables{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 			Update("status", "void").Error; err != nil {
 			return err
 		}
 		if r.PlanID != "" {
-			if err := tx.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  r.PlanID).
+			if err := tx.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.PlanID).
 				Update("status", "pending").Error; err != nil {
 				return err
 			}

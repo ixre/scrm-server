@@ -579,6 +579,38 @@ func crmStockRecordDelete(ctx context.Context, _, _ string, params json.RawMessa
 	}
 }
 
+func crmProductStockBalance(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		Keyword     string `json:"keyword"`
+		WarningOnly bool   `json:"warning_only"`
+		*app.Pager
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	items, total, err := services.NewCrmProduct().StockBalance(ctx, req.Keyword, req.WarningOnly, req.Page, req.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, total), nil
+}
+
+func crmProductStockWarning(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items, err := services.NewCrmProduct().StockWarning(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"items": items, "total": len(items)}, nil
+}
+
 // ---- 工单 ----
 
 func crmWorkorderList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {

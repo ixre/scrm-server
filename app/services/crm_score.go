@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"time"
 
 	"core/app/models"
@@ -28,7 +28,6 @@ func NewCrmScore() *CrmScoreService { return &CrmScoreService{} }
 // RecalculateAll 重算所有客户评分（定时调用）。
 func (s CrmScoreService) RecalculateAll(ctx context.Context) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	var customers []models.CrmCustomer
 	if err := models.MustFor(ctx).Find(&customers).Error; err != nil {
@@ -66,7 +65,9 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 	score += interactionScore
 
 	// 商机金额分
-	var oppAmt struct{ Total float64 `gorm:"column:total"` }
+	var oppAmt struct {
+		Total float64 `gorm:"column:total"`
+	}
 	models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ? AND status = ?", c.ID, "open").
 		Select("COALESCE(SUM(amount),0) AS total").Scan(&oppAmt)
 	oppScore := int(oppAmt.Total / 10000) // 每万元1分
@@ -76,7 +77,9 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 	score += oppScore
 
 	// 订单金额分
-	var orderAmt struct{ Total float64 `gorm:"column:total"` }
+	var orderAmt struct {
+		Total float64 `gorm:"column:total"`
+	}
 	models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ? AND status IN ?", c.ID, []string{"signed", "completed"}).
 		Select("COALESCE(SUM(amount),0) AS total").Scan(&orderAmt)
 	orderScore := int(orderAmt.Total / 10000)
@@ -91,13 +94,32 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 // TopByScore 按评分排序返回 Top N 客户。
 func (s CrmScoreService) TopByScore(ctx context.Context, limit int) ([]models.CrmCustomer, error) {
 
-
 	if limit <= 0 {
 		limit = 10
 	}
 	var items []models.CrmCustomer
 	err := models.MustFor(ctx).Order("score desc").Limit(limit).Find(&items).Error
 	return items, err
+}
+
+// RecalculateOne 重算单个客户评分（业务事件触发时调用）。
+func (s CrmScoreService) RecalculateOne(tenantID, customerID string) {
+	var c models.CrmCustomer
+	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&c).Error; err != nil {
+		return
+	}
+	score := s.CalculateScore(c)
+	now := time.Now()
+	models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
+		Updates(map[string]any{"score": score, "score_updated_at": &now})
+}
+
+// TriggerScoreUpdate 在业务事件后触发客户评分重算（异步安全调用）。
+func TriggerScoreUpdate(tenantID, customerID string) {
+	if tenantID == "" || customerID == "" {
+		return
+	}
+	go NewCrmScore().RecalculateOne(tenantID, customerID)
 }
 
 var _ = gorm.ErrRecordNotFound

@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"fmt"
 	"time"
@@ -32,7 +32,6 @@ type SopRuleCreateReq struct {
 func (s CrmSopService) CreateRule(ctx context.Context, req models.CrmSopRule) (models.CrmSopRule, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -52,7 +51,6 @@ func (s CrmSopService) CreateRule(ctx context.Context, req models.CrmSopRule) (m
 func (s CrmSopService) UpdateRule(ctx context.Context, id string, req models.CrmSopRule) (models.CrmSopRule, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	updates := map[string]any{
 		"name": req.Name, "trigger_type": req.TriggerType, "trigger_cond": req.TriggerCond,
 		"action_type": req.ActionType, "action_content": req.ActionContent,
@@ -67,7 +65,6 @@ func (s CrmSopService) UpdateRule(ctx context.Context, id string, req models.Crm
 
 // QueryRules 列出 SOP 规则。
 func (s CrmSopService) QueryRules(ctx context.Context, status string, pager *app.Pager) ([]models.CrmSopRule, int64, error) {
-
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -89,14 +86,12 @@ func (s CrmSopService) QueryRules(ctx context.Context, status string, pager *app
 // DeleteRules 删除 SOP 规则。
 func (s CrmSopService) DeleteRules(ctx context.Context, ids []string) (int64, error) {
 
-
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSopRule{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmSopRule{})
 	return res.RowsAffected, res.Error
 }
 
 // ListTasks 列出 SOP 任务。
 func (s CrmSopService) ListTasks(ctx context.Context, status, assignUserID string, pager *app.Pager) ([]models.CrmSopTask, int64, error) {
-
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -122,7 +117,6 @@ func (s CrmSopService) ListTasks(ctx context.Context, status, assignUserID strin
 func (s CrmSopService) MarkTaskDone(ctx context.Context, taskID string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	now := time.Now()
 	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Updates(map[string]any{"status": "done", "done_at": &now}).Error
@@ -132,7 +126,6 @@ func (s CrmSopService) MarkTaskDone(ctx context.Context, taskID string) error {
 func (s CrmSopService) MarkTaskSkipped(ctx context.Context, taskID string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
 		Update("status", "skipped").Error
 }
@@ -141,9 +134,8 @@ func (s CrmSopService) MarkTaskSkipped(ctx context.Context, taskID string) error
 // triggerData 包含 customer_id/opportunity_id/stage_id/tag_name 等。
 func (s CrmSopService) Trigger(ctx context.Context, triggerType string, triggerData map[string]string) {
 
-
 	var rules []models.CrmSopRule
-	models.MustFor(ctx).Where("trigger_type = ? AND status = ?",  triggerType,  "active").Find(&rules)
+	models.MustFor(ctx).Where("trigger_type = ? AND status = ?", triggerType, "active").Find(&rules)
 	for _, rule := range rules {
 		// 检查触发条件
 		if !s.matchTriggerCond(rule, triggerData) {
@@ -167,6 +159,21 @@ func (s CrmSopService) matchTriggerCond(rule models.CrmSopRule, data map[string]
 		return data["stage_id"] == rule.TriggerCond
 	case "tag_added":
 		return data["tag_name"] == rule.TriggerCond
+	case "new_customer":
+		// 新客户触发：trigger_cond 可指定来源（source），为空则全匹配
+		return rule.TriggerCond == "" || data["source"] == rule.TriggerCond
+	case "pool_claim":
+		// 公海认领触发：trigger_cond 可指定池类型 customer/lead，为空则全匹配
+		return rule.TriggerCond == "" || data["pool_type"] == rule.TriggerCond
+	case "followup_overdue":
+		// 跟进逾期触发：trigger_cond 可指定逾期天数（如 "3" 表示3天未跟进），为空则不限
+		return true
+	case "order_created":
+		// 下单触发：trigger_cond 可指定订单状态，为空则全匹配
+		return rule.TriggerCond == "" || data["order_status"] == rule.TriggerCond
+	case "payment_received":
+		// 回款触发：无条件全匹配
+		return true
 	default:
 		return true
 	}
@@ -176,11 +183,10 @@ func (s CrmSopService) matchTriggerCond(rule models.CrmSopRule, data map[string]
 func (s CrmSopService) createSopTask(ctx context.Context, rule models.CrmSopRule, data map[string]string) {
 	tenantID := identity.TenantID(ctx)
 
-
 	customerID := data["customer_id"]
 	// 幂等
 	var cnt int64
-	models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("rule_id = ? AND customer_id = ? AND status = ?",  rule.ID,  customerID,  "pending").Count(&cnt)
+	models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("rule_id = ? AND customer_id = ? AND status = ?", rule.ID, customerID, "pending").Count(&cnt)
 	if cnt > 0 {
 		return
 	}
@@ -192,16 +198,16 @@ func (s CrmSopService) createSopTask(ctx context.Context, rule models.CrmSopRule
 		executeAt = executeAt.Add(time.Duration(rule.DelayHours) * time.Hour)
 	}
 	task := models.CrmSopTask{
-		Model:        models.Model{ID: id_generator.StringID()},
-		TenantID:     tenantID,
-		RuleID:       rule.ID,
-		CustomerID:   customerID,
+		Model:         models.Model{ID: id_generator.StringID()},
+		TenantID:      tenantID,
+		RuleID:        rule.ID,
+		CustomerID:    customerID,
 		OpportunityID: data["opportunity_id"],
-		ActionType:   rule.ActionType,
+		ActionType:    rule.ActionType,
 		ActionContent: rule.ActionContent,
-		Status:       "pending",
-		ExecuteAt:    &executeAt,
-		AssignUserID: cust.OwnerUserID,
+		Status:        "pending",
+		ExecuteAt:     &executeAt,
+		AssignUserID:  cust.OwnerUserID,
 	}
 	if err := createCRM(models.DB, &task, "OpportunityID", "AssignUserID"); err != nil {
 		log.Sugar.Errorw("sop task create failed", "err", err, "rule", rule.ID, "customer", customerID)
@@ -225,13 +231,13 @@ func (s CrmSopService) executeTask(task models.CrmSopTask) {
 	case "create_followup":
 		// 自动创建跟进记录
 		followup := models.CrmFollowup{
-			Model:      models.Model{ID: id_generator.StringID()},
-			TenantID:   task.TenantID,
-			CustomerID: task.CustomerID,
+			Model:         models.Model{ID: id_generator.StringID()},
+			TenantID:      task.TenantID,
+			CustomerID:    task.CustomerID,
 			OpportunityID: task.OpportunityID,
-			UserID:     task.AssignUserID,
-			Type:       "other",
-			Content:    fmt.Sprintf("[SOP自动] %s", task.ActionContent),
+			UserID:        task.AssignUserID,
+			Type:          "other",
+			Content:       fmt.Sprintf("[SOP自动] %s", task.ActionContent),
 		}
 		if err := createCRM(models.DB, &followup, "CustomerID", "OpportunityID", "UserID"); err != nil {
 			log.Sugar.Errorw("sop execute: create followup failed", "err", err, "task", task.ID)
@@ -251,9 +257,8 @@ func (s CrmSopService) executeTask(task models.CrmSopTask) {
 func (s CrmSopService) PendingTaskCountByUser(ctx context.Context, userID string) int64 {
 	tenantID := identity.TenantID(ctx)
 
-
 	var cnt int64
-	models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("assign_user_id = ? AND status = ?",  userID,  "pending").Count(&cnt)
+	models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("assign_user_id = ? AND status = ?", userID, "pending").Count(&cnt)
 	return cnt
 }
 

@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"time"
 
 	"core/app/models"
@@ -24,12 +24,11 @@ func NewCrmPool() *CrmPoolService { return &CrmPoolService{} }
 // ListPool 公海客户列表（pool_status=1），按租户隔离，支持关键字搜索。
 func (s CrmPoolService) ListPool(ctx context.Context, keyword string, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
 
-
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.MustFor(ctx).Where("pool_status = ?",  1)
+	db := models.MustFor(ctx).Where("pool_status = ?", 1)
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -47,11 +46,10 @@ func (s CrmPoolService) ListPool(ctx context.Context, keyword string, pager *app
 func (s CrmPoolService) Claim(ctx context.Context, userID string, customerIDs []string) (int64, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	if len(customerIDs) == 0 {
 		return 0, nil
 	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ? AND pool_status = ?",  customerIDs,  1).
+	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ? AND pool_status = ?", customerIDs, 1).
 		Updates(map[string]any{"pool_status": 0, "pool_at": nil, "owner_user_id": userID})
 	if res.Error != nil {
 		log.Sugar.Errorw("crm pool claim failed", "err", res.Error)
@@ -60,7 +58,7 @@ func (s CrmPoolService) Claim(ctx context.Context, userID string, customerIDs []
 	if res.RowsAffected > 0 {
 		sop := NewCrmSop()
 		for _, cid := range customerIDs {
-			sop.Trigger(ctx, "pool_claim", map[string]string{"customer_id": cid})
+			sop.Trigger(ctx, "pool_claim", map[string]string{"customer_id": cid, "pool_type": "customer"})
 		}
 	}
 	return res.RowsAffected, res.Error
@@ -70,12 +68,11 @@ func (s CrmPoolService) Claim(ctx context.Context, userID string, customerIDs []
 func (s CrmPoolService) Recycle(ctx context.Context, customerIDs []string) (int64, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	if len(customerIDs) == 0 {
 		return 0, nil
 	}
 	now := time.Now()
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ? AND pool_status = ?",  customerIDs,  0).
+	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ? AND pool_status = ?", customerIDs, 0).
 		Updates(map[string]any{"pool_status": 1, "pool_at": now, "owner_user_id": ""})
 	if res.Error != nil {
 		log.Sugar.Errorw("crm pool recycle failed", "err", res.Error)
@@ -94,7 +91,7 @@ func (s CrmPoolService) AutoRecycle(ctx context.Context) (int64, error) {
 
 	// 查所有非公海、有归属的客户，取每客户最新跟进时间。
 	var cs []models.CrmCustomer
-	if err := models.MustFor(ctx).Where("pool_status = ? AND owner_user_id <> ''",  0).Find(&cs).Error; err != nil {
+	if err := models.MustFor(ctx).Where("pool_status = ? AND owner_user_id <> ''", 0).Find(&cs).Error; err != nil {
 		return 0, err
 	}
 	var toRecycle []string
@@ -113,7 +110,7 @@ func (s CrmPoolService) AutoRecycle(ctx context.Context) (int64, error) {
 // lastFollowupTime 取某客户最新跟进时间，无跟进则返回零值。
 func lastFollowupTime(ctx context.Context, customerID string) time.Time {
 	var f models.CrmFollowup
-	if err := models.MustFor(ctx).Where("customer_id = ?",  customerID).
+	if err := models.MustFor(ctx).Where("customer_id = ?", customerID).
 		Order("created_at desc").Limit(1).First(&f).Error; err != nil {
 		return time.Time{}
 	}
@@ -134,7 +131,6 @@ func shouldRecycle(lastFollowup time.Time, threshold time.Time) bool {
 // GetRule 读取租户公海规则，不存在则返回默认（不自动回收）。
 func (s CrmPoolService) GetRule(ctx context.Context) (models.CrmPoolRule, error) {
 
-
 	var r models.CrmPoolRule
 	err := models.MustFor(ctx).First(&r).Error
 	if err == nil {
@@ -149,7 +145,6 @@ func (s CrmPoolService) GetRule(ctx context.Context) (models.CrmPoolRule, error)
 // SetRule 设置租户公海规则（upsert）。
 func (s CrmPoolService) SetRule(ctx context.Context, recycleDays int, enabled bool) (models.CrmPoolRule, error) {
 	tenantID := identity.TenantID(ctx)
-
 
 	var r models.CrmPoolRule
 	err := models.MustFor(ctx).First(&r).Error

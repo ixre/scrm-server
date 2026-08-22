@@ -64,6 +64,11 @@ func RegisterCrmAutomationTasks() {
 	if err != nil {
 		log.Sugar.Errorw("RegisterCrmCheckReplyTimeout failed", "err", err)
 	}
+	// SOP：跟进逾期检查（每日凌晨6点）
+	_, err = gcron.AddSingleton("0 0 6 * * *", (CrmAutomation{}).CheckFollowupOverdue, "CrmCheckFollowupOverdue")
+	if err != nil {
+		log.Sugar.Errorw("RegisterCrmCheckFollowupOverdue failed", "err", err)
+	}
 	// Phase 7：群SOP任务生成（每小时）
 	_, err = gcron.AddSingleton("@hourly", (CrmAutomation{}).GenerateGroupSopTasks, "CrmGenerateGroupSopTasks")
 	if err != nil {
@@ -121,6 +126,29 @@ func (CrmAutomation) CheckReplyTimeout() {
 	log.Sugar.Infow("reply timeout checked")
 }
 
+// CheckFollowupOverdue 检查跟进逾期客户并触发 SOP（每日）。
+// 对有归属人且超过3天未跟进的客户，触发 followup_overdue SOP 规则。
+func (CrmAutomation) CheckFollowupOverdue() {
+	var tenantIDs []string
+	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
+	for _, tid := range tenantIDs {
+		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
+		// 查非公海、有归属人、3天未跟进的客户
+		var customers []models.CrmCustomer
+		models.DB.Scopes(models.TenantScope(tid)).
+			Where("pool_status = 0 AND owner_user_id != ''").
+			Where("id NOT IN (SELECT DISTINCT customer_id FROM crm_followup WHERE tenant_id = ? AND created_at > NOW() - INTERVAL '3 days' AND deleted_at IS NULL)", tid).
+			Limit(200).Find(&customers)
+		sop := services.NewCrmSop()
+		for _, c := range customers {
+			sop.Trigger(ctx, "followup_overdue", map[string]string{
+				"customer_id": c.ID,
+			})
+		}
+	}
+	log.Sugar.Infow("followup overdue checked")
+}
+
 // GenerateGroupSopTasks 根据群SOP规则生成执行任务。
 func (CrmAutomation) GenerateGroupSopTasks() {
 	var tenantIDs []string
@@ -176,7 +204,7 @@ func (CrmAutomation) CheckUnfollowedLoss() {
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		// 查超过30天未跟进的客户
 		var customers []models.CrmCustomer
-		models.DB.Scopes(models.TenantScope(tid)).Where("deleted_at IS NULL AND owner_user_id != '' AND updated_at < NOW() - INTERVAL '30 days'", ).Find(&customers)
+		models.DB.Scopes(models.TenantScope(tid)).Where("deleted_at IS NULL AND owner_user_id != '' AND updated_at < NOW() - INTERVAL '30 days'").Find(&customers)
 		for _, c := range customers {
 			// 检查是否已有流失记录（避免重复）
 			var exist int64

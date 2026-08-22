@@ -268,3 +268,22 @@ func crmCustomerBatchImport(ctx context.Context, _, _ string, params json.RawMes
 	}
 	return map[string]any{"success": success, "fail": fail}, nil
 }
+
+func crmLeadBatchImport(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid := identity.UserID(ctx)
+	var req struct {
+		Rows []map[string]string `json:"rows"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	success, fail, err := services.NewCrmLead().BatchImport(ctx, uid, req.Rows)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"success": success, "fail": fail}, nil
+}
