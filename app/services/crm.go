@@ -1687,9 +1687,9 @@ func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUser
 	case "blacklist":
 		db = db.Where("is_blacklist = ?", true)
 	case "shared":
-		db = db.Where("shared_staff_ids LIKE ?", "%\""+uid+"\"%")
+		db = db.Where("shared_staff_ids @> ?", constants.StringArrayField{uid})
 	case "unreceive":
-		db = db.Where("owner_user_id = '' AND pool_status = ?", 0)
+		db = db.Where("(owner_user_id IS NULL OR owner_user_id = '' OR owner_user_id = '0') AND pool_status = ?", 0)
 	case "reassign":
 		db = db.Where("reassign_status = ?", 1)
 	}

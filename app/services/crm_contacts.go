@@ -100,9 +100,9 @@ func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]models.Cr
 	}
 	switch req.FilterMode {
 	case "linked":
-		db = db.Where("customer_id <> ''")
+		db = db.Where("customer_id IS NOT NULL AND customer_id <> '0'")
 	case "pool":
-		db = db.Where("customer_id = ''")
+		db = db.Where("customer_id IS NULL OR customer_id = '0'")
 	}
 	var total int64
 	if err := db.Model(&models.CrmContact{}).Count(&total).Error; err != nil {
