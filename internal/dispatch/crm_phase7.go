@@ -9,6 +9,8 @@ import (
 	"core/app/services"
 	"core/common/app"
 	"core/common/identity"
+
+	"gorm.io/gorm"
 )
 
 // ---------- A 组：SCRM 风控 dispatch handlers ----------
@@ -884,4 +886,25 @@ func crmSmartCardPublicSubmitLead(ctx context.Context, _, _ string, params json.
 		return nil, err
 	}
 	return created, nil
+}
+
+// crmSmartCardPublicLike 公开点赞（无需登录，访客在H5名片页点赞）。
+func crmSmartCardPublicLike(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		ShareCode string `json:"share_code"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ShareCode == "" {
+		return nil, errors.New("share_code 不能为空")
+	}
+	card, err := services.NewCrmSmartCard().GetByShareCode(req.ShareCode)
+	if err != nil {
+		return nil, errors.New("名片不存在")
+	}
+	// 点赞数+1
+	ctx2 := identity.WithIdentity(context.Background(), identity.Identity{TenantID: card.TenantID})
+	models.MustFor(ctx2).Model(&models.CrmSmartCard{}).Where("id = ?", card.ID).UpdateColumn("like_count", gorm.Expr("like_count + 1"))
+	return map[string]any{"ok": true}, nil
 }

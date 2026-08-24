@@ -885,23 +885,26 @@ type CrmSignInRecord struct {
 type CrmSmartCard struct {
 	Model
 	Timestamp
-	TenantID   string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	UserID     string                     `gorm:"type:bigint;index;comment:销售用户ID" json:"user_id"`
-	Name       string                     `gorm:"type:varchar(64);comment:姓名" json:"name"`
-	Title      string                     `gorm:"type:varchar(128);comment:职位/头衔" json:"title"`
-	Company    string                     `gorm:"type:varchar(128);comment:公司名" json:"company"`
-	Phone      string                     `gorm:"type:varchar(32);comment:电话" json:"phone"`
-	Email      string                     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
-	Avatar     string                     `gorm:"type:varchar(512);comment:头像URL" json:"avatar"`
-	Intro      string                     `gorm:"type:text;comment:个人简介" json:"intro"`
-	Tags       constants.StringArrayField `gorm:"type:jsonb;comment:专业标签" json:"tags"`
-	Products   constants.StringArrayField `gorm:"type:jsonb;comment:产品/服务列表JSON[{name,desc}]" json:"products"`
-	Cases      constants.StringArrayField `gorm:"type:jsonb;comment:案例列表JSON[{name,desc}]" json:"cases"`
-	WechatQR   string                     `gorm:"type:varchar(512);comment:企业微信二维码URL" json:"wechat_qr"`
-	ViewCount  int                        `gorm:"type:int;default:0;comment:浏览数" json:"view_count"`
-	ShareCount int                        `gorm:"type:int;default:0;comment:分享数" json:"share_count"`
-	ShareCode  string                     `gorm:"type:varchar(32);index;comment:分享码(短链标识)" json:"share_code"`
-	Status     string                     `gorm:"type:varchar(16);index;default:active;comment:active/disabled" json:"status"`
+	TenantID     string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	UserID       string                     `gorm:"type:bigint;index;comment:销售用户ID" json:"user_id"`
+	Name         string                     `gorm:"type:varchar(64);comment:姓名" json:"name"`
+	Title        string                     `gorm:"type:varchar(128);comment:职位/头衔" json:"title"`
+	Company      string                     `gorm:"type:varchar(128);comment:公司名" json:"company"`
+	CompanyIntro string                     `gorm:"type:text;comment:公司简介" json:"company_intro"`
+	Address      string                     `gorm:"type:varchar(512);comment:公司地址" json:"address"`
+	Phone        string                     `gorm:"type:varchar(32);comment:电话" json:"phone"`
+	Email        string                     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
+	Avatar       string                     `gorm:"type:varchar(512);comment:头像URL" json:"avatar"`
+	Intro        string                     `gorm:"type:text;comment:个人简介" json:"intro"`
+	Tags         constants.StringArrayField `gorm:"type:jsonb;comment:专业标签" json:"tags"`
+	Products     constants.StringArrayField `gorm:"type:jsonb;comment:产品/服务列表JSON[{name,desc}]" json:"products"`
+	Cases        constants.StringArrayField `gorm:"type:jsonb;comment:案例列表JSON[{name,desc}]" json:"cases"`
+	WechatQR     string                     `gorm:"type:varchar(512);comment:企业微信二维码URL" json:"wechat_qr"`
+	ViewCount    int                        `gorm:"type:int;default:0;comment:浏览数" json:"view_count"`
+	ShareCount   int                        `gorm:"type:int;default:0;comment:分享数" json:"share_count"`
+	LikeCount    int                        `gorm:"type:int;default:0;comment:点赞数" json:"like_count"`
+	ShareCode    string                     `gorm:"type:varchar(32);index;comment:分享码(短链标识)" json:"share_code"`
+	Status       string                     `gorm:"type:varchar(16);index;default:active;comment:active/disabled" json:"status"`
 }
 
 // CrmSmartCardView 名片浏览记录（访客轨迹）。

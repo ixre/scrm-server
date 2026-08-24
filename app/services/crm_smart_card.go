@@ -96,18 +96,20 @@ func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard
 func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
 
 	if err := models.MustFor(ctx).Where("id = ?", id).Updates(map[string]any{
-		"name":      req.Name,
-		"title":     req.Title,
-		"company":   req.Company,
-		"phone":     req.Phone,
-		"email":     req.Email,
-		"avatar":    req.Avatar,
-		"intro":     req.Intro,
-		"tags":      req.Tags,
-		"products":  req.Products,
-		"cases":     req.Cases,
-		"wechat_qr": req.WechatQR,
-		"status":    req.Status,
+		"name":          req.Name,
+		"title":         req.Title,
+		"company":       req.Company,
+		"company_intro": req.CompanyIntro,
+		"address":       req.Address,
+		"phone":         req.Phone,
+		"email":         req.Email,
+		"avatar":        req.Avatar,
+		"intro":         req.Intro,
+		"tags":          req.Tags,
+		"products":      req.Products,
+		"cases":         req.Cases,
+		"wechat_qr":     req.WechatQR,
+		"status":        req.Status,
 	}).Error; err != nil {
 		return req, err
 	}
