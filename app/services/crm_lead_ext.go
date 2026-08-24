@@ -1,10 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"core/common/identity"
+	"strconv"
 
 	"context"
-
 	"errors"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"core/common/id_generator"
 	"core/common/log"
 
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -277,4 +279,64 @@ func (s CrmLeadExtService) Reopen(ctx context.Context, userID, id string) error 
 	}
 	s.recordFollowup(ctx, userID, tenantID, lead, "other", "恢复跟进", "恢复为可跟进状态")
 	return nil
+}
+
+// Export 导出线索为 Excel。
+func (s CrmLeadExtService) Export(ctx context.Context, status, ownerUserID string) (*bytes.Buffer, string, error) {
+	db := models.MustFor(ctx).Limit(10000).Order("id desc")
+	if status != "" {
+		db = db.Where("status = ?", status)
+	}
+	if ownerUserID != "" {
+		db = db.Where("owner_user_id = ?", ownerUserID)
+	}
+	var leads []models.CrmLead
+	if err := db.Find(&leads).Error; err != nil {
+		return nil, "", err
+	}
+	f := excelize.NewFile()
+	sheet := "线索列表"
+	f.SetSheetName(f.GetSheetName(0), sheet)
+	headers := []string{"ID", "标题", "公司", "联系人", "电话", "邮箱", "职位", "来源", "状态", "归属销售ID", "备注", "创建时间"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	for i, l := range leads {
+		row := i + 2
+		f.SetCellValue(sheet, "A"+strconv.Itoa(row), l.ID)
+		f.SetCellValue(sheet, "B"+strconv.Itoa(row), l.Title)
+		f.SetCellValue(sheet, "C"+strconv.Itoa(row), l.Company)
+		f.SetCellValue(sheet, "D"+strconv.Itoa(row), l.Name)
+		f.SetCellValue(sheet, "E"+strconv.Itoa(row), l.Mobile)
+		f.SetCellValue(sheet, "F"+strconv.Itoa(row), l.Email)
+		f.SetCellValue(sheet, "G"+strconv.Itoa(row), l.Position)
+		f.SetCellValue(sheet, "H"+strconv.Itoa(row), l.Source)
+		f.SetCellValue(sheet, "I"+strconv.Itoa(row), l.Status)
+		f.SetCellValue(sheet, "J"+strconv.Itoa(row), l.OwnerUserID)
+		f.SetCellValue(sheet, "K"+strconv.Itoa(row), l.Remark)
+		f.SetCellValue(sheet, "L"+strconv.Itoa(row), l.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+	buf, err := f.WriteToBuffer()
+	if err != nil {
+		return nil, "", err
+	}
+	return buf, "leads_" + time.Now().Format("20060102_150405") + ".xlsx", nil
+}
+
+// BatchTransfer 批量转移线索归属人。
+func (s CrmLeadExtService) BatchTransfer(ctx context.Context, ids []string, toUserID string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+	if len(ids) == 0 {
+		return 0, errors.New("ids 不能为空")
+	}
+	if toUserID == "" {
+		return 0, errors.New("to_user_id 不能为空")
+	}
+	res := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
+		Update("owner_user_id", toUserID)
+	if res.Error != nil {
+		log.Sugar.Errorw("crm lead batch transfer failed", "err", res.Error)
+	}
+	return res.RowsAffected, res.Error
 }

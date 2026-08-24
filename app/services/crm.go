@@ -2395,7 +2395,7 @@ func (s CrmReportService) SalesSummary(ctx context.Context) (SalesSummary, error
 }
 
 // PipelineFunnel 销售漏斗：open 商机按阶段聚合金额/数量。
-func (s CrmReportService) PipelineFunnel(ctx context.Context) ([]map[string]any, error) {
+func (s CrmReportService) PipelineFunnel(ctx context.Context, ownerUserID string) ([]map[string]any, error) {
 
 	stages, err := NewCrmPipelineStage().List(ctx)
 	if err != nil {
@@ -2407,8 +2407,11 @@ func (s CrmReportService) PipelineFunnel(ctx context.Context) ([]map[string]any,
 		Amount  float64 `gorm:"column:amount"`
 	}
 	var rows []row
-	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open").
-		Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
+	q := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
+	if ownerUserID != "" {
+		q = q.Where("owner_user_id = ?", ownerUserID)
+	}
+	if err := q.Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
 		Group("stage_id").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -2429,7 +2432,7 @@ func (s CrmReportService) PipelineFunnel(ctx context.Context) ([]map[string]any,
 
 // PipelineInspection 销售管线分析：对标 Salesforce Pipeline Inspection。
 // 汇总各阶段的商机数量、金额、加权金额、平均停留天数，以及整体赢单/输单率。
-func (s CrmReportService) PipelineInspection(ctx context.Context) (map[string]any, error) {
+func (s CrmReportService) PipelineInspection(ctx context.Context, ownerUserID string) (map[string]any, error) {
 	stages, err := NewCrmPipelineStage().List(ctx)
 	if err != nil {
 		return nil, err
@@ -2442,8 +2445,11 @@ func (s CrmReportService) PipelineInspection(ctx context.Context) (map[string]an
 		Amount  float64 `gorm:"column:amount"`
 	}
 	var openRows []stageRow
-	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open").
-		Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
+	openQ := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
+	if ownerUserID != "" {
+		openQ = openQ.Where("owner_user_id = ?", ownerUserID)
+	}
+	if err := openQ.Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
 		Group("stage_id").Scan(&openRows).Error; err != nil {
 		return nil, err
 	}
@@ -2458,8 +2464,11 @@ func (s CrmReportService) PipelineInspection(ctx context.Context) (map[string]an
 		AvgDays float64 `gorm:"column:avg_days"`
 	}
 	var ageRows []ageRow
-	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open").
-		Select("stage_id, AVG(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400) AS avg_days").
+	ageQ := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
+	if ownerUserID != "" {
+		ageQ = ageQ.Where("owner_user_id = ?", ownerUserID)
+	}
+	if err := ageQ.Select("stage_id, AVG(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400) AS avg_days").
 		Group("stage_id").Scan(&ageRows).Error; err != nil {
 		return nil, err
 	}
@@ -2475,8 +2484,11 @@ func (s CrmReportService) PipelineInspection(ctx context.Context) (map[string]an
 		Amount float64 `gorm:"column:amount"`
 	}
 	var wlRows []wonLostRow
-	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status IN ?", []string{"won", "lost"}).
-		Select("status, COUNT(*) AS cnt, COALESCE(SUM(actual_amount),0) AS amount").
+	wlQ := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status IN ?", []string{"won", "lost"})
+	if ownerUserID != "" {
+		wlQ = wlQ.Where("owner_user_id = ?", ownerUserID)
+	}
+	if err := wlQ.Select("status, COUNT(*) AS cnt, COALESCE(SUM(actual_amount),0) AS amount").
 		Group("status").Scan(&wlRows).Error; err != nil {
 		return nil, err
 	}

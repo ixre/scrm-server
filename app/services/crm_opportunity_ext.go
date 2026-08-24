@@ -1,18 +1,19 @@
 package services
 
 import (
+	"bytes"
 	"core/common/id_generator"
 	"core/common/identity"
 	"strconv"
 
 	"context"
-
 	"errors"
 	"time"
 
 	"core/app/models"
 	"core/common/log"
 
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -199,4 +200,94 @@ func (s CrmOpportunityExtService) Reopen(ctx context.Context, id string) error {
 		return errors.New("商机不存在或非赢单/输单状态")
 	}
 	return nil
+}
+
+// Export 导出商机为 Excel。
+func (s CrmOpportunityExtService) Export(ctx context.Context, status, ownerUserID string) (*bytes.Buffer, string, error) {
+	db := models.MustFor(ctx).Limit(10000).Order("id desc")
+	if status != "" {
+		db = db.Where("status = ?", status)
+	}
+	if ownerUserID != "" {
+		db = db.Where("owner_user_id = ?", ownerUserID)
+	}
+	var opps []models.CrmOpportunity
+	if err := db.Find(&opps).Error; err != nil {
+		return nil, "", err
+	}
+	f := excelize.NewFile()
+	sheet := "商机列表"
+	f.SetSheetName(f.GetSheetName(0), sheet)
+	headers := []string{"ID", "商机名称", "客户ID", "产品", "预计金额", "实际金额", "阶段ID", "状态", "归属销售ID", "预计成交", "竞争对手", "备注", "创建时间"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	for i, o := range opps {
+		row := i + 2
+		f.SetCellValue(sheet, "A"+strconv.Itoa(row), o.ID)
+		f.SetCellValue(sheet, "B"+strconv.Itoa(row), o.Title)
+		f.SetCellValue(sheet, "C"+strconv.Itoa(row), o.CustomerID)
+		f.SetCellValue(sheet, "D"+strconv.Itoa(row), o.Product)
+		f.SetCellValue(sheet, "E"+strconv.Itoa(row), o.Amount)
+		f.SetCellValue(sheet, "F"+strconv.Itoa(row), o.ActualAmount)
+		f.SetCellValue(sheet, "G"+strconv.Itoa(row), o.StageID)
+		f.SetCellValue(sheet, "H"+strconv.Itoa(row), o.Status)
+		f.SetCellValue(sheet, "I"+strconv.Itoa(row), o.OwnerUserID)
+		f.SetCellValue(sheet, "J"+strconv.Itoa(row), o.ExpectedCloseDate)
+		f.SetCellValue(sheet, "K"+strconv.Itoa(row), o.Competitor)
+		f.SetCellValue(sheet, "L"+strconv.Itoa(row), o.Remark)
+		f.SetCellValue(sheet, "M"+strconv.Itoa(row), o.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+	buf, err := f.WriteToBuffer()
+	if err != nil {
+		return nil, "", err
+	}
+	return buf, "opportunities_" + time.Now().Format("20060102_150405") + ".xlsx", nil
+}
+
+// BatchTransfer 批量转移商机归属人。
+func (s CrmOpportunityExtService) BatchTransfer(ctx context.Context, ids []string, toUserID string) (int64, error) {
+	tenantID := identity.TenantID(ctx)
+	if len(ids) == 0 {
+		return 0, errors.New("ids 不能为空")
+	}
+	if toUserID == "" {
+		return 0, errors.New("to_user_id 不能为空")
+	}
+	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
+		Update("owner_user_id", toUserID)
+	if res.Error != nil {
+		log.Sugar.Errorw("crm opportunity batch transfer failed", "err", res.Error)
+	}
+	return res.RowsAffected, res.Error
+}
+
+// BatchImport 批量导入商机。
+func (s CrmOpportunityExtService) BatchImport(ctx context.Context, userID string, rows []map[string]string) (int, int, error) {
+	tenantID := identity.TenantID(ctx)
+	success, fail := 0, 0
+	for _, r := range rows {
+		o := models.CrmOpportunity{
+			Model:       models.Model{ID: id_generator.StringID()},
+			TenantID:    tenantID,
+			Title:       r["商机名称"],
+			Product:     r["产品"],
+			Amount:      parseFloat(r["预计金额"]),
+			Status:      "open",
+			OwnerUserID: userID,
+			Remark:      r["备注"],
+		}
+		if err := models.DB.Create(&o).Error; err != nil {
+			fail++
+		} else {
+			success++
+		}
+	}
+	return success, fail, nil
+}
+
+func parseFloat(s string) float64 {
+	v, _ := strconv.ParseFloat(s, 64)
+	return v
 }

@@ -99,6 +99,8 @@ func init() {
 	Reg.Register("crm_lead", "Get", crmLeadGet)
 	Reg.Register("crm_lead", "Query", crmLeadQuery)
 	Reg.Register("crm_lead", "BatchImport", crmLeadBatchImport)
+	Reg.Register("crm_lead", "Export", crmLeadExport)
+	Reg.Register("crm_lead", "BatchTransfer", crmLeadBatchTransfer)
 
 	// pipeline stage
 	Reg.Register("crm_pipeline", "Create", crmStageCreate)
@@ -732,6 +734,9 @@ func init() {
 	Reg.Register("crm_opportunity", "Lose", crmOpportunityLose)
 	Reg.Register("crm_opportunity", "BatchChangeStage", crmOpportunityBatchChangeStage)
 	Reg.Register("crm_opportunity", "Reopen", crmOpportunityReopen)
+	Reg.Register("crm_opportunity", "Export", crmOpportunityExport)
+	Reg.Register("crm_opportunity", "BatchTransfer", crmOpportunityBatchTransfer)
+	Reg.Register("crm_opportunity", "BatchImport", crmOpportunityBatchImport)
 
 	// ---- 合同扩展（作废 / 变更 / 关联项目工单）----
 	Reg.Register("crm_order", "Revoke", crmOrderRevoke)
@@ -2239,18 +2244,26 @@ func crmReportSalesSummary(ctx context.Context, _, _ string, _ json.RawMessage) 
 	return services.NewCrmReport().SalesSummary(ctx)
 }
 
-func crmReportPipelineFunnel(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+func crmReportPipelineFunnel(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().PipelineFunnel(ctx)
+	var req struct {
+		OwnerUserID string `json:"owner_user_id"`
+	}
+	_ = Bind(params, &req)
+	return services.NewCrmReport().PipelineFunnel(ctx, EffectiveOwnerFilter(ctx, req.OwnerUserID))
 }
 
-func crmReportPipelineInspection(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+func crmReportPipelineInspection(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err
 	}
-	return services.NewCrmReport().PipelineInspection(ctx)
+	var req struct {
+		OwnerUserID string `json:"owner_user_id"`
+	}
+	_ = Bind(params, &req)
+	return services.NewCrmReport().PipelineInspection(ctx, EffectiveOwnerFilter(ctx, req.OwnerUserID))
 }
 
 func crmReportChannelSummary(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {

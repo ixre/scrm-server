@@ -287,3 +287,100 @@ func crmLeadBatchImport(ctx context.Context, _, _ string, params json.RawMessage
 	}
 	return map[string]any{"success": success, "fail": fail}, nil
 }
+
+func crmLeadExport(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		Status      string `json:"status"`
+		OwnerUserID string `json:"owner_user_id"`
+	}
+	_ = Bind(params, &req)
+	buf, filename, err := services.NewCrmLeadExt().Export(ctx, req.Status, EffectiveOwnerFilter(ctx, req.OwnerUserID))
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"filename": filename,
+		"content":  buf.Bytes(),
+	}, nil
+}
+
+func crmLeadBatchTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		IDs      []string `json:"ids"`
+		ToUserID string   `json:"to_user_id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	n, err := services.NewCrmLeadExt().BatchTransfer(ctx, req.IDs, req.ToUserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"affected": n}, nil
+}
+
+func crmOpportunityExport(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		Status      string `json:"status"`
+		OwnerUserID string `json:"owner_user_id"`
+	}
+	_ = Bind(params, &req)
+	buf, filename, err := services.NewCrmOpportunityExt().Export(ctx, req.Status, EffectiveOwnerFilter(ctx, req.OwnerUserID))
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"filename": filename,
+		"content":  buf.Bytes(),
+	}, nil
+}
+
+func crmOpportunityBatchTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		IDs      []string `json:"ids"`
+		ToUserID string   `json:"to_user_id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	n, err := services.NewCrmOpportunityExt().BatchTransfer(ctx, req.IDs, req.ToUserID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"affected": n}, nil
+}
+
+func crmOpportunityBatchImport(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid := identity.UserID(ctx)
+	var req struct {
+		Rows []map[string]string `json:"rows"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	success, fail, err := services.NewCrmOpportunityExt().BatchImport(ctx, uid, req.Rows)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"success": success, "fail": fail}, nil
+}
