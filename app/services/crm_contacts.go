@@ -34,9 +34,6 @@ func (s CrmContactService) Create(ctx context.Context, c *models.CrmContact) err
 	if strings.TrimSpace(c.Name) == "" {
 		return errors.New("姓名不能为空")
 	}
-	if c.CustomerID == "" {
-		return errors.New("customer_id 不能为空")
-	}
 	c.ID = id_generator.StringID()
 	c.TenantID = tenantID
 	c.Name = strings.TrimSpace(c.Name)
