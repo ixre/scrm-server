@@ -791,3 +791,24 @@ func crmSmartCardListViews(ctx context.Context, _, _ string, params json.RawMess
 	}
 	return Result(items, total), nil
 }
+
+func crmSmartCardStats(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid := identity.UserID(ctx)
+	var req struct {
+		Scope string `json:"scope"`
+	}
+	_ = Bind(params, &req)
+	filterUID := ""
+	if req.Scope != "all" {
+		filterUID = uid
+	}
+	stats, err := services.NewCrmSmartCard().Stats(ctx, filterUID)
+	if err != nil {
+		return nil, err
+	}
+	return stats, nil
+}

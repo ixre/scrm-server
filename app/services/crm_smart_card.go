@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 
@@ -20,7 +20,6 @@ type CrmSmartCardService struct{}
 func NewCrmSmartCard() *CrmSmartCardService { return &CrmSmartCardService{} }
 
 func (s CrmSmartCardService) Query(ctx context.Context, userID string, p *app.Pager) ([]models.CrmSmartCard, int64, error) {
-
 
 	if p == nil {
 		p = &app.Pager{}
@@ -41,7 +40,6 @@ func (s CrmSmartCardService) Query(ctx context.Context, userID string, p *app.Pa
 
 func (s CrmSmartCardService) Get(ctx context.Context, id string) (models.CrmSmartCard, error) {
 	tenantID := identity.TenantID(ctx)
-
 
 	var item models.CrmSmartCard
 	db := models.DB.Where("id = ?", id)
@@ -75,7 +73,6 @@ func (s CrmSmartCardService) GetByID(id string) (models.CrmSmartCard, error) {
 func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard) (models.CrmSmartCard, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	if strings.TrimSpace(req.Name) == "" {
 		return req, errors.New("姓名不能为空")
 	}
@@ -98,8 +95,7 @@ func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard
 
 func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
 
-
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(map[string]any{
+	if err := models.MustFor(ctx).Where("id = ?", id).Updates(map[string]any{
 		"name":     req.Name,
 		"title":    req.Title,
 		"company":  req.Company,
@@ -119,18 +115,16 @@ func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.C
 
 func (s CrmSmartCardService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmSmartCard{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmSmartCard{})
 	return res.RowsAffected, res.Error
 }
 
 // RecordView 记录名片浏览（访客轨迹），事务保证浏览数+1和记录写入一致。
 func (s CrmSmartCardService) RecordView(ctx context.Context, cardID, visitorID, ip, ua, source string, duration int) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	rec := models.CrmSmartCardView{
 		TenantID:  tenantID,
@@ -152,7 +146,6 @@ func (s CrmSmartCardService) RecordView(ctx context.Context, cardID, visitorID, 
 
 func (s CrmSmartCardService) ListViews(ctx context.Context, cardID string, p *app.Pager) ([]models.CrmSmartCardView, int64, error) {
 
-
 	if p == nil {
 		p = &app.Pager{}
 	}
@@ -173,4 +166,36 @@ func (s CrmSmartCardService) ListViews(ctx context.Context, cardID string, p *ap
 // IncrementShare 分享数+1。
 func (s CrmSmartCardService) IncrementShare(cardID string) error {
 	return models.DB.Model(&models.CrmSmartCard{}).Where("id = ?", cardID).UpdateColumn("share_count", gorm.Expr("share_count + 1")).Error
+}
+
+// SmartCardStats 智能名片统计概览。
+type SmartCardStats struct {
+	TotalCards    int64 `json:"total_cards"`
+	TotalViews    int64 `json:"total_views"`
+	TotalShares   int64 `json:"total_shares"`
+	TodayVisitors int64 `json:"today_visitors"`
+}
+
+// Stats 统计概览（按当前用户过滤，管理员可看全部）。
+func (s CrmSmartCardService) Stats(ctx context.Context, userID string) (SmartCardStats, error) {
+	tenantID := identity.TenantID(ctx)
+	var stats SmartCardStats
+	cardDB := models.DB.Model(&models.CrmSmartCard{}).Where("tenant_id = ?", tenantID)
+	if userID != "" {
+		cardDB = cardDB.Where("user_id = ?", userID)
+	}
+	if err := cardDB.
+		Select("COUNT(*) as total_cards, COALESCE(SUM(view_count),0) as total_views, COALESCE(SUM(share_count),0) as total_shares").
+		Scan(&stats).Error; err != nil {
+		return stats, err
+	}
+	// 今日访客
+	viewDB := models.DB.Model(&models.CrmSmartCardView{}).Where("tenant_id = ?", tenantID)
+	if userID != "" {
+		viewDB = viewDB.Where("card_id IN (SELECT id FROM crm_smart_card WHERE user_id = ? AND tenant_id = ?)", userID, tenantID)
+	}
+	if err := viewDB.Where("created_at >= CURRENT_DATE").Count(&stats.TodayVisitors).Error; err != nil {
+		return stats, err
+	}
+	return stats, nil
 }
