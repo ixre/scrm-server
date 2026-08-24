@@ -710,14 +710,21 @@ func crmSmartCardList(ctx context.Context, _, _ string, params json.RawMessage) 
 	if err != nil {
 		return nil, err
 	}
+	uid := identity.UserID(ctx)
 	var req struct {
 		UserID string `json:"user_id"`
+		Scope  string `json:"scope"` // "mine"=只看自己, "all"=全部(管理员), ""=默认看自己
 		*app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmSmartCard().Query(ctx, req.UserID, req.Pager)
+	// 默认只看自己的名片，除非显式传 scope=all
+	filterUID := req.UserID
+	if filterUID == "" && req.Scope != "all" {
+		filterUID = uid
+	}
+	items, total, err := services.NewCrmSmartCard().Query(ctx, filterUID, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -738,6 +745,18 @@ func crmSmartCardCreate(ctx context.Context, _, _ string, params json.RawMessage
 		req.UserID = uid
 	}
 	return services.NewCrmSmartCard().Create(ctx, req)
+}
+
+func crmSmartCardUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req models.CrmSmartCard
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmSmartCard().Update(ctx, id, req)
 }
 
 func crmSmartCardDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {

@@ -332,6 +332,7 @@ func init() {
 	// Phase 7 C4：智能名片
 	Reg.Register("crm_smart_card", "List", crmSmartCardList)
 	Reg.Register("crm_smart_card", "Create", crmSmartCardCreate)
+	Reg.Register("crm_smart_card", "Update", crmSmartCardUpdate)
 	Reg.Register("crm_smart_card", "Delete", crmSmartCardDelete)
 	Reg.Register("crm_smart_card", "ListViews", crmSmartCardListViews)
 
