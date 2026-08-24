@@ -173,6 +173,8 @@ type CrmPipelineStage struct {
 	Probability int    `gorm:"type:int;default:0;comment:成交概率(%)" json:"probability"`
 	IsWon       bool   `gorm:"comment:是否赢单终态" json:"is_won"`
 	IsLost      bool   `gorm:"comment:是否输单终态" json:"is_lost"`
+	Color       string `gorm:"type:varchar(16);default:#1890ff;comment:阶段颜色" json:"color"`
+	Description string `gorm:"type:varchar(512);comment:阶段描述/退出标准" json:"description"`
 }
 
 // CrmOpportunity 商机。

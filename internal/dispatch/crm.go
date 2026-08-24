@@ -130,6 +130,7 @@ func init() {
 	// report
 	Reg.Register("crm_report", "SalesSummary", crmReportSalesSummary)
 	Reg.Register("crm_report", "PipelineFunnel", crmReportPipelineFunnel)
+	Reg.Register("crm_report", "PipelineInspection", crmReportPipelineInspection)
 	Reg.Register("crm_report", "ChannelSummary", crmReportChannelSummary)
 
 	// activity（营销活动）
@@ -2243,6 +2244,13 @@ func crmReportPipelineFunnel(ctx context.Context, _, _ string, _ json.RawMessage
 		return nil, err
 	}
 	return services.NewCrmReport().PipelineFunnel(ctx)
+}
+
+func crmReportPipelineInspection(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	return services.NewCrmReport().PipelineInspection(ctx)
 }
 
 func crmReportChannelSummary(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {

@@ -1927,10 +1927,11 @@ func (s CrmPipelineStageService) Update(ctx context.Context, id string, req mode
 	req.ID = id
 	req.TenantID = identity.TenantID(ctx)
 	err := models.MustFor(ctx).Model(&models.CrmPipelineStage{}).Where("id = ?", id).
-		Select("name", "sort", "probability", "is_won", "is_lost").
+		Select("name", "sort", "probability", "is_won", "is_lost", "color", "description").
 		Updates(map[string]any{
 			"name": req.Name, "sort": req.Sort, "probability": req.Probability,
 			"is_won": req.IsWon, "is_lost": req.IsLost,
+			"color": req.Color, "description": req.Description,
 		}).Error
 	if err != nil {
 		log.Sugar.Errorw("crm stage update failed", "err", err)
@@ -2424,6 +2425,116 @@ func (s CrmReportService) PipelineFunnel(ctx context.Context) ([]map[string]any,
 		})
 	}
 	return out, nil
+}
+
+// PipelineInspection 销售管线分析：对标 Salesforce Pipeline Inspection。
+// 汇总各阶段的商机数量、金额、加权金额、平均停留天数，以及整体赢单/输单率。
+func (s CrmReportService) PipelineInspection(ctx context.Context) (map[string]any, error) {
+	stages, err := NewCrmPipelineStage().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 各阶段 open 商机聚合
+	type stageRow struct {
+		StageID string  `gorm:"column:stage_id"`
+		Cnt     int64   `gorm:"column:cnt"`
+		Amount  float64 `gorm:"column:amount"`
+	}
+	var openRows []stageRow
+	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open").
+		Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
+		Group("stage_id").Scan(&openRows).Error; err != nil {
+		return nil, err
+	}
+	openMap := map[string]stageRow{}
+	for _, r := range openRows {
+		openMap[r.StageID] = r
+	}
+
+	// 各阶段平均停留天数（open 商机从 created_at 到现在）
+	type ageRow struct {
+		StageID string  `gorm:"column:stage_id"`
+		AvgDays float64 `gorm:"column:avg_days"`
+	}
+	var ageRows []ageRow
+	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open").
+		Select("stage_id, AVG(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400) AS avg_days").
+		Group("stage_id").Scan(&ageRows).Error; err != nil {
+		return nil, err
+	}
+	ageMap := map[string]float64{}
+	for _, r := range ageRows {
+		ageMap[r.StageID] = r.AvgDays
+	}
+
+	// 赢单/输单统计
+	type wonLostRow struct {
+		Status string  `gorm:"column:status"`
+		Cnt    int64   `gorm:"column:cnt"`
+		Amount float64 `gorm:"column:amount"`
+	}
+	var wlRows []wonLostRow
+	if err := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status IN ?", []string{"won", "lost"}).
+		Select("status, COUNT(*) AS cnt, COALESCE(SUM(actual_amount),0) AS amount").
+		Group("status").Scan(&wlRows).Error; err != nil {
+		return nil, err
+	}
+	var wonCnt, lostCnt int64
+	var wonAmount, lostAmount float64
+	for _, r := range wlRows {
+		if r.Status == "won" {
+			wonCnt = r.Cnt
+			wonAmount = r.Amount
+		} else {
+			lostCnt = r.Cnt
+			lostAmount = r.Amount
+		}
+	}
+	totalClosed := wonCnt + lostCnt
+	winRate := 0.0
+	if totalClosed > 0 {
+		winRate = float64(wonCnt) / float64(totalClosed) * 100
+	}
+
+	// 总 open 金额
+	var totalOpenAmount float64
+	var totalOpenCount int64
+	for _, r := range openRows {
+		totalOpenAmount += r.Amount
+		totalOpenCount += r.Cnt
+	}
+
+	// 阶段明细
+	stageDetails := make([]map[string]any, 0, len(stages))
+	for _, st := range stages {
+		r := openMap[st.ID]
+		weighted := r.Amount * float64(st.Probability) / 100
+		stageDetails = append(stageDetails, map[string]any{
+			"stage_id":    st.ID,
+			"stage_name":  st.Name,
+			"sort":        st.Sort,
+			"probability": st.Probability,
+			"color":       st.Color,
+			"is_won":      st.IsWon,
+			"is_lost":     st.IsLost,
+			"open_count":  r.Cnt,
+			"open_amount": r.Amount,
+			"weighted":    weighted,
+			"avg_days":    ageMap[st.ID],
+		})
+	}
+
+	return map[string]any{
+		"stages":            stageDetails,
+		"total_open_count":  totalOpenCount,
+		"total_open_amount": totalOpenAmount,
+		"won_count":         wonCnt,
+		"won_amount":        wonAmount,
+		"lost_count":        lostCnt,
+		"lost_amount":       lostAmount,
+		"win_rate":          winRate,
+	}, nil
 }
 
 // ChannelCustomerCount 渠道客户构成（按 source 分组）。
