@@ -897,6 +897,7 @@ type CrmSmartCard struct {
 	Tags       constants.StringArrayField `gorm:"type:jsonb;comment:专业标签" json:"tags"`
 	Products   constants.StringArrayField `gorm:"type:jsonb;comment:产品/服务列表JSON[{name,desc}]" json:"products"`
 	Cases      constants.StringArrayField `gorm:"type:jsonb;comment:案例列表JSON[{name,desc}]" json:"cases"`
+	WechatQR   string                     `gorm:"type:varchar(512);comment:企业微信二维码URL" json:"wechat_qr"`
 	ViewCount  int                        `gorm:"type:int;default:0;comment:浏览数" json:"view_count"`
 	ShareCount int                        `gorm:"type:int;default:0;comment:分享数" json:"share_count"`
 	ShareCode  string                     `gorm:"type:varchar(32);index;comment:分享码(短链标识)" json:"share_code"`

@@ -842,3 +842,46 @@ func crmSmartCardPublicGet(ctx context.Context, _, _ string, params json.RawMess
 	}
 	return nil, errors.New("share_code 或 id 不能为空")
 }
+
+// crmSmartCardPublicSubmitLead 公开留资（无需登录，客户在H5名片页提交线索）。
+func crmSmartCardPublicSubmitLead(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		ShareCode string `json:"share_code"`
+		Name      string `json:"name"`
+		Mobile    string `json:"mobile"`
+		Remark    string `json:"remark"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ShareCode == "" {
+		return nil, errors.New("share_code 不能为空")
+	}
+	if req.Name == "" || req.Mobile == "" {
+		return nil, errors.New("姓名和手机号不能为空")
+	}
+	// 通过分享码找到名片，推导出租户ID和归属销售
+	card, err := services.NewCrmSmartCard().GetByShareCode(req.ShareCode)
+	if err != nil {
+		return nil, errors.New("名片不存在")
+	}
+	// 用名片的租户和销售身份创建线索
+	ctx2 := identity.WithIdentity(context.Background(), identity.Identity{
+		TenantID: card.TenantID,
+		UserID:   card.UserID,
+	})
+	lead := models.CrmLead{
+		Name:        req.Name,
+		Mobile:      req.Mobile,
+		Remark:      req.Remark,
+		Source:      "smart_card",
+		Status:      "new",
+		OwnerUserID: card.UserID,
+		Title:       "名片留资-" + req.Name,
+	}
+	created, err := services.CrmLeadService{}.Create(ctx2, card.UserID, lead)
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
+}
