@@ -1656,7 +1656,7 @@ func (s CrmCustomerService) GetDetail(ctx context.Context, id string) (map[strin
 	}, nil
 }
 
-func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUserID string, source string, outFlowStatus int, poolStatus int, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
+func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUserID string, source string, outFlowStatus int, poolStatus int, category string, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -1678,6 +1678,20 @@ func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUser
 	}
 	if poolStatus >= 0 {
 		db = db.Where("pool_status = ?", poolStatus)
+	}
+	// 分类筛选（参照 Salesforce List View）
+	uid := identity.UserID(ctx)
+	switch category {
+	case "key":
+		db = db.Where("is_key = ?", true)
+	case "blacklist":
+		db = db.Where("is_blacklist = ?", true)
+	case "shared":
+		db = db.Where("shared_staff_ids LIKE ?", "%\""+uid+"\"%")
+	case "unreceive":
+		db = db.Where("owner_user_id = '' AND pool_status = ?", 0)
+	case "reassign":
+		db = db.Where("reassign_status = ?", 1)
 	}
 	var total int64
 	if err := db.Model(&models.CrmCustomer{}).Count(&total).Error; err != nil {

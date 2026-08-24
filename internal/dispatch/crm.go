@@ -1847,6 +1847,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 			Source        string `json:"source"`
 			OutFlowStatus any    `json:"out_flow_status"`
 			PoolStatus    any    `json:"pool_status"`
+			Category      string `json:"category"`
 		} `json:"query"`
 		Pager *app.Pager `json:"pager"`
 	}
@@ -1869,7 +1870,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 	case string:
 		poolStatus, _ = strconv.Atoi(v)
 	}
-	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Source, outFlow, poolStatus, req.Pager)
+	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Source, outFlow, poolStatus, req.Query.Category, req.Pager)
 	if err != nil {
 		return nil, err
 	}
