@@ -25,12 +25,13 @@ func crmContactList(ctx context.Context, _, _ string, params json.RawMessage) (a
 	var req struct {
 		CustomerID string `json:"customer_id"`
 		Keyword    string `json:"keyword"`
+		FilterMode string `json:"filter_mode"`
 		*app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.QueryReq{Page: req.Page, PageSize: req.PageSize, CustomerID: req.CustomerID, Keyword: req.Keyword}
+	q := services.QueryReq{Page: req.Page, PageSize: req.PageSize, CustomerID: req.CustomerID, Keyword: req.Keyword, FilterMode: req.FilterMode}
 	items, total, err := services.NewCrmContact().Query(ctx, q)
 	if err != nil {
 		return nil, err
