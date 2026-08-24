@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"core/app/models"
 	"core/app/services"
@@ -811,4 +812,33 @@ func crmSmartCardStats(ctx context.Context, _, _ string, params json.RawMessage)
 		return nil, err
 	}
 	return stats, nil
+}
+
+// crmSmartCardPublicGet 公开获取名片（无需登录，按分享码或ID查询）。
+func crmSmartCardPublicGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		ShareCode string `json:"share_code"`
+		ID        string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	svc := services.NewCrmSmartCard()
+	if req.ShareCode != "" {
+		card, err := svc.GetByShareCode(req.ShareCode)
+		if err != nil {
+			return nil, err
+		}
+		// 异步记录浏览
+		go func() {
+			defer func() { recover() }()
+			ctx2 := identity.WithIdentity(context.Background(), identity.Identity{TenantID: card.TenantID})
+			svc.RecordView(ctx2, card.ID, "", "", "", "share", 0)
+		}()
+		return card, nil
+	}
+	if req.ID != "" {
+		return svc.GetByID(req.ID)
+	}
+	return nil, errors.New("share_code 或 id 不能为空")
 }

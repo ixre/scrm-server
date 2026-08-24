@@ -336,6 +336,7 @@ func init() {
 	Reg.Register("crm_smart_card", "Delete", crmSmartCardDelete)
 	Reg.Register("crm_smart_card", "ListViews", crmSmartCardListViews)
 	Reg.Register("crm_smart_card", "Stats", crmSmartCardStats)
+	Reg.Register("crm_smart_card", "PublicGet", crmSmartCardPublicGet)
 
 	// P1: CRM 核心补全 — 联系人
 	Reg.Register("crm_contact", "List", crmContactList)
