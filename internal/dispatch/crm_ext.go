@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"core/app/services"
 	"core/common/app"
@@ -216,21 +217,47 @@ func crmCustomerListReassign(ctx context.Context, _, _ string, params json.RawMe
 	return Result(items, total), nil
 }
 
-func crmCustomerAcceptReassign(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmCustomerAcceptReassign(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	u := identity.UserID(ctx)
-	return ok, services.NewCrmCustomerExt().AcceptReassign(ctx, u, id)
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if len(req.IDs) == 0 {
+		return nil, errors.New("ids 不能为空")
+	}
+	n, err := services.NewCrmCustomerExt().AcceptReassignBatch(ctx, u, req.IDs)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"affected": n}, nil
 }
 
-func crmCustomerRejectReassign(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmCustomerRejectReassign(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmCustomerExt().RejectReassign(ctx, id)
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if len(req.IDs) == 0 {
+		return nil, errors.New("ids 不能为空")
+	}
+	n, err := services.NewCrmCustomerExt().RejectReassignBatch(ctx, req.IDs)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"affected": n}, nil
 }
 
 // ---------- 线索池 dispatch handlers ----------
