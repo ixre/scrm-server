@@ -97,6 +97,10 @@ func (s CrmPoolService) AutoRecycle(ctx context.Context) (int64, error) {
 	var toRecycle []string
 	for _, c := range cs {
 		lastFollowup := lastFollowupTime(ctx, c.ID)
+		// 无跟进记录时，以客户创建时间作为基准判断
+		if lastFollowup.IsZero() {
+			lastFollowup = c.CreatedAt
+		}
 		if shouldRecycle(lastFollowup, threshold) {
 			toRecycle = append(toRecycle, c.ID)
 		}
@@ -117,13 +121,13 @@ func lastFollowupTime(ctx context.Context, customerID string) time.Time {
 	return f.CreatedAt
 }
 
-// shouldRecycle 判断是否应回收：最近跟进时间早于阈值（或无跟进且客户创建时间早于阈值）。
+// shouldRecycle 判断是否应回收：基准时间（最近跟进或创建时间）早于阈值。
 // 纯函数，供单测。
-func shouldRecycle(lastFollowup time.Time, threshold time.Time) bool {
-	if lastFollowup.IsZero() {
-		return false // 无跟进记录不自动回收（靠手动回收或创建时进公海）
+func shouldRecycle(baseTime time.Time, threshold time.Time) bool {
+	if baseTime.IsZero() {
+		return false
 	}
-	return lastFollowup.Before(threshold)
+	return baseTime.Before(threshold)
 }
 
 // ---------- 公海规则 ----------
