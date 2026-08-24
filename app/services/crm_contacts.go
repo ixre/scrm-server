@@ -55,6 +55,10 @@ func (s CrmContactService) Update(ctx context.Context, id string, c *models.CrmC
 		"is_primary":        c.IsPrimary,
 		"is_decision_maker": c.IsDecisionMaker,
 		"remark":            c.Remark,
+		"department":        c.Department,
+		"address":           c.Address,
+		"birthday":          c.Birthday,
+		"gender":            c.Gender,
 	}
 	updatesCRM(m, "CustomerID")
 	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
@@ -82,7 +86,7 @@ func (s CrmContactService) Get(ctx context.Context, id string) (*models.CrmConta
 	return &item, nil
 }
 
-func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]models.CrmContact, int64, error) {
+func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]ContactWithCustomerName, int64, error) {
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -90,27 +94,38 @@ func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]models.Cr
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.MustFor(ctx)
+	db := models.MustFor(ctx).Model(&models.CrmContact{})
 	if req.CustomerID != "" {
-		db = db.Where("customer_id = ?", req.CustomerID)
+		db = db.Where("crm_contact.customer_id = ?", req.CustomerID)
 	}
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
-		db = db.Where("name LIKE ? OR phone LIKE ? OR email LIKE ? OR wechat LIKE ?", like, like, like, like)
+		db = db.Where("crm_contact.name LIKE ? OR crm_contact.phone LIKE ? OR crm_contact.email LIKE ? OR crm_contact.wechat LIKE ?", like, like, like, like)
 	}
 	switch req.FilterMode {
 	case "linked":
-		db = db.Where("customer_id IS NOT NULL AND customer_id <> '0'")
+		db = db.Where("crm_contact.customer_id IS NOT NULL AND crm_contact.customer_id <> '0'")
 	case "pool":
-		db = db.Where("customer_id IS NULL OR customer_id = '0'")
+		db = db.Where("crm_contact.customer_id IS NULL OR crm_contact.customer_id = '0'")
 	}
 	var total int64
-	if err := db.Model(&models.CrmContact{}).Count(&total).Error; err != nil {
+	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []models.CrmContact
-	err := db.Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).Order("id desc").Find(&items).Error
+	var items []ContactWithCustomerName
+	err := db.
+		Select("crm_contact.*, crm_customer.name AS customer_name").
+		Joins("LEFT JOIN crm_customer ON crm_customer.id = crm_contact.customer_id").
+		Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).
+		Order("crm_contact.id desc").
+		Find(&items).Error
 	return items, total, err
+}
+
+// ContactWithCustomerName 联系人附带客户名称。
+type ContactWithCustomerName struct {
+	models.CrmContact
+	CustomerName string `json:"customer_name"`
 }
 
 func (s CrmContactService) ListByCustomer(ctx context.Context, customerID string) ([]models.CrmContact, error) {
