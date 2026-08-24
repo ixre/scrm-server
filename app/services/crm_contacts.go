@@ -94,7 +94,11 @@ func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]ContactWi
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.MustFor(ctx).Model(&models.CrmContact{})
+	tenantID := identity.TenantID(ctx)
+	db := models.DB.WithContext(ctx).
+		Table("crm_contact").
+		Joins("LEFT JOIN crm_customer ON crm_customer.id = crm_contact.customer_id AND crm_customer.tenant_id = ?", tenantID).
+		Where("crm_contact.tenant_id = ?", tenantID)
 	if req.CustomerID != "" {
 		db = db.Where("crm_contact.customer_id = ?", req.CustomerID)
 	}
@@ -115,7 +119,6 @@ func (s CrmContactService) Query(ctx context.Context, req QueryReq) ([]ContactWi
 	var items []ContactWithCustomerName
 	err := db.
 		Select("crm_contact.*, crm_customer.name AS customer_name").
-		Joins("LEFT JOIN crm_customer ON crm_customer.id = crm_contact.customer_id").
 		Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).
 		Order("crm_contact.id desc").
 		Find(&items).Error
