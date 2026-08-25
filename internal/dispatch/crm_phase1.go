@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"core/app/models"
 	"core/app/services"
 	"core/common/app"
 	"core/common/identity"
@@ -81,14 +82,62 @@ func crmPoolSetRule(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err := requireRole(ctx, "admin"); err != nil {
 		return nil, err
 	}
+	var req models.CrmPoolRule
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmPool().SetRule(ctx, req)
+}
+
+func crmPoolAssign(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
+		return nil, err
+	}
 	var req struct {
-		RecycleDays int  `json:"recycle_days"`
-		Enabled     bool `json:"enabled"`
+		IDs          []string `json:"ids"`
+		TargetUserID string   `json:"target_user_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmPool().SetRule(ctx, req.RecycleDays, req.Enabled)
+	if len(req.IDs) == 0 {
+		return nil, errors.New("ids 不能为空")
+	}
+	if req.TargetUserID == "" {
+		return nil, errors.New("target_user_id 不能为空")
+	}
+	return services.NewCrmPool().Assign(ctx, identity.UserID(ctx), req.TargetUserID, req.IDs)
+}
+
+func crmPoolListLogs(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		CustomerID string     `json:"customer_id"`
+		Pager      *app.Pager `json:"pager"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	items, total, err := services.NewCrmPool().ListLogs(ctx, req.CustomerID, req.Pager)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, total), nil
+}
+
+func crmPoolGetStats(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmPool().GetStats(ctx)
 }
 
 // ---------- 客户转移 ----------

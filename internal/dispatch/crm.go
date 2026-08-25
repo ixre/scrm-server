@@ -174,8 +174,11 @@ func init() {
 	Reg.Register("crm_pool", "List", crmPoolList)
 	Reg.Register("crm_pool", "Claim", crmPoolClaim)
 	Reg.Register("crm_pool", "Recycle", crmPoolRecycle)
+	Reg.Register("crm_pool", "Assign", crmPoolAssign)
 	Reg.Register("crm_pool", "GetRule", crmPoolGetRule)
 	Reg.Register("crm_pool", "SetRule", crmPoolSetRule)
+	Reg.Register("crm_pool", "ListLogs", crmPoolListLogs)
+	Reg.Register("crm_pool", "GetStats", crmPoolGetStats)
 
 	// 客户转移
 	Reg.Register("crm_customer", "Transfer", crmCustomerTransfer)

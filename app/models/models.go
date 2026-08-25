@@ -143,6 +143,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmWecomEventLog{},
 		// Phase 1 销售域深化
 		&CrmPoolRule{},
+		&CrmPoolLog{},
 		&CrmSalesRule{},
 		&CrmQuota{},
 		&CrmTransferLog{},

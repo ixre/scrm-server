@@ -124,8 +124,10 @@ type CrmCustomer struct {
 	OutFlowStatus int                        `gorm:"type:smallint;default:0;comment:流失状态 0-正常 1-已流失" json:"out_flow_status"`
 	ChannelTags   constants.StringArrayField `gorm:"type:jsonb;comment:渠道标签快照(标签名数组)" json:"channel_tags"`
 	// ---- 公海池 ----
-	PoolStatus int        `gorm:"type:smallint;default:0;index;comment:公海状态 0-非公海 1-公海待认领" json:"pool_status"`
-	PoolAt     *time.Time `gorm:"comment:进入公海时间" json:"pool_at"`
+	PoolStatus      int        `gorm:"type:smallint;default:0;index;comment:公海状态 0-非公海 1-公海待认领" json:"pool_status"`
+	PoolAt          *time.Time `gorm:"comment:进入公海时间" json:"pool_at"`
+	PrevOwnerUserID string     `gorm:"type:varchar(64);index;comment:上一个归属销售(公海前负责人)" json:"prev_owner_user_id"`
+	ClaimedAt       *time.Time `gorm:"comment:最近一次认领时间(用于保护期判断)" json:"claimed_at"`
 	// ---- Phase 4 客户评分 ----
 	Score          int        `gorm:"type:int;default:0;index;comment:客户评分(0-100,自动计算)" json:"score"`
 	ScoreUpdatedAt *time.Time `gorm:"comment:评分更新时间" json:"score_updated_at"`
@@ -389,9 +391,27 @@ type CrmWecomEventLog struct {
 type CrmPoolRule struct {
 	Model
 	Timestamp
-	TenantID    string `gorm:"type:bigint;uniqueIndex;comment:归属租户ID" json:"tenant_id"`
-	RecycleDays int    `gorm:"type:int;default:0;comment:超N天未跟进自动回收,0=不自动回收" json:"recycle_days"`
-	Enabled     bool   `gorm:"comment:是否启用自动回收" json:"enabled"`
+	TenantID          string `gorm:"type:bigint;uniqueIndex;comment:归属租户ID" json:"tenant_id"`
+	RecycleDays       int    `gorm:"type:int;default:0;comment:超N天未跟进自动回收,0=不自动回收" json:"recycle_days"`
+	NoDealDays        int    `gorm:"type:int;default:0;comment:超N天未成单自动回收,0=不自动回收" json:"no_deal_days"`
+	Enabled           bool   `gorm:"comment:是否启用自动回收" json:"enabled"`
+	ClaimLimit        int    `gorm:"type:int;default:0;comment:每人最多领取公海客户数,0=不限" json:"claim_limit"`
+	ClaimCooldownDays int    `gorm:"type:int;default:0;comment:前负责人领取冷却天数,0=不限制" json:"claim_cooldown_days"`
+	ProtectDays       int    `gorm:"type:int;default:0;comment:领取后保护期天数,保护期内不被自动回收,0=不保护" json:"protect_days"`
+}
+
+// CrmPoolLog 公海操作记录（认领/回收/分配）。
+type CrmPoolLog struct {
+	Model
+	Timestamp
+	TenantID     string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	CustomerID   string `gorm:"type:bigint;index;comment:客户ID" json:"customer_id"`
+	CustomerName string `gorm:"type:varchar(128);comment:客户名称(快照)" json:"customer_name"`
+	Action       string `gorm:"type:varchar(16);index;comment:claim/recycle/assign" json:"action"`
+	OperatorID   string `gorm:"type:varchar(64);index;comment:操作人ID" json:"operator_id"`
+	OperatorName string `gorm:"type:varchar(64);comment:操作人姓名(快照)" json:"operator_name"`
+	TargetUserID string `gorm:"type:varchar(64);comment:分配目标用户ID(assign时)" json:"target_user_id"`
+	Remark       string `gorm:"type:varchar(512);comment:备注" json:"remark"`
 }
 
 // CrmSalesRule 销售规则（租户级，单条）：阶段流转校验等。
