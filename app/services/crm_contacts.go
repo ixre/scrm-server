@@ -64,7 +64,7 @@ func (s CrmContactService) Update(ctx context.Context, id string, c *models.CrmC
 		"gender":            c.Gender,
 	}
 	updatesCRM(m, "CustomerID")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmContact{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
