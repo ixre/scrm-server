@@ -700,3 +700,59 @@ func crmReasonDictDelete(ctx context.Context, _, _ string, params json.RawMessag
 	_, e := services.NewCrmReasonDict().Delete(ctx, req.IDs)
 	return ok, e
 }
+
+// ---- 行业字典（平台级） ----
+
+func crmIndustryDictList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	items, err := services.NewCrmIndustryDict().List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, int64(len(items))), nil
+}
+
+func crmIndustryDictCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
+	var item models.CrmIndustryDict
+	if err := Bind(params, &item); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmIndustryDict().Create(&item)
+}
+
+func crmIndustryDictUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
+	var item models.CrmIndustryDict
+	if err := Bind(params, &item); err != nil {
+		return nil, err
+	}
+	var idHolder struct {
+		ID string `json:"id"`
+	}
+	_ = Bind(params, &idHolder)
+	if idHolder.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return ok, services.NewCrmIndustryDict().Update(idHolder.ID, &item)
+}
+
+func crmIndustryDictDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+		return nil, err
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if len(req.IDs) == 0 {
+		return nil, errors.New("ids 不能为空")
+	}
+	_, e := services.NewCrmIndustryDict().Delete(req.IDs)
+	return ok, e
+}

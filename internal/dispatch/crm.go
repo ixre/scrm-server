@@ -591,6 +591,11 @@ func init() {
 	Reg.Register("crm_reason_dict", "Create", crmReasonDictCreate)
 	Reg.Register("crm_reason_dict", "Update", crmReasonDictUpdate)
 	Reg.Register("crm_reason_dict", "Delete", crmReasonDictDelete)
+	// 行业字典（平台级，平台超管维护）
+	Reg.Register("crm_industry_dict", "List", crmIndustryDictList)
+	Reg.Register("crm_industry_dict", "Create", crmIndustryDictCreate)
+	Reg.Register("crm_industry_dict", "Update", crmIndustryDictUpdate)
+	Reg.Register("crm_industry_dict", "Delete", crmIndustryDictDelete)
 
 	// 客户池扩展
 	Reg.Register("crm_customer", "Lock", crmCustomerLock)

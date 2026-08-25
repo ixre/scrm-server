@@ -1600,6 +1600,15 @@ type CrmReasonDict struct {
 	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
 }
 
+// CrmIndustryDict 行业字典（平台级，平台超管在后台维护，所有租户共享）。
+type CrmIndustryDict struct {
+	Model
+	Timestamp
+	Name    string `gorm:"type:varchar(64);comment:行业名称" json:"name"`
+	Sort    int    `gorm:"type:int;default:0;comment:排序(越小越靠前)" json:"sort"`
+	Enabled bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
+}
+
 // CrmSeasType 公海类型。
 type CrmSeasType struct {
 	Model

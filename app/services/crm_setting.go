@@ -415,3 +415,81 @@ func (s CrmReasonDictService) Delete(ctx context.Context, ids []string) (int64, 
 	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmReasonDict{})
 	return res.RowsAffected, res.Error
 }
+
+// CrmIndustryDictService 行业字典服务（平台级）。
+type CrmIndustryDictService struct{}
+
+func NewCrmIndustryDict() *CrmIndustryDictService { return &CrmIndustryDictService{} }
+
+// DefaultIndustries 系统默认行业列表（未配置时兜底返回）。
+var DefaultIndustries = []string{
+	"互联网/IT", "电子商务", "计算机软件", "通信/硬件", "半导体/集成电路",
+	"金融", "银行", "保险", "证券/基金", "投资/创投",
+	"房地产", "建筑", "物业管理", "建材",
+	"制造业", "机械", "汽车", "能源/化工", "环保",
+	"医疗/医药", "生物技术", "医疗器械", "大健康",
+	"教育", "培训", "在线教育",
+	"传媒/广告", "营销", "公关", "出版",
+	"餐饮", "酒店", "旅游", "物流", "快递",
+	"零售", "批发", "贸易", "进出口",
+	"农业", "林业", "渔业",
+	"法律", "咨询", "会计/审计", "人力资源",
+	"政府/非营利", "其他",
+}
+
+// List 查询行业列表。未配置时返回系统默认列表（不落库）。
+func (s CrmIndustryDictService) List(ctx context.Context) ([]models.CrmIndustryDict, error) {
+	var items []models.CrmIndustryDict
+	if err := models.DB.Order("sort asc, id asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	if len(items) > 0 {
+		return items, nil
+	}
+	for i, name := range DefaultIndustries {
+		items = append(items, models.CrmIndustryDict{
+			Name:    name,
+			Sort:    i,
+			Enabled: true,
+		})
+	}
+	return items, nil
+}
+
+// Create 新建行业。
+func (s CrmIndustryDictService) Create(item *models.CrmIndustryDict) error {
+	if item == nil {
+		return errors.New("行业不能为空")
+	}
+	if strings.TrimSpace(item.Name) == "" {
+		return errors.New("行业名称不能为空")
+	}
+	item.ID = id_generator.StringID()
+	item.Name = strings.TrimSpace(item.Name)
+	return models.DB.Create(item).Error
+}
+
+// Update 更新行业。
+func (s CrmIndustryDictService) Update(id string, item *models.CrmIndustryDict) error {
+	if item == nil {
+		return errors.New("行业不能为空")
+	}
+	if strings.TrimSpace(item.Name) == "" {
+		return errors.New("行业名称不能为空")
+	}
+	m := map[string]any{
+		"name":    strings.TrimSpace(item.Name),
+		"sort":    item.Sort,
+		"enabled": item.Enabled,
+	}
+	return models.DB.Model(&models.CrmIndustryDict{}).Where("id = ?", id).Updates(m).Error
+}
+
+// Delete 删除行业。
+func (s CrmIndustryDictService) Delete(ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, errors.New("ids 不能为空")
+	}
+	res := models.DB.Where("id IN ?", ids).Delete(&models.CrmIndustryDict{})
+	return res.RowsAffected, res.Error
+}
