@@ -1621,6 +1621,30 @@ type CrmCustomerTag struct {
 	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
 }
 
+// CrmCareTemplate 客户关怀模板（生日/节日/续约关怀）。
+type CrmCareTemplate struct {
+	Model
+	Timestamp
+	TenantID    string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Name        string `gorm:"type:varchar(128);comment:模板名称" json:"name"`
+	Type        string `gorm:"type:varchar(32);index;comment:关怀类型 birthday/festival/renew/custom" json:"type"`
+	Content     string `gorm:"type:text;comment:关怀内容/话术" json:"content"`
+	AdvanceDays int    `gorm:"type:int;default:0;comment:提前几天提醒,0=当天" json:"advance_days"`
+	Enabled     bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
+}
+
+// CrmCustomerSegment 客户分群（保存的筛选视图）。
+type CrmCustomerSegment struct {
+	Model
+	Timestamp
+	TenantID    string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Name        string `gorm:"type:varchar(128);comment:分群名称" json:"name"`
+	Description string `gorm:"type:varchar(512);comment:描述" json:"description"`
+	Conditions  string `gorm:"type:text;comment:筛选条件JSON" json:"conditions"`
+	IsDynamic   bool   `gorm:"type:bool;default:false;comment:是否动态分群" json:"is_dynamic"`
+	CreatorID   string `gorm:"type:bigint;index;comment:创建人ID" json:"creator_id"`
+}
+
 // CrmReasonDict 赢单/输单原因字典（租户级，管理员在设置页维护）。
 // Category: "win" 赢单原因 / "lose" 输单原因。
 type CrmReasonDict struct {

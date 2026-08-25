@@ -99,6 +99,11 @@ func RegisterCrmAutomationTasks() {
 	if err != nil {
 		log.Sugar.Errorw("RegisterCrmEscalateReplyTimeout failed", "err", err)
 	}
+	// 客户关怀：生日提醒（每日早上8点）
+	_, err = gcron.AddSingleton("0 0 8 * * *", (CrmAutomation{}).GenerateBirthdayCare, "CrmGenerateBirthdayCare")
+	if err != nil {
+		log.Sugar.Errorw("RegisterCrmGenerateBirthdayCare failed", "err", err)
+	}
 }
 
 // CheckReplyTimeout 扫描渠道互动中超时未回复的消息。
@@ -253,4 +258,9 @@ func (CrmAutomation) EscalateReplyTimeout() {
 		Where("status = ? AND created_at < NOW() - INTERVAL '2 hours'", "pending").
 		Update("status", "escalated")
 	log.Sugar.Infow("reply timeout escalated", "count", res.RowsAffected)
+}
+
+// GenerateBirthdayCare 生日关怀待办生成（每日）。
+func (CrmAutomation) GenerateBirthdayCare() {
+	services.NewCrmCare().GenerateBirthdayCareTodos()
 }
