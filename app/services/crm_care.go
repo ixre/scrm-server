@@ -243,7 +243,14 @@ func (s CrmFollowupStatsService) Stats(ctx context.Context) (FollowupStatsResult
 
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	weekStart := todayStart.AddDate(0, 0, -int(now.Weekday()))
+	// 本周起始（周一算起）：周日Weekday=0需特殊处理为6，其余-1
+	weekOffset := int(now.Weekday())
+	if weekOffset == 0 {
+		weekOffset = 6 // 周日归到上一周
+	} else {
+		weekOffset--
+	}
+	weekStart := todayStart.AddDate(0, 0, -weekOffset)
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
 	models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tenantID)).Where("created_at >= ?", todayStart).Count(&result.TodayCount)
