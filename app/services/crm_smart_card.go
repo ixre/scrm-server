@@ -95,7 +95,7 @@ func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard
 
 func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
 
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(map[string]any{
+	if err := models.MustFor(ctx).Model(&models.CrmSmartCard{}).Where("id = ?", id).Updates(map[string]any{
 		"name":          req.Name,
 		"title":         req.Title,
 		"company":       req.Company,
