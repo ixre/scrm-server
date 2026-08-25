@@ -1511,10 +1511,10 @@ func (s CrmCustomerService) Update(ctx context.Context, id string, req models.Cr
 	upd := updatesCRM(map[string]any{
 		"name": req.Name, "mobile": req.Mobile, "email": req.Email, "company": req.Company,
 		"industry": req.Industry, "gender": req.Gender, "birthday": req.Birthday,
-		"level": req.Level, "address": req.Address, "owner_user_id": req.OwnerUserID,
+		"level": req.Level, "address": req.Address, "province": req.Province, "city": req.City, "district": req.District, "owner_user_id": req.OwnerUserID,
 		"next_followup_at": req.NextFollowupAt, "remark": req.Remark, "tags": req.Tags,
 	}, "owner_user_id")
-	selectCols := []string{"name", "mobile", "email", "company", "industry", "gender", "birthday", "level", "address", "owner_user_id", "next_followup_at", "remark", "tags"}
+	selectCols := []string{"name", "mobile", "email", "company", "industry", "gender", "birthday", "level", "address", "province", "city", "district", "owner_user_id", "next_followup_at", "remark", "tags"}
 	if req.Source != "" {
 		upd["source"] = req.Source
 		selectCols = append(selectCols, "source")

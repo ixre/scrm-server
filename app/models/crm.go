@@ -107,7 +107,10 @@ type CrmCustomer struct {
 	Gender         int                        `gorm:"type:smallint;default:0;comment:0-未知 1-男 2-女" json:"gender"`
 	Birthday       string                     `gorm:"type:varchar(32);comment:生日" json:"birthday"`
 	Level          int                        `gorm:"type:smallint;default:0;comment:客户等级 0-未知 1-潜在 2-普通 3-重要 4-重点 5-VIP" json:"level"`
-	Address        string                     `gorm:"type:varchar(255);comment:地址" json:"address"`
+	Address        string                     `gorm:"type:varchar(255);comment:详细地址" json:"address"`
+	Province       string                     `gorm:"type:varchar(32);comment:省" json:"province"`
+	City           string                     `gorm:"type:varchar(32);comment:市" json:"city"`
+	District       string                     `gorm:"type:varchar(32);comment:区/县" json:"district"`
 	Source         string                     `gorm:"type:varchar(32);index;comment:来源渠道 wecom/xiaohongshu/manual/import/web_form" json:"source"`
 	OwnerUserID    string                     `gorm:"type:bigint;index;comment:归属销售用户ID" json:"owner_user_id"`
 	NextFollowupAt *time.Time                 `gorm:"comment:下次跟进时间" json:"next_followup_at"`
@@ -160,7 +163,10 @@ type CrmLead struct {
 	ConvertRemark     string     `gorm:"type:varchar(512);comment:转化备注" json:"convert_remark"`
 	Email             string     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
 	Position          string     `gorm:"type:varchar(64);comment:职位" json:"position"`
-	Address           string     `gorm:"type:varchar(255);comment:地址" json:"address"`
+	Address           string     `gorm:"type:varchar(255);comment:详细地址" json:"address"`
+	Province          string     `gorm:"type:varchar(32);comment:省" json:"province"`
+	City              string     `gorm:"type:varchar(32);comment:市" json:"city"`
+	District          string     `gorm:"type:varchar(32);comment:区/县" json:"district"`
 }
 
 // CrmPipelineStage 销售阶段定义。
@@ -891,7 +897,10 @@ type CrmSmartCard struct {
 	Title        string                     `gorm:"type:varchar(128);comment:职位/头衔" json:"title"`
 	Company      string                     `gorm:"type:varchar(128);comment:公司名" json:"company"`
 	CompanyIntro string                     `gorm:"type:text;comment:公司简介" json:"company_intro"`
-	Address      string                     `gorm:"type:varchar(512);comment:公司地址" json:"address"`
+	Address      string                     `gorm:"type:varchar(512);comment:详细地址" json:"address"`
+	Province     string                     `gorm:"type:varchar(32);comment:省" json:"province"`
+	City         string                     `gorm:"type:varchar(32);comment:市" json:"city"`
+	District     string                     `gorm:"type:varchar(32);comment:区/县" json:"district"`
 	Phone        string                     `gorm:"type:varchar(32);comment:电话" json:"phone"`
 	Email        string                     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
 	Avatar       string                     `gorm:"type:varchar(512);comment:头像URL" json:"avatar"`
@@ -937,7 +946,10 @@ type CrmContact struct {
 	IsDecisionMaker bool   `gorm:"type:bool;default:false;comment:是否决策人" json:"is_decision_maker"`
 	Remark          string `gorm:"type:varchar(512);comment:备注" json:"remark"`
 	Department      string `gorm:"type:varchar(128);comment:所属部门" json:"department"`
-	Address         string `gorm:"type:varchar(255);comment:地址" json:"address"`
+	Address         string `gorm:"type:varchar(255);comment:详细地址" json:"address"`
+	Province        string `gorm:"type:varchar(32);comment:省" json:"province"`
+	City            string `gorm:"type:varchar(32);comment:市" json:"city"`
+	District        string `gorm:"type:varchar(32);comment:区/县" json:"district"`
 	Birthday        string `gorm:"type:varchar(32);comment:生日" json:"birthday"`
 	Gender          int    `gorm:"type:smallint;default:0;comment:0-未知 1-男 2-女" json:"gender"`
 }

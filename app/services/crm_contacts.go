@@ -57,6 +57,9 @@ func (s CrmContactService) Update(ctx context.Context, id string, c *models.CrmC
 		"remark":            c.Remark,
 		"department":        c.Department,
 		"address":           c.Address,
+		"province":          c.Province,
+		"city":              c.City,
+		"district":          c.District,
 		"birthday":          c.Birthday,
 		"gender":            c.Gender,
 	}
