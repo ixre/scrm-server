@@ -750,7 +750,7 @@ func crmSmartCardCreate(ctx context.Context, _, _ string, params json.RawMessage
 	return services.NewCrmSmartCard().Create(ctx, req)
 }
 
-func crmSmartCardUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmSmartCardUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
@@ -759,7 +759,10 @@ func crmSmartCardUpdate(ctx context.Context, _, id string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmSmartCard().Update(ctx, id, req)
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return services.NewCrmSmartCard().Update(ctx, req.ID, req)
 }
 
 func crmSmartCardDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
