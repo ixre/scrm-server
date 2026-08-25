@@ -36,13 +36,17 @@ func (s GroupChatStatsService) Stats(ctx context.Context, extCorpID string) (Gro
 	// 活跃群数（未解散）
 	models.DB.Model(&models.GroupChat{}).Where("ext_corp_id = ? AND status = 2", extCorpID).Count(&result.ActiveGroups)
 
-	// 群成员总数 + 今日入退群
+	// 群成员总数 + 今日入退群（SUM返回numeric，用float64中转避免类型问题）
+	var totalMembers, todayJoin, todayQuit float64
 	models.DB.Model(&models.GroupChat{}).Where("ext_corp_id = ? AND status = 2", extCorpID).
-		Select("COALESCE(SUM(total), 0)").Scan(&result.TotalMembers)
+		Select("COALESCE(SUM(total), 0)").Scan(&totalMembers)
 	models.DB.Model(&models.GroupChat{}).Where("ext_corp_id = ? AND status = 2", extCorpID).
-		Select("COALESCE(SUM(today_join_member_num), 0)").Scan(&result.TodayJoin)
+		Select("COALESCE(SUM(today_join_member_num), 0)").Scan(&todayJoin)
 	models.DB.Model(&models.GroupChat{}).Where("ext_corp_id = ? AND status = 2", extCorpID).
-		Select("COALESCE(SUM(today_quit_member_num), 0)").Scan(&result.TodayQuit)
+		Select("COALESCE(SUM(today_quit_member_num), 0)").Scan(&todayQuit)
+	result.TotalMembers = int64(totalMembers)
+	result.TodayJoin = int64(todayJoin)
+	result.TodayQuit = int64(todayQuit)
 
 	// 成员构成（通过group_chat_member表统计）
 	models.DB.Model(&models.GroupChatMember{}).
