@@ -634,6 +634,95 @@ func crmLeadSourceDelete(ctx context.Context, _, _ string, params json.RawMessag
 
 // ---------- 赢单/输单原因字典 ----------
 
+// ---- 客户标签 ----
+
+func crmCustomerTagList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		Group string `json:"group"`
+	}
+	_ = Bind(params, &req)
+	items, err := services.NewCrmCustomerTag().List(ctx, req.Group)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, int64(len(items))), nil
+}
+
+func crmCustomerTagCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var item models.CrmCustomerTag
+	if err := Bind(params, &item); err != nil {
+		return nil, err
+	}
+	return ok, services.NewCrmCustomerTag().Create(ctx, &item)
+}
+
+func crmCustomerTagUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var item models.CrmCustomerTag
+	if err := Bind(params, &item); err != nil {
+		return nil, err
+	}
+	var idHolder struct {
+		ID string `json:"id"`
+	}
+	_ = Bind(params, &idHolder)
+	if idHolder.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return ok, services.NewCrmCustomerTag().Update(ctx, idHolder.ID, &item)
+}
+
+func crmCustomerTagDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if len(req.IDs) == 0 {
+		return nil, errors.New("ids 不能为空")
+	}
+	_, e := services.NewCrmCustomerTag().Delete(ctx, req.IDs)
+	return ok, e
+}
+
+func crmCustomerTagBatchTag(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		Action      string   `json:"action"`
+		CustomerIDs []string `json:"customer_ids"`
+		TagIDs      []string `json:"tag_ids"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmCustomerTag().BatchTag(ctx, req.Action, req.CustomerIDs, req.TagIDs)
+}
+
+func crmCustomerTagStats(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	items, err := services.NewCrmCustomerTag().Stats(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, int64(len(items))), nil
+}
+
 func crmReasonDictList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err

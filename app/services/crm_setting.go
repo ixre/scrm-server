@@ -2,6 +2,7 @@ package services
 
 import (
 	"core/common/identity"
+	"encoding/json"
 
 	"context"
 
@@ -339,6 +340,140 @@ var DefaultWinReasons = []string{
 // DefaultLoseReasons 系统预置的默认输单原因。
 var DefaultLoseReasons = []string{
 	"价格过高", "竞品胜出", "需求不匹配", "决策周期过长", "预算不足", "客户流失", "其他",
+}
+
+// CrmCustomerTagService 客户标签服务。
+type CrmCustomerTagService struct{}
+
+func NewCrmCustomerTag() *CrmCustomerTagService { return &CrmCustomerTagService{} }
+
+// List 查询客户标签列表，支持按分组筛选。
+func (s CrmCustomerTagService) List(ctx context.Context, group string) ([]models.CrmCustomerTag, error) {
+	var items []models.CrmCustomerTag
+	db := models.MustFor(ctx).Model(&models.CrmCustomerTag{})
+	if group != "" {
+		db = db.Where("\"group\" = ?", group)
+	}
+	err := db.Order("sort asc, id asc").Find(&items).Error
+	return items, err
+}
+
+// Create 新建标签。
+func (s CrmCustomerTagService) Create(ctx context.Context, item *models.CrmCustomerTag) error {
+	if item == nil {
+		return errors.New("标签不能为空")
+	}
+	if strings.TrimSpace(item.Name) == "" {
+		return errors.New("标签名称不能为空")
+	}
+	item.ID = id_generator.StringID()
+	item.TenantID = identity.TenantID(ctx)
+	item.Name = strings.TrimSpace(item.Name)
+	if item.Color == "" {
+		item.Color = "arcoblue"
+	}
+	return createCRM(models.DB, item)
+}
+
+// Update 更新标签。
+func (s CrmCustomerTagService) Update(ctx context.Context, id string, item *models.CrmCustomerTag) error {
+	if item == nil {
+		return errors.New("标签不能为空")
+	}
+	if strings.TrimSpace(item.Name) == "" {
+		return errors.New("标签名称不能为空")
+	}
+	m := map[string]any{
+		"name":    strings.TrimSpace(item.Name),
+		"group":   strings.TrimSpace(item.Group),
+		"color":   item.Color,
+		"sort":    item.Sort,
+		"enabled": item.Enabled,
+	}
+	return models.MustFor(ctx).Model(&models.CrmCustomerTag{}).Where("id = ?", id).Updates(m).Error
+}
+
+// Delete 删除标签，同时清除客户表中的引用。
+func (s CrmCustomerTagService) Delete(ctx context.Context, ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, errors.New("ids 不能为空")
+	}
+	tenantID := identity.TenantID(ctx)
+	// 清除客户表中的标签引用（从 tags 数组中移除被删除的标签ID）
+	for _, tagID := range ids {
+		models.DB.Scopes(models.TenantScope(tenantID)).
+			Exec(`UPDATE crm_customer SET tags = COALESCE(tags, '[]'::jsonb) - ? WHERE tenant_id = ?`, tagID, tenantID)
+	}
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmCustomerTag{})
+	return res.RowsAffected, res.Error
+}
+
+// BatchTag 批量给客户打标签或取消标签。
+// Action: "add" 打标签, "remove" 取消标签。
+func (s CrmCustomerTagService) BatchTag(ctx context.Context, action string, customerIDs []string, tagIDs []string) (int64, error) {
+	if len(customerIDs) == 0 || len(tagIDs) == 0 {
+		return 0, errors.New("customer_ids 和 tag_ids 不能为空")
+	}
+	if action != "add" && action != "remove" {
+		return 0, errors.New("action 只能为 add 或 remove")
+	}
+	tenantID := identity.TenantID(ctx)
+	var affected int64
+	for _, cid := range customerIDs {
+		var cust models.CrmCustomer
+		if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", cid).First(&cust).Error; err != nil {
+			continue
+		}
+		currentSet := make(map[string]bool)
+		for _, t := range cust.Tags {
+			currentSet[t] = true
+		}
+		if action == "add" {
+			for _, tid := range tagIDs {
+				currentSet[tid] = true
+			}
+		} else {
+			for _, tid := range tagIDs {
+				delete(currentSet, tid)
+			}
+		}
+		newTags := make([]string, 0, len(currentSet))
+		for t := range currentSet {
+			newTags = append(newTags, t)
+		}
+		res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).
+			Where("id = ?", cid).Update("tags", newTags)
+		if res.Error == nil {
+			affected += res.RowsAffected
+		}
+	}
+	return affected, nil
+}
+
+// Stats 标签使用统计：每个标签有多少客户在使用。
+func (s CrmCustomerTagService) Stats(ctx context.Context) ([]map[string]any, error) {
+	var tags []models.CrmCustomerTag
+	if err := models.MustFor(ctx).Order("sort asc, id asc").Find(&tags).Error; err != nil {
+		return nil, err
+	}
+	tenantID := identity.TenantID(ctx)
+	result := make([]map[string]any, 0, len(tags))
+	for _, t := range tags {
+		var count int64
+		jsonbVal, _ := json.Marshal([]string{t.ID})
+		models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).
+			Where("tags @> ?::jsonb", string(jsonbVal)).Count(&count)
+		result = append(result, map[string]any{
+			"id":             t.ID,
+			"name":           t.Name,
+			"group":          t.Group,
+			"color":          t.Color,
+			"sort":           t.Sort,
+			"enabled":        t.Enabled,
+			"customer_count": count,
+		})
+	}
+	return result, nil
 }
 
 // CrmReasonDictService 赢单/输单原因字典服务。

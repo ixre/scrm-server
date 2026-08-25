@@ -235,6 +235,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmCustomerSetting{},
 		&CrmLeadSource{},
 		&CrmReasonDict{},
+		&CrmCustomerTag{},
 		// 财务扩展
 		&CrmIncomeCategory{},
 		&CrmOtherIncome{},

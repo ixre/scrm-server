@@ -1608,6 +1608,19 @@ type CrmLeadSource struct {
 	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
 }
 
+// CrmCustomerTag 客户标签（租户级，管理员在设置页维护）。
+// CrmCustomer.tags 存储本标签的 ID 数组。
+type CrmCustomerTag struct {
+	Model
+	Timestamp
+	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Name     string `gorm:"type:varchar(64);comment:标签名称" json:"name"`
+	Group    string `gorm:"column:\"group\";type:varchar(64);index;comment:标签分组" json:"group"`
+	Color    string `gorm:"type:varchar(16);default:arcoblue;comment:标签颜色" json:"color"`
+	Sort     int    `gorm:"type:int;default:0;comment:排序(越小越靠前)" json:"sort"`
+	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
+}
+
 // CrmReasonDict 赢单/输单原因字典（租户级，管理员在设置页维护）。
 // Category: "win" 赢单原因 / "lose" 输单原因。
 type CrmReasonDict struct {
