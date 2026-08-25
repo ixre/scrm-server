@@ -3,11 +3,13 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"core/app/entities"
 	"core/app/models"
 	"core/app/requests"
 	"core/app/services"
+	"core/common/app"
 )
 
 // 群聊（group_chat）域适配器 —— 通用 JSON 透传分发。
@@ -46,6 +48,11 @@ func init() {
 	Reg.Register("group_chat_welcome_msg", "Create", groupChatWelcomeMsgCreate)
 	Reg.Register("group_chat_welcome_msg", "Update", groupChatWelcomeMsgUpdate)
 	Reg.Register("group_chat_welcome_msg", "Delete", groupChatWelcomeMsgDelete)
+
+	// 群统计与成员
+	Reg.Register("group_chat_stats", "Stats", groupChatStats)
+	Reg.Register("group_chat_stats", "ListMembers", groupChatStatsListMembers)
+	Reg.Register("group_chat_stats", "Trend", groupChatStatsTrend)
 }
 
 func groupChatQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
@@ -326,4 +333,44 @@ func groupChatWelcomeMsgDelete(ctx context.Context, _, _ string, params json.Raw
 		return nil, err
 	}
 	return services.NewGroupChatWelcomeMsg().Delete(req.IDs)
+}
+
+func groupChatStats(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, error) {
+	ctx = corpCtx(ctx, corpID)
+	return services.NewGroupChatStats().Stats(ctx, corpID)
+}
+
+func groupChatStatsListMembers(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		ExtChatID  string `json:"ext_chat_id"`
+		MemberType int    `json:"member_type"`
+		Page       int    `json:"page"`
+		PageSize   int    `json:"page_size"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ExtChatID == "" {
+		return nil, errors.New("ext_chat_id 不能为空")
+	}
+	ctx = corpCtx(ctx, corpID)
+	pager := &app.Pager{Page: req.Page, PageSize: req.PageSize}
+	items, total, err := services.NewGroupChatStats().ListMembers(ctx, corpID, req.ExtChatID, req.MemberType, pager)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, total), nil
+}
+
+func groupChatStatsTrend(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
+	var req struct {
+		Days int `json:"days"`
+	}
+	_ = Bind(params, &req)
+	ctx = corpCtx(ctx, corpID)
+	items, err := services.NewGroupChatStats().Trend(ctx, corpID, req.Days)
+	if err != nil {
+		return nil, err
+	}
+	return Result(items, int64(len(items))), nil
 }
