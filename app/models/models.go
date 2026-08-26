@@ -238,6 +238,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmCustomerTag{},
 		&CrmCareTemplate{},
 		&CrmCustomerSegment{},
+		&CrmIndustryDict{},
 		// 财务扩展
 		&CrmIncomeCategory{},
 		&CrmOtherIncome{},
@@ -272,6 +273,16 @@ func AutoMigrate(db *gorm.DB) error {
 	err = db.SetupJoinTable(&Staff{}, "Departments", &StaffDepartment{})
 	if err != nil {
 		return err
+	}
+
+	// 补充复合索引（涉及 Timestamp 嵌入字段，AutoMigrate 无法通过 struct tag 创建）
+	for _, idx := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_channel_task_status_created ON crm_channel_task (status, created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_reply_timeout_status_created ON crm_reply_timeout (status, created_at)`,
+	} {
+		if e := db.Exec(idx).Error; e != nil {
+			log.Sugar.Warnw("create composite index failed", "sql", idx, "err", e.Error())
+		}
 	}
 
 	return nil
