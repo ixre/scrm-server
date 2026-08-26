@@ -282,6 +282,11 @@ func init() {
 	Reg.Register("crm_report", "CustomerLifecycle", crmReportCustomerLifecycle)
 	Reg.Register("crm_report", "ChannelCAC", crmReportChannelCAC)
 
+	// 管理视角看板：业务健康度 / 员工效能 / 风险预警
+	Reg.Register("crm_report", "Health", crmReportHealth)
+	Reg.Register("crm_report", "StaffEfficiency", crmReportStaffEfficiency)
+	Reg.Register("crm_report", "RiskAlerts", crmReportRiskAlerts)
+
 	// Phase 6 客户导入导出
 	Reg.Register("crm_customer", "Export", crmCustomerExport)
 	Reg.Register("crm_customer", "BatchImport", crmCustomerBatchImport)

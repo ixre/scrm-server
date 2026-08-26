@@ -2870,6 +2870,179 @@ func (s CrmReportService) ChannelCAC(ctx context.Context) ([]ChannelCACRow, erro
 	return rows, nil
 }
 
+// ---------- 管理视角看板：业务健康度 / 员工效能 / 风险预警 ----------
+
+// HealthResult 业务健康度。
+type HealthResult struct {
+	FollowupRate      float64 `json:"followup_rate"`      // 跟进率(%) = 有跟进记录的客户数/总客户数
+	ConversionRate    float64 `json:"conversion_rate"`    // 线索转化率(%) = 已转化线索数/总线索数
+	ChurnRate         float64 `json:"churn_rate"`         // 客户流失率(%) = 流失客户数/总客户数
+	WonRate           float64 `json:"won_rate"`           // 赢单率(%) = 赢单商机数/总商机数(已结束)
+	TotalCustomers    int64   `json:"total_customers"`    // 总客户数
+	FollowedCustomers int64   `json:"followed_customers"` // 有跟进记录的客户数
+	TotalLeads        int64   `json:"total_leads"`        // 总线索数
+	ConvertedLeads    int64   `json:"converted_leads"`    // 已转化线索数
+	ChurnedCustomers  int64   `json:"churned_customers"`  // 流失客户数
+	TotalClosedOpp    int64   `json:"total_closed_opp"`   // 已结束商机数(赢单+输单)
+	WonOpp            int64   `json:"won_opp"`            // 赢单商机数
+}
+
+// Health 业务健康度：跟进率、线索转化率、客户流失率、赢单率。
+func (s CrmReportService) Health(ctx context.Context) (HealthResult, error) {
+	tenantID := identity.TenantID(ctx)
+	var h HealthResult
+
+	// 总客户数
+	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL").Count(&h.TotalCustomers)
+	// 流失客户数
+	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND out_flow_status = 1").Count(&h.ChurnedCustomers)
+	// 有跟进记录的客户数（COUNT(DISTINCT customer_id)）
+	models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tenantID)).
+		Where("customer_id IS NOT NULL AND customer_id <> ''").
+		Select("COUNT(DISTINCT customer_id)").Scan(&h.FollowedCustomers)
+
+	// 总线索数
+	models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Count(&h.TotalLeads)
+	// 已转化线索数
+	models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("convert_customer_id IS NOT NULL AND convert_customer_id <> ''").Count(&h.ConvertedLeads)
+
+	// 赢单/已结束商机
+	models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("status = 'won'").Count(&h.WonOpp)
+	models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("status IN ('won','lost')").Count(&h.TotalClosedOpp)
+
+	// 计算比率
+	if h.TotalCustomers > 0 {
+		h.FollowupRate = float64(h.FollowedCustomers) / float64(h.TotalCustomers) * 100
+		h.ChurnRate = float64(h.ChurnedCustomers) / float64(h.TotalCustomers) * 100
+	}
+	if h.TotalLeads > 0 {
+		h.ConversionRate = float64(h.ConvertedLeads) / float64(h.TotalLeads) * 100
+	}
+	if h.TotalClosedOpp > 0 {
+		h.WonRate = float64(h.WonOpp) / float64(h.TotalClosedOpp) * 100
+	}
+	return h, nil
+}
+
+// StaffEfficiencyRow 员工效能行。
+type StaffEfficiencyRow struct {
+	UserID        string  `json:"user_id"`
+	UserName      string  `json:"user_name"`
+	CustomerCount int     `json:"customer_count"` // 负责客户数
+	FollowupCount int     `json:"followup_count"` // 跟进次数
+	OrderCount    int     `json:"order_count"`    // 订单数
+	OrderAmount   float64 `json:"order_amount"`   // 订单金额
+	AvgFollowup   float64 `json:"avg_followup"`   // 人均跟进次数(=跟进次数/客户数)
+}
+
+// StaffEfficiency 员工效能：人均客户数、人均跟进数、人均订单。
+func (s CrmReportService) StaffEfficiency(ctx context.Context) ([]StaffEfficiencyRow, error) {
+	tenantID := identity.TenantID(ctx)
+
+	var users []models.User
+	if err := models.MustFor(ctx).Where("status = 1").Find(&users).Error; err != nil {
+		return nil, err
+	}
+	rows := make([]StaffEfficiencyRow, 0, len(users))
+	for _, u := range users {
+		row := StaffEfficiencyRow{UserID: u.ID, UserName: u.Name}
+		// 负责客户数
+		var custCnt int64
+		models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("owner_user_id = ? AND deleted_at IS NULL", u.ID).Count(&custCnt)
+		row.CustomerCount = int(custCnt)
+		// 跟进次数
+		var fuCnt int64
+		models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tenantID)).Where("user_id = ?", u.ID).Count(&fuCnt)
+		row.FollowupCount = int(fuCnt)
+		// 订单数
+		var ordCnt int64
+		models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND status <> 'cancelled'", u.ID).Count(&ordCnt)
+		row.OrderCount = int(ordCnt)
+		// 订单金额
+		models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(tenantID)).Where("user_id = ? AND status <> 'cancelled'", u.ID).
+			Select("COALESCE(SUM(amount), 0)").Scan(&row.OrderAmount)
+		// 人均跟进
+		if row.CustomerCount > 0 {
+			row.AvgFollowup = float64(row.FollowupCount) / float64(row.CustomerCount)
+		}
+		rows = append(rows, row)
+	}
+	// 按订单金额降序
+	sort.Slice(rows, func(i, j int) bool { return rows[i].OrderAmount > rows[j].OrderAmount })
+	return rows, nil
+}
+
+// RiskAlertItem 风险预警项。
+type RiskAlertItem struct {
+	Type       string `json:"type"`  // overdue_followup/churned_customer/no_followup
+	Label      string `json:"label"` // 预警类型标签
+	CustomerID string `json:"customer_id"`
+	Customer   string `json:"customer"` // 客户名称
+	OwnerID    string `json:"owner_id"`
+	Owner      string `json:"owner"`  // 负责销售
+	Days       int    `json:"days"`   // 逾期天数/未跟进天数
+	Detail     string `json:"detail"` // 详情
+}
+
+// RiskAlerts 风险预警：逾期跟进、流失客户、长期未跟进客户。
+func (s CrmReportService) RiskAlerts(ctx context.Context) (map[string]any, error) {
+	tenantID := identity.TenantID(ctx)
+	now := time.Now()
+	d30 := now.AddDate(0, 0, -30)
+	d7 := now.AddDate(0, 0, -7)
+
+	// 1. 逾期跟进：next_followup_at < 今天 且未完成
+	var overdue []RiskAlertItem
+	var overdueCustomers []models.CrmCustomer
+	models.DB.Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND next_followup_at IS NOT NULL AND next_followup_at < ?",
+		now.Format("2006-01-02")).Limit(20).Find(&overdueCustomers)
+	for _, c := range overdueCustomers {
+		if c.NextFollowupAt == nil {
+			continue
+		}
+		days := int(now.Sub(*c.NextFollowupAt).Hours() / 24)
+		if days < 0 {
+			days = 0
+		}
+		overdue = append(overdue, RiskAlertItem{
+			Type: "overdue_followup", Label: "逾期跟进",
+			CustomerID: c.ID, Customer: c.Name, OwnerID: c.OwnerUserID, Days: days,
+		})
+	}
+
+	// 2. 流失客户（近7天新增流失）
+	var churned []RiskAlertItem
+	var churnedCustomers []models.CrmCustomer
+	models.DB.Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND out_flow_status = 1 AND updated_at >= ?", d7).Limit(20).Find(&churnedCustomers)
+	for _, c := range churnedCustomers {
+		churned = append(churned, RiskAlertItem{
+			Type: "churned_customer", Label: "客户流失",
+			CustomerID: c.ID, Customer: c.Name, OwnerID: c.OwnerUserID,
+		})
+	}
+
+	// 3. 长期未跟进（30天无跟进记录）
+	var noFollowup []RiskAlertItem
+	var noFollowupCustomers []models.CrmCustomer
+	models.DB.Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND updated_at < ?", d30).Limit(20).Find(&noFollowupCustomers)
+	for _, c := range noFollowupCustomers {
+		days := int(now.Sub(c.UpdatedAt).Hours() / 24)
+		noFollowup = append(noFollowup, RiskAlertItem{
+			Type: "no_followup", Label: "长期未跟进",
+			CustomerID: c.ID, Customer: c.Name, OwnerID: c.OwnerUserID, Days: days,
+		})
+	}
+
+	return map[string]any{
+		"overdue_followup":  overdue,
+		"churned_customer":  churned,
+		"no_followup":       noFollowup,
+		"overdue_count":     len(overdue),
+		"churned_count":     len(churned),
+		"no_followup_count": len(noFollowup),
+	}, nil
+}
+
 // ---------- CrmActivity ----------
 
 type CrmActivityService struct{}

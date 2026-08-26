@@ -233,6 +233,29 @@ func crmReportChannelCAC(ctx context.Context, _, _ string, _ json.RawMessage) (a
 	return services.NewCrmReport().ChannelCAC(ctx)
 }
 
+// ---- 管理视角看板：业务健康度 / 员工效能 / 风险预警 ----
+
+func crmReportHealth(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	return services.NewCrmReport().Health(ctx)
+}
+
+func crmReportStaffEfficiency(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	return services.NewCrmReport().StaffEfficiency(ctx)
+}
+
+func crmReportRiskAlerts(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	return services.NewCrmReport().RiskAlerts(ctx)
+}
+
 // ---- Phase 6 客户导入导出 ----
 
 func crmCustomerExport(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
