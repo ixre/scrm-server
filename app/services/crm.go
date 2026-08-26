@@ -2897,9 +2897,11 @@ func (s CrmReportService) Health(ctx context.Context) (HealthResult, error) {
 	// 流失客户数
 	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND out_flow_status = 1").Count(&h.ChurnedCustomers)
 	// 有跟进记录的客户数（COUNT(DISTINCT customer_id)）
+	var followedCount int64
 	models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(tenantID)).
 		Where("customer_id IS NOT NULL AND customer_id <> ''").
-		Select("COUNT(DISTINCT customer_id)").Scan(&h.FollowedCustomers)
+		Select("COUNT(DISTINCT customer_id)").Scan(&followedCount)
+	h.FollowedCustomers = followedCount
 
 	// 总线索数
 	models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Count(&h.TotalLeads)
@@ -2994,8 +2996,8 @@ func (s CrmReportService) RiskAlerts(ctx context.Context) (map[string]any, error
 	// 1. 逾期跟进：next_followup_at < 今天 且未完成
 	var overdue []RiskAlertItem
 	var overdueCustomers []models.CrmCustomer
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND next_followup_at IS NOT NULL AND next_followup_at < ?",
-		now.Format("2006-01-02")).Limit(20).Find(&overdueCustomers)
+	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND next_followup_at IS NOT NULL AND next_followup_at < ?",
+		now).Limit(20).Find(&overdueCustomers)
 	for _, c := range overdueCustomers {
 		if c.NextFollowupAt == nil {
 			continue
@@ -3013,7 +3015,7 @@ func (s CrmReportService) RiskAlerts(ctx context.Context) (map[string]any, error
 	// 2. 流失客户（近7天新增流失）
 	var churned []RiskAlertItem
 	var churnedCustomers []models.CrmCustomer
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND out_flow_status = 1 AND updated_at >= ?", d7).Limit(20).Find(&churnedCustomers)
+	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND out_flow_status = 1 AND updated_at >= ?", d7).Limit(20).Find(&churnedCustomers)
 	for _, c := range churnedCustomers {
 		churned = append(churned, RiskAlertItem{
 			Type: "churned_customer", Label: "客户流失",
@@ -3024,7 +3026,7 @@ func (s CrmReportService) RiskAlerts(ctx context.Context) (map[string]any, error
 	// 3. 长期未跟进（30天无跟进记录）
 	var noFollowup []RiskAlertItem
 	var noFollowupCustomers []models.CrmCustomer
-	models.DB.Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND updated_at < ?", d30).Limit(20).Find(&noFollowupCustomers)
+	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("deleted_at IS NULL AND updated_at < ?", d30).Limit(20).Find(&noFollowupCustomers)
 	for _, c := range noFollowupCustomers {
 		days := int(now.Sub(c.UpdatedAt).Hours() / 24)
 		noFollowup = append(noFollowup, RiskAlertItem{
