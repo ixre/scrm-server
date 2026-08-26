@@ -352,7 +352,7 @@ func (s CrmCustomerTagService) List(ctx context.Context, group string) ([]models
 	var items []models.CrmCustomerTag
 	db := models.MustFor(ctx).Model(&models.CrmCustomerTag{})
 	if group != "" {
-		db = db.Where("\"group\" = ?", group)
+		db = db.Where("tag_group = ?", group)
 	}
 	err := db.Order("sort asc, id asc").Find(&items).Error
 	return items, err
@@ -384,11 +384,11 @@ func (s CrmCustomerTagService) Update(ctx context.Context, id string, item *mode
 		return errors.New("标签名称不能为空")
 	}
 	m := map[string]any{
-		"name":    strings.TrimSpace(item.Name),
-		"group":   strings.TrimSpace(item.Group),
-		"color":   item.Color,
-		"sort":    item.Sort,
-		"enabled": item.Enabled,
+		"name":      strings.TrimSpace(item.Name),
+		"tag_group": strings.TrimSpace(item.Group),
+		"color":     item.Color,
+		"sort":      item.Sort,
+		"enabled":   item.Enabled,
 	}
 	return models.MustFor(ctx).Model(&models.CrmCustomerTag{}).Where("id = ?", id).Updates(m).Error
 }

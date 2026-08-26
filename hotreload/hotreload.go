@@ -86,7 +86,8 @@ func WatchAndRun(root string, run func()) {
 	for {
 		select {
 		case ev := <-fw.Events:
-			if shouldReload(ev.Name) {
+			// 只关心写入/创建/删除/重命名，忽略 CHMOD 等元数据变更
+			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) != 0 && shouldReload(ev.Name) {
 				select {
 				case trigger <- struct{}{}:
 				default: // 已有待处理信号，跳过避免堆积
@@ -112,6 +113,7 @@ func isDevChild() bool {
 // isDev 判断是否开发运行：
 //   - 显式带 `-dev` 参数（dev.sh 以编译二进制启动开发时使用）；
 //   - 或二进制为 `go run` 的临时产物。
+//
 // 编译出的二进制（无论从哪个目录运行）都视为生产，直接运行、不热更新。
 func isDev() bool {
 	for _, a := range os.Args[1:] {
@@ -152,7 +154,10 @@ func runChild(root, bin string) *exec.Cmd {
 }
 
 // debounceLoop 消费 trigger 信号：先去抖再统一处理，避免连续保存触发多次重启。
+// 重启后有冷却期，防止 build 产物事件引发重启循环。
 func debounceLoop(trigger <-chan struct{}, restart func()) {
+	var lastRestart time.Time
+	const cooldown = 3 * time.Second
 	for range trigger {
 		time.Sleep(500 * time.Millisecond)
 	drain:
@@ -163,8 +168,13 @@ func debounceLoop(trigger <-chan struct{}, restart func()) {
 				break drain
 			}
 		}
+		if time.Since(lastRestart) < cooldown {
+			fmt.Println("[dev] 冷却期内，跳过本次重启")
+			continue
+		}
 		fmt.Println("[dev] 检测到改动，重启…")
 		restart()
+		lastRestart = time.Now()
 	}
 }
 
@@ -185,8 +195,11 @@ func watchTree(fw *fsnotify.Watcher, dir string) {
 
 // shouldReload 判断该路径改动是否需要重启：扩展名匹配且不在排除目录内。
 func shouldReload(path string) bool {
-	if isExcluded(filepath.Base(path)) {
-		return false
+	// 检查路径中任意目录段是否被排除（如 tmp/xxx.go 不会触发）
+	for _, part := range strings.Split(filepath.ToSlash(path), "/") {
+		if isExcluded(part) {
+			return false
+		}
 	}
 	switch filepath.Ext(path) {
 	case ".go", ".yaml", ".yml", ".toml":

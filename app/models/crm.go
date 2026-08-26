@@ -459,8 +459,6 @@ type CrmChannelTask struct {
 	Remark       string `gorm:"type:varchar(512);comment:备注" json:"remark"`
 }
 
-// ---- Phase 3 营销活动落地 ----
-
 // CrmCoupon 优惠券模板。
 type CrmCoupon struct {
 	Model
@@ -793,8 +791,8 @@ type CrmGroupBuyRecord struct {
 	LeaderID    string                     `gorm:"type:bigint;index;comment:团长客户ID" json:"leader_id"`
 	MemberIDs   constants.StringArrayField `gorm:"type:jsonb;comment:参团客户ID列表" json:"member_ids"`
 	CurrentSize int                        `gorm:"type:int;default:1;comment:当前参团人数" json:"current_size"`
-	Status      string                     `gorm:"type:varchar(16);index;default:open;comment:open(进行中)/success(成团)/failed(超时未成团)" json:"status"`
-	ExpireAt    *time.Time                 `gorm:"comment:成团截止时间" json:"expire_at"`
+	Status      string                     `gorm:"type:varchar(16);index:idx_group_buy_status_expire,priority:1;default:open;comment:open(进行中)/success(成团)/failed(超时未成团)" json:"status"`
+	ExpireAt    *time.Time                 `gorm:"index:idx_group_buy_status_expire,priority:2;comment:成团截止时间" json:"expire_at"`
 	SuccessAt   *time.Time                 `gorm:"comment:成团时间" json:"success_at"`
 }
 
@@ -828,8 +826,8 @@ type CrmBargainRecord struct {
 	CurrentPrice float64                    `gorm:"type:decimal(16,2);comment:当前价格" json:"current_price"`
 	HelperIDs    constants.StringArrayField `gorm:"type:jsonb;comment:帮砍客户ID列表" json:"helper_ids"`
 	HelperCnt    int                        `gorm:"type:int;default:0;comment:帮砍人数" json:"helper_cnt"`
-	Status       string                     `gorm:"type:varchar(16);index;default:active;comment:active/success(砍到底价)/expired/purchased" json:"status"`
-	ExpireAt     *time.Time                 `gorm:"comment:截止时间" json:"expire_at"`
+	Status       string                     `gorm:"type:varchar(16);index:idx_bargain_status_expire,priority:1;default:active;comment:active/success(砍到底价)/expired/purchased" json:"status"`
+	ExpireAt     *time.Time                 `gorm:"index:idx_bargain_status_expire,priority:2;comment:截止时间" json:"expire_at"`
 }
 
 // CrmFullReduction 满减满件活动。
@@ -1615,7 +1613,7 @@ type CrmCustomerTag struct {
 	Timestamp
 	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
 	Name     string `gorm:"type:varchar(64);comment:标签名称" json:"name"`
-	Group    string `gorm:"column:\"group\";type:varchar(64);index;comment:标签分组" json:"group"`
+	Group    string `gorm:"column:tag_group;type:varchar(64);index;comment:标签分组" json:"group"`
 	Color    string `gorm:"type:varchar(16);default:arcoblue;comment:标签颜色" json:"color"`
 	Sort     int    `gorm:"type:int;default:0;comment:排序(越小越靠前)" json:"sort"`
 	Enabled  bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
