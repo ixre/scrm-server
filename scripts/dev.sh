@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 开发热更新启动脚本：core(:9002) 与 gateway(:9001) 以 -dev 参数运行，
+# 开发热更新启动脚本：core(:9001) 与 gateway(:9002) 以 -dev 参数运行，
 # 由编译进代码的 dev.WatchAndRun 托管，改代码自动重建重启，无需 air。
 # 用法：scripts/dev.sh start | stop | status | logs
 set -euo pipefail
@@ -30,7 +30,7 @@ start() {
   sleep 0.5
   pgrep -f "^$GATEWAY_BIN( -dev)?$" > "$ROOT/.dev/gateway.pid" || true
 
-  echo "[dev] core=:9002 gateway=:9001 就绪。改动 .go/.yaml/.toml 文件会自动重建重启。"
+  echo "[dev] core=:9001 gateway=:9002 就绪。改动 .go/.yaml/.toml 文件会自动重建重启。"
   echo "[dev] 停止: scripts/dev.sh stop   |   日志: scripts/dev.sh logs"
 }
 

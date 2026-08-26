@@ -61,7 +61,7 @@
 2. **多租户 SaaS**：所有 CRM 表 `tenant_id` 顶层分区，业务操作必带 `tenant_id` 隔离。
 3. **本地 ID 主键**：CRM 模型主键均为本地 bigint，不依赖企微 external_userid。
 4. **异步回调驱动**：企微 / 小红书事件以 webhook 为准同步进 CRM 主档。
-5. **闭源核心 + 开放网关**：业务在 `scrm-server`（gRPC :9002），HTTP 在 `gateway` (:9001)，新业务通过 `dispatch` 注册表扩展。
+5. **闭源核心 + 开放网关**：业务在 `scrm-server`（gRPC :9001），HTTP 在 `gateway` (:9002)，新业务通过 `dispatch` 注册表扩展。
 
 ## 角色速查
 

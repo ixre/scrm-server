@@ -22,7 +22,7 @@ Server:
   # 主服务监听端口
   HttpPort: 9001
   # 会话存档服务监听端口
-  MsgArchHttpPort: 9002
+  MsgArchHttpPort: 9003
   ReadTimeout: 60
   WriteTimeout: 60
   # 会话存档服务访问地址

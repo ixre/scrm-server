@@ -47,7 +47,7 @@ func main() {
 
 // runServer 启动闭源核心的 gRPC 服务与企微回调 webhook。
 func runServer() {
-	lis, err := net.Listen("tcp", ":9002")
+	lis, err := net.Listen("tcp", ":9001")
 	if err != nil {
 		log.Fatalf("[core] listen: %v", err)
 	}
@@ -62,7 +62,7 @@ func runServer() {
 	// 小红书事件回调 webhook（独立端口，按 app_id 归属租户）。
 	callback.StartXhsCallbackServer()
 
-	log.Printf("[core] closed-source gRPC server (real business) listening on :9002")
+	log.Printf("[core] closed-source gRPC server (real business) listening on :9001")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("[core] serve: %v", err)
 	}

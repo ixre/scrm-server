@@ -17,7 +17,7 @@ scrm/
 ### scrm-server/ —— 闭源 gRPC 核心（本仓库）
 - **定位**：承载真实业务逻辑，源码私有，仅核心团队可访问。
 - **对外**：只暴露 `.proto` 契约 + 生成的 pb 客户端代码（相当于私有 registry 的 SDK），不暴露实现。
-- **技术**：Go + gRPC，监听 `:9002`。迁移自 openscrm 的 `app`/`common`/`pkg`/`conf` 地基，模块路径 `openscrm/` → `core/`。
+- **技术**：Go + gRPC，监听 `:9001`。迁移自 openscrm 的 `app`/`common`/`pkg`/`conf` 地基，模块路径 `openscrm/` → `core/`。
 - **已接入业务域**：customer、staff（类型化 Get/Query）+ 其余全部业务域（经通用 JSON 透传 BusinessService）。
 
 ### BusinessService —— 通用 JSON 透传
@@ -30,7 +30,7 @@ openscrm 有数十个业务域、上百个异构方法签名（io.ReadCloser、b
 
 ### scrm-app/ —— 开放侧（前端 + 网关 + 会话存档）
 - `dashboard/` — React 管理后台；`sidebar/` — React 侧边栏。
-- `gateway/` — 开放 HTTP 网关：对前端暴露 HTTP API，鉴权在 HTTP 层完成，业务转发给闭源核心（gRPC `:9002`）。源码开放，不含业务实现。
+- `gateway :9002`）。源码开放，不含业务实现。
   - 类型化端点（customer/staff 列表/详情）+ **路径映射层**（`internal/controller/pathmap*`）：把原 openscrm 全部业务端点逐条翻译成对核心的 `(service, action)` 调用，前端 dashboard 沿用原始路径即可零改动访问。
   - 通用 JSON 透传兜底 `/api/v1/biz/:service/:action`。
   - 未纳入路径映射的端点（登录/OAuth、文件流导出、multipart 上传、各域 Sync、内部动作）由网关其他机制承接，见 `scrm-app/gateway/README.md`。
@@ -42,10 +42,10 @@ openscrm 有数十个业务域、上百个异构方法签名（io.ReadCloser、b
 前端(dashboard/sidebar)
    │  HTTP (JSON)
    ▼
-gateway(开放，:9001，JWT 鉴权)   ← scrm-app/gateway
+gateway(开放，:9002，JWT 鉴权)   ← scrm-app/gateway
    │  gRPC（身份经 metadata 透传）
    ▼
-scrm-server(闭源，:9002，真实业务)   ← 本仓库
+scrm-server(闭源，:9001，真实业务)   ← 本仓库
    │  HTTP（仅 msg_arch/会话存档域）
    ▼
 msg-server(独立会话存档服务，企微专属 .so，Linux-only)
@@ -86,7 +86,7 @@ scrm-server/
 ├── migrations/*.sql           # 手工迁移 SQL（改列定义等 AutoMigrate 覆盖不到的）
 ├── cmd/migrate/               # 迁移命令入口
 ├── scripts/sync-pb.sh         # 契约生成 + 同步到 gateway
-└── main.go                    # 初始化 conf/db/redis + gRPC server :9002
+└── main.go                    # 初始化 conf/db/redis + gRPC server :9001
 ```
 
 ## 契约生成（唯一事实来源）

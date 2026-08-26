@@ -1,6 +1,6 @@
 # 本地开发运行指南
 
-SCRM 系统由四个服务组成，启动顺序：基础设施（PG/Redis）→ 闭源核心（gRPC :9002）→ 开放网关（HTTP :9001）→ 前端（dashboard :3000）。
+SCRM 系统由四个服务组成，启动顺序：基础设施（PG/Redis）→ 闭源核心（gRPC :9001）→ 开放网关（HTTP :9002）→ 前端（dashboard :3000）。
 
 ## 架构与端口
 
@@ -8,9 +8,9 @@ SCRM 系统由四个服务组成，启动顺序：基础设施（PG/Redis）→ 
 |------|------|------|------|
 | PostgreSQL 18 + zhparser | docker-compose | 5433→5432 | 中文全文检索（abcfy2/zhparser:18） |
 | Redis 7 | docker-compose | 6380→6379 | 缓存 |
-| core（闭源核心） | scrm-server | 9002 (gRPC) | 业务实现，AutoMigrate + 种子数据 |
-| gateway（开放网关） | scrm-app/gateway | 9001 (HTTP) | 对前端暴露 HTTP API，转发到 core gRPC |
-| dashboard（管理后台） | scrm-app/dashboard | 3000 (HTTP) | Ant Design Pro，proxy → :9001 |
+| core（闭源核心） | scrm-server | 9001 (gRPC) | 业务实现，AutoMigrate + 种子数据 |
+| gateway（开放网关） | scrm-app/gateway | 9002 (HTTP) | 对前端暴露 HTTP API，转发到 core gRPC |
+| dashboard（管理后台） | scrm-app/dashboard | 3000 (HTTP) | Ant Design Pro，proxy → :9002 |
 | sidebar（侧边栏） | scrm-app/sidebar | 9000 (HTTP) | Ant Design Pro，proxy → :8080（需按实际改） |
 | msg-server（会话存档） | scrm-app/msg-server | — | 依赖腾讯 .so，仅 Linux，可选 |
 | 企微回调 webhook | scrm-server | 9003 (HTTP) | 企微事件回调，URL: /wecom/callback/:corp_id |
@@ -19,7 +19,7 @@ SCRM 系统由四个服务组成，启动顺序：基础设施（PG/Redis）→ 
 | 抖音回调 webhook | scrm-server | 9004 (HTTP) | 抖音事件回调，URL: /douyin/callback/:app_id |
 | H5落地页表单 | scrm-server | 9004 (HTTP) | 落地页表单回收，URL: /landing/:slug/submit |
 
-数据流：浏览器 → dashboard:3000 → (proxy /api/) → gateway:9001 → (gRPC) → core:9002 → PostgreSQL:5433 / Redis:6380
+数据流：浏览器 → dashboard:3000 → (proxy /api/) → gateway:9002 → (gRPC) → core:9001 → PostgreSQL:5433 / Redis:6380
 
 渠道回调：企微 → core:9003；小红书/公众号/抖音/落地页 → core:9004（独立 webhook 端口，验签即鉴权）
 
@@ -139,7 +139,7 @@ Redis:
 **平台账号管理**：仅 `super_admin` 可管理平台账号。支持创建（用户名/密码/角色/联系方式）、编辑、重置密码、启停、删除。保护机制：不允许停用/删除最后一个超级管理员。
 
 
-## 3. 启动闭源核心（gRPC :9002）
+## 3. 启动闭源核心（gRPC :9001）
 
 ```bash
 cd scrm-server
@@ -149,7 +149,7 @@ go run .
 首次启动会执行 AutoMigrate（建 50 张表）+ 种子数据初始化（权限/角色/默认配置），约 1-2 分钟。
 看到以下日志即启动成功：
 ```
-[core] closed-source gRPC server (real business) listening on :9002
+[core] closed-source gRPC server (real business) listening on :9001
 ```
 
 仅执行数据库迁移（不启动服务）：
@@ -157,7 +157,7 @@ go run .
 go run ./cmd/migrate
 ```
 
-## 4. 启动开放网关（HTTP :9001）
+## 4. 启动开放网关（HTTP :9002）
 
 ```bash
 cd scrm-app/gateway
@@ -166,10 +166,10 @@ go run .
 
 看到以下日志即启动成功：
 ```
-[gateway] open HTTP gateway listening on :9001
+[gateway] open HTTP gateway listening on :9002
 ```
 
-网关默认连接 `127.0.0.1:9002`（core），如 core 不在本机需改 `internal/client/grpc.go` 的 `CoreAddr`。
+网关默认连接 `127.0.0.1:9001`（core），如 core 不在本机需改 `internal/client/grpc.go` 的 `CoreAddr`。
 
 ## 5. 启动前端 dashboard（:3000）
 
@@ -181,7 +181,7 @@ npm run dev
 
 启动后访问 http://localhost:3000
 
-> `npm run dev` = `start:dev`，禁用 mock、连真实后端。前端 proxy 把 `/api/` 转发到 `http://127.0.0.1:9001/`（见 `config/proxy.ts`）。
+> `npm run dev` = `start:dev`，禁用 mock、连真实后端。前端 proxy 把 `/api/` 转发到 `http://127.0.0.1:9002/`（见 `config/proxy.ts`）。
 
 ## 6.（可选）启动前端 sidebar（:9000）
 
@@ -191,8 +191,8 @@ npm install        # 首次
 npm run dev
 ```
 
-> sidebar 的 proxy 默认指向 `http://127.0.0.1:8080/`（`config/proxy.ts`），与当前 gateway:9001 不一致。
-> 如需连本系统，改为 `http://127.0.0.1:9001/` 后再启动。
+> sidebar 的 proxy 默认指向 `http://127.0.0.1:8080/`（`config/proxy.ts`），与当前 gateway:9002 不一致。
+> 如需连本系统，改为 `http://127.0.0.1:9002/` 后再启动。
 
 ## 7.（可选）启动会话存档 msg-server
 
@@ -224,10 +224,10 @@ cd scrm-app/dashboard && npm run dev
 
 ```bash
 # core gRPC 端口
-lsof -i :9002 | grep LISTEN
+lsof -i :9001 | grep LISTEN
 
 # gateway HTTP
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9001/api/v1/console/permissions
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9002/api/v1/console/permissions
 # 期望：200 或 401（鉴权未通过也算正常，说明路由通了）
 
 # 前端
