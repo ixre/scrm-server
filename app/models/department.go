@@ -11,8 +11,8 @@ import (
 
 type Department struct {
 	Model
-	// 租户ID（多租户隔离，2D 阶段补字段；列已通过 migrations/0004 加 bigint）
-	TenantID string `gorm:"type:bigint;index;comment:租户ID" json:"tenant_id"`
+	// 由版本迁移维护非空约束，未传入时由数据库依据企业映射补齐。
+	TenantID string `gorm:"type:bigint;default:null;-:migration" json:"tenant_id"`
 	// 外部企业ID
 	ExtCorpID string `json:"ext_corp_id" gorm:"index;uniqueIndex:idx_ext_corp_id_ext_dept_id;type:char(18);comment:外部企业ID"`
 	// 企业微信部门id
@@ -114,19 +114,17 @@ func (o Department) Get(ExtDeptID int64, extCorpID string) (Department, error) {
 }
 
 func (o Department) Upsert(departments ...Department) error {
-	tx := DB.Begin()
-	defer tx.Rollback()
-	for _, department := range departments {
-		err := DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"name", "order", "ext_parent_id"}),
-		}).Create(&department).Error
-		if err != nil {
-			return err
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for _, department := range departments {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
+				DoUpdates: clause.AssignmentColumns([]string{"name", "order", "ext_parent_id"}),
+			}).Create(&department).Error; err != nil {
+				return err
+			}
 		}
-	}
-
-	return tx.Commit().Error
+		return nil
+	})
 }
 
 func (o Department) Query(extPid int64, extCorpID string, IDs []int64, sorter *app.Sorter, pager *app.Pager) (res []Department, total int64, err error) {
@@ -165,14 +163,14 @@ func (o Department) AddStaffNum(num int, ExtCorpID string, ExtDepartmentIDs []in
 		Update("staff_num", gorm.Expr("staff_num + (?)", num)).Error
 }
 
-func (o Department) GetIDsByExtIDs(extDeptIDs []int64) (res map[int64]string, err error) {
+func (o Department) GetIDsByExtIDs(extDeptIDs []int64, extCorpID string) (res map[int64]string, err error) {
 	type IDExtID struct {
 		ID    string `json:"id"`
 		ExtID int64  `json:"ext_id"`
 	}
 	var ids []IDExtID
 	res = make(map[int64]string, 0)
-	err = DB.Model(&Department{}).Where("ext_id in (?)", extDeptIDs).Find(&ids).Error
+	err = DB.Model(&Department{}).Where("ext_id in (?)", extDeptIDs).Where("ext_corp_id = ?", extCorpID).Find(&ids).Error
 	if err != nil {
 		return
 	}

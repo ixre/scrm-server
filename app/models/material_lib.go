@@ -11,6 +11,7 @@ import (
 
 type Material struct {
 	ExtCorpModel
+	LegacyTenant
 	// 素材类型
 	MaterialType string `json:"material_type" gorm:"char(12);index;"`
 	// 标题

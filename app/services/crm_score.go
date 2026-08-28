@@ -15,9 +15,9 @@ import (
 
 // ---------- 客户评分 ----------
 
-type CrmScoreService struct{}
+type CrmScoreService struct{ db *gorm.DB }
 
-func NewCrmScore() *CrmScoreService { return &CrmScoreService{} }
+func NewCrmScore() *CrmScoreService { return &CrmScoreService{db: models.DB} }
 
 // 评分维度权重（总分100）：
 // - 互动频次（CrmChannelInteraction + CrmFollowup）：30分，每条1分上限30
@@ -30,13 +30,13 @@ func (s CrmScoreService) RecalculateAll(ctx context.Context) error {
 	tenantID := identity.TenantID(ctx)
 
 	var customers []models.CrmCustomer
-	if err := models.MustFor(ctx).Find(&customers).Error; err != nil {
+	if err := s.database().WithContext(ctx).Scopes(models.TenantScope(identity.TenantID(ctx))).Find(&customers).Error; err != nil {
 		return err
 	}
 	for _, c := range customers {
 		score := s.CalculateScore(c)
 		now := time.Now()
-		models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
+		s.database().Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
 			Updates(map[string]any{"score": score, "score_updated_at": &now})
 	}
 	log.Sugar.Infow("customer score recalculated", "tenant", tenantID, "count", len(customers))
@@ -55,9 +55,9 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 
 	// 互动频次分
 	var interactionCnt int64
-	models.DB.Model(&models.CrmChannelInteraction{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ?", c.ID).Count(&interactionCnt)
+	s.database().Model(&models.CrmChannelInteraction{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ?", c.ID).Count(&interactionCnt)
 	var followupCnt int64
-	models.DB.Model(&models.CrmFollowup{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ?", c.ID).Count(&followupCnt)
+	s.database().Model(&models.CrmFollowup{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ?", c.ID).Count(&followupCnt)
 	interactionScore := int(interactionCnt) + int(followupCnt)
 	if interactionScore > 30 {
 		interactionScore = 30
@@ -68,7 +68,7 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 	var oppAmt struct {
 		Total float64 `gorm:"column:total"`
 	}
-	models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ? AND status = ?", c.ID, "open").
+	s.database().Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ? AND status = ?", c.ID, "open").
 		Select("COALESCE(SUM(amount),0) AS total").Scan(&oppAmt)
 	oppScore := int(oppAmt.Total / 10000) // 每万元1分
 	if oppScore > 30 {
@@ -80,7 +80,7 @@ func (s CrmScoreService) CalculateScore(c models.CrmCustomer) int {
 	var orderAmt struct {
 		Total float64 `gorm:"column:total"`
 	}
-	models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ? AND status IN ?", c.ID, []string{"signed", "completed"}).
+	s.database().Model(&models.CrmOrder{}).Scopes(models.TenantScope(c.TenantID)).Where("customer_id = ? AND status IN ?", c.ID, []string{"signed", "completed"}).
 		Select("COALESCE(SUM(amount),0) AS total").Scan(&orderAmt)
 	orderScore := int(orderAmt.Total / 10000)
 	if orderScore > 25 {
@@ -98,19 +98,19 @@ func (s CrmScoreService) TopByScore(ctx context.Context, limit int) ([]models.Cr
 		limit = 10
 	}
 	var items []models.CrmCustomer
-	err := models.MustFor(ctx).Order("score desc").Limit(limit).Find(&items).Error
+	err := s.database().WithContext(ctx).Scopes(models.TenantScope(identity.TenantID(ctx))).Order("score desc").Limit(limit).Find(&items).Error
 	return items, err
 }
 
 // RecalculateOne 重算单个客户评分（业务事件触发时调用）。
 func (s CrmScoreService) RecalculateOne(tenantID, customerID string) {
 	var c models.CrmCustomer
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&c).Error; err != nil {
+	if err := s.database().Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).First(&c).Error; err != nil {
 		return
 	}
 	score := s.CalculateScore(c)
 	now := time.Now()
-	models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
+	s.database().Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
 		Updates(map[string]any{"score": score, "score_updated_at": &now})
 }
 
@@ -119,7 +119,15 @@ func TriggerScoreUpdate(tenantID, customerID string) {
 	if tenantID == "" || customerID == "" {
 		return
 	}
-	go NewCrmScore().RecalculateOne(tenantID, customerID)
+	service := NewCrmScore()
+	go service.RecalculateOne(tenantID, customerID)
 }
 
 var _ = gorm.ErrRecordNotFound
+
+func (s CrmScoreService) database() *gorm.DB {
+	if s.db != nil {
+		return s.db
+	}
+	return models.DB
+}

@@ -9,7 +9,6 @@ import (
 	"core/common/id_generator"
 	"core/common/log"
 	"core/common/we_work"
-	"core/conf"
 	gowx "core/pkg/easywework"
 )
 
@@ -47,7 +46,7 @@ func EventDelFollowUserHandler(msg *gowx.RxMessage) (err error) {
 			log.Sugar.Errorw("get wx clients failed", "err", err)
 			return err
 		}
-		customer, err = models.Customer{}.GetByExtID(extCustomerID, []string{extStaffID}, false)
+		customer, err = models.Customer{}.GetByExtID(extCustomerID, msg.ToUserID, []string{extStaffID}, false)
 		if err != nil {
 			log.Sugar.Errorw("get wx clients failed", "err", err)
 			return err
@@ -62,7 +61,7 @@ func EventDelFollowUserHandler(msg *gowx.RxMessage) (err error) {
 		}
 	}
 
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := msg.ToUserID
 	staff, err := (&models.Staff{}).Get(extStaffID, extCorpID, false)
 	if err != nil {
 		return err
@@ -72,21 +71,21 @@ func EventDelFollowUserHandler(msg *gowx.RxMessage) (err error) {
 		return err
 	}
 	// 删除员工客户关系, 记录关系流水
-	err = models.CustomerStaffRelationHistory{}.CustomerDeleteStaff(extStaffID, extCustomerID)
+	err = models.CustomerStaffRelationHistory{ExtCorpModel: models.ExtCorpModel{ExtCorpID: msg.ToUserID}}.CustomerDeleteStaff(extStaffID, extCustomerID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
 	}
 
 	// 当前员工和客户不是好友关系，则不用再更新员工客户数。
-	should, err := staff_event.ShouldChangeCustomerNum(extStaffID, extCustomerID)
+	should, err := staff_event.ShouldChangeCustomerNum(msg.ToUserID, extStaffID, extCustomerID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
 	}
 	if should {
 		// 更新员工客户数
-		err = models.CustomerStatistic{}.Upsert(extStaffID, -1)
+		err = models.CustomerStatistic{ExtCorpModel: models.ExtCorpModel{ExtCorpID: msg.ToUserID}}.Upsert(extStaffID, -1)
 		if err != nil {
 			log.Sugar.Errorw("update customer statistics failed",
 				"extStaffID", extStaffID, "extCustomerID", extCustomerID)
@@ -108,7 +107,7 @@ func CreateCustomerDeleteStaffEvent(customer models.Customer, staff models.Staff
 	content := fmt.Sprintf("员工 [%s] 删除了客户 [%s] ", staff.Name, customer.Name)
 
 	err = models.CustomerEvent{}.Create(models.CustomerEvent{
-		ExtCorpModel:  models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: conf.Settings.WeWork.ExtCorpID, ExtCreatorID: customer.ExtID},
+		ExtCorpModel:  models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: staff.ExtCorpID, ExtCreatorID: customer.ExtID},
 		Content:       content,
 		EventType:     constants.CustomerEventCustomerAction,
 		EventName:     constants.EventNameDeleteExternalUser,

@@ -6,9 +6,9 @@ import (
 )
 
 type StaffDepartment struct {
-	ExtCorpID       string            `json:"ext_corp_id" gorm:"index;type:char(18);uniqueIndex:idx_ext_corp_id_ext_staff_id"`
-	ExtStaffID      string            `json:"ext_staff_id" gorm:"type:varchar(64);index;uniqueIndex:idx_ext_corp_id_ext_staff_id"`
-	ExtDepartmentID int64             `json:"ext_department_id" gorm:"type:bigint;uniqueIndex:idx_ext_corp_id_ext_staff_id"`
+	ExtCorpID       string            `json:"ext_corp_id" gorm:"index;type:char(18);uniqueIndex:idx_staff_department_corp_staff_dept"`
+	ExtStaffID      string            `json:"ext_staff_id" gorm:"type:varchar(64);index;uniqueIndex:idx_staff_department_corp_staff_dept"`
+	ExtDepartmentID int64             `json:"ext_department_id" gorm:"type:bigint;uniqueIndex:idx_staff_department_corp_staff_dept"`
 	StaffID         string            `json:"staff_id" gorm:"primaryKey;type:bigint" `
 	DepartmentID    string            `json:"department_id" gorm:"primaryKey;type:bigint;" `
 	IsLeader        constants.Boolean `json:"is_leader" gorm:"type:smallint;comment:是否是所在部门的领导"`
@@ -16,8 +16,9 @@ type StaffDepartment struct {
 }
 
 func (s StaffDepartment) Upsert(sd ...StaffDepartment) error {
-	err := DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_customer_id"}},
+	if len(sd) == 0 { return nil }
+ err := DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_staff_id"}, {Name: "ext_department_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"order", "is_leader", "staff_id", "department_id"}),
 	}).CreateInBatches(&sd, len(sd)).Error
 	if err != nil {

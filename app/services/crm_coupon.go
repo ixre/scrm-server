@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -17,6 +17,7 @@ import (
 	"core/common/log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ---------- 优惠券引擎 ----------
@@ -33,7 +34,6 @@ type CouponCreateReq struct {
 // Create 创建优惠券模板。
 func (s CrmCouponService) Create(ctx context.Context, userID string, req models.CrmCoupon) (models.CrmCoupon, error) {
 	tenantID := identity.TenantID(ctx)
-
 
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
@@ -52,29 +52,25 @@ func (s CrmCouponService) Create(ctx context.Context, userID string, req models.
 
 // Update 更新优惠券模板（已发放的券不允许改总量/面值）。
 func (s CrmCouponService) Update(ctx context.Context, id string, req models.CrmCoupon) (models.CrmCoupon, error) {
-
-
-	var exist models.CrmCoupon
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&exist).Error; err != nil {
-		return req, errors.New("优惠券不存在")
+	tenant := identity.TenantID(ctx)
+	if tenant == "" {
+		return req, models.ErrMissingTenant
 	}
-	if exist.IssuedCount > 0 && (req.TotalCount != exist.TotalCount || req.FaceValue != exist.FaceValue) {
-		return req, errors.New("已发放的优惠券不能修改总量或面值")
-	}
-	updates := map[string]any{
-		"name": req.Name, "coupon_type": req.CouponType, "face_value": req.FaceValue,
-		"threshold": req.Threshold, "total_count": req.TotalCount,
-		"start_at": req.StartAt, "end_at": req.EndAt, "status": req.Status, "remark": req.Remark,
-	}
-	if err := models.DB.Model(&models.CrmCoupon{}).Where("id = ?", id).Updates(updates).Error; err != nil {
-		return req, err
-	}
-	return req, nil
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var exist models.CrmCoupon
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", tenant, id).First(&exist).Error; err != nil {
+			return err
+		}
+		if exist.IssuedCount > 0 && (req.TotalCount != exist.TotalCount || req.FaceValue != exist.FaceValue) {
+			return errors.New("已发放的优惠券不能修改总量或面值")
+		}
+		return tx.Model(&exist).Updates(map[string]any{"name": req.Name, "coupon_type": req.CouponType, "face_value": req.FaceValue, "threshold": req.Threshold, "total_count": req.TotalCount, "start_at": req.StartAt, "end_at": req.EndAt, "status": req.Status, "remark": req.Remark}).Error
+	})
+	return req, err
 }
 
 // Query 列出优惠券。
 func (s CrmCouponService) Query(ctx context.Context, status string, pager *app.Pager) ([]models.CrmCoupon, int64, error) {
-
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -96,7 +92,6 @@ func (s CrmCouponService) Query(ctx context.Context, status string, pager *app.P
 // Get 查单张优惠券。
 func (s CrmCouponService) Get(ctx context.Context, id string) (models.CrmCoupon, error) {
 
-
 	var c models.CrmCoupon
 	err := models.MustFor(ctx).Where("id = ?", id).First(&c).Error
 	return c, err
@@ -104,115 +99,127 @@ func (s CrmCouponService) Get(ctx context.Context, id string) (models.CrmCoupon,
 
 // Delete 删除优惠券（已发放的不能删）。
 func (s CrmCouponService) Delete(ctx context.Context, ids []string) (int64, error) {
-	tenantID := identity.TenantID(ctx)
-
-
-	var cnt int64
-	models.DB.Model(&models.CrmCouponRecord{}).Scopes(models.TenantScope(tenantID)).Where("coupon_id IN ?",  ids).Count(&cnt)
-	if cnt > 0 {
-		return 0, errors.New("已发放的优惠券不能删除")
+	tenant := identity.TenantID(ctx)
+	if tenant == "" {
+		return 0, models.ErrMissingTenant
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmCoupon{})
-	return res.RowsAffected, res.Error
+	var count int64
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var coupons []models.CrmCoupon
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id IN ?", tenant, ids).Order("id").Find(&coupons).Error; err != nil {
+			return err
+		}
+		for _, coupon := range coupons {
+			if coupon.IssuedCount > 0 {
+				return errors.New("已发放的优惠券不能删除")
+			}
+		}
+		res := tx.Where("tenant_id = ? AND id IN ?", tenant, ids).Delete(&models.CrmCoupon{})
+		count = res.RowsAffected
+		return res.Error
+	})
+	return count, err
 }
 
 // Issue 向客户发放优惠券：生成唯一券码，写 CrmCouponRecord，更新 issued_count。
 func (s CrmCouponService) Issue(ctx context.Context, couponID, customerID string) (models.CrmCouponRecord, error) {
-	tenantID := identity.TenantID(ctx)
-
-
 	var rec models.CrmCouponRecord
-	var coupon models.CrmCoupon
-	if err := models.MustFor(ctx).Where("id = ?", couponID).First(&coupon).Error; err != nil {
-		return rec, errors.New("优惠券不存在")
+	tenant := identity.TenantID(ctx)
+	if tenant == "" {
+		return rec, models.ErrMissingTenant
 	}
-	if coupon.Status != "active" {
-		return rec, errors.New("优惠券已停用")
-	}
-	// 校验有效期
-	now := time.Now()
-	if coupon.StartAt != nil && now.Before(*coupon.StartAt) {
-		return rec, errors.New("优惠券尚未生效")
-	}
-	if coupon.EndAt != nil && now.After(*coupon.EndAt) {
-		return rec, errors.New("优惠券已过期")
-	}
-	// 校验库存
-	if coupon.TotalCount > 0 && coupon.IssuedCount >= coupon.TotalCount {
-		return rec, errors.New("优惠券已发完")
-	}
-	// 校验客户存在
-	var c models.CrmCustomer
-	if err := models.MustFor(ctx).Where("id = ?", customerID).First(&c).Error; err != nil {
-		return rec, errors.New("客户不存在")
-	}
-
-	code := genCouponCode()
-	rec = models.CrmCouponRecord{
-		Model:      models.Model{ID: id_generator.StringID()},
-		TenantID:   tenantID,
-		CouponID:   couponID,
-		CustomerID: customerID,
-		Code:       code,
-		Status:     "issued",
-		IssuedAt:   &now,
-	}
-
-	err := models.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&rec).Error; err != nil {
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var coupon models.CrmCoupon
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", tenant, couponID).First(&coupon).Error; err != nil {
 			return err
 		}
-		return tx.Model(&models.CrmCoupon{}).Where("id = ?", couponID).
-			UpdateColumn("issued_count", gorm.Expr("issued_count + 1")).Error
+		now := time.Now()
+		if err := usableCoupon(coupon, now); err != nil {
+			return err
+		}
+		if coupon.TotalCount > 0 && coupon.IssuedCount >= coupon.TotalCount {
+			return errors.New("优惠券已发完")
+		}
+		var customer models.CrmCustomer
+		if err := tx.Where("tenant_id = ? AND id = ?", tenant, customerID).First(&customer).Error; err != nil {
+			return errors.New("客户不存在")
+		}
+		rec = models.CrmCouponRecord{Model: models.Model{ID: id_generator.StringID()}, TenantID: tenant, CouponID: couponID, CustomerID: customerID, Code: genCouponCode(), Status: "issued", IssuedAt: &now}
+		if err := createCRM(tx, &rec, "OrderID"); err != nil {
+			return err
+		}
+		return tx.Model(&models.CrmCoupon{}).Where("tenant_id = ? AND id = ?", tenant, couponID).UpdateColumn("issued_count", gorm.Expr("issued_count + 1")).Error
 	})
-	if err != nil {
-		log.Sugar.Errorw("coupon issue failed", "err", err)
-		return rec, err
-	}
-	return rec, nil
+	return rec, err
 }
 
-// Verify 核销优惠券（按券码）。
+func usableCoupon(coupon models.CrmCoupon, now time.Time) error {
+	if coupon.Status != "active" {
+		return errors.New("优惠券已停用")
+	}
+	if coupon.StartAt != nil && now.Before(*coupon.StartAt) {
+		return errors.New("优惠券尚未生效")
+	}
+	if coupon.EndAt != nil && now.After(*coupon.EndAt) {
+		return errors.New("优惠券已过期")
+	}
+	return nil
+}
+
+// Verify 同一订单重试返回原核销结果；其他并发核销只能成功一次。
 func (s CrmCouponService) Verify(ctx context.Context, code, orderID string) (models.CrmCouponRecord, error) {
-
-
 	var rec models.CrmCouponRecord
-	if err := models.MustFor(ctx).Where("code = ?",  code).First(&rec).Error; err != nil {
-		return rec, errors.New("券码不存在")
+	tenant := identity.TenantID(ctx)
+	if tenant == "" {
+		return rec, models.ErrMissingTenant
 	}
-	if rec.Status != "issued" {
-		return rec, errors.New("优惠券状态不允许核销")
-	}
-	// 校验券模板有效期
-	var coupon models.CrmCoupon
-	if err := models.DB.Where("id = ?", rec.CouponID).First(&coupon).Error; err == nil {
-		now := time.Now()
-		if coupon.EndAt != nil && now.After(*coupon.EndAt) {
-			models.DB.Model(&rec).Update("status", "expired")
-			return rec, errors.New("优惠券已过期")
-		}
-	}
-	now := time.Now()
-	err := models.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.CrmCouponRecord{}).Where("id = ?", rec.ID).
-			Updates(map[string]any{"status": "used", "used_at": &now, "order_id": orderID}).Error; err != nil {
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("tenant_id = ? AND code = ?", tenant, code).First(&rec).Error; err != nil {
 			return err
 		}
-		return tx.Model(&models.CrmCoupon{}).Where("id = ?", rec.CouponID).
-			UpdateColumn("used_count", gorm.Expr("used_count + 1")).Error
+		// 模板先加锁，与发券/修改采用相同锁顺序。
+		var coupon models.CrmCoupon
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", tenant, rec.CouponID).First(&coupon).Error; err != nil {
+			return err
+		}
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", tenant, rec.ID).First(&rec).Error; err != nil {
+			return err
+		}
+		if rec.Status == "used" && orderID != "" && rec.OrderID == orderID {
+			return nil
+		}
+		if rec.Status != "issued" {
+			return errors.New("优惠券状态不允许核销")
+		}
+		now := time.Now()
+		if err := usableCoupon(coupon, now); err != nil {
+			return err
+		}
+		if orderID != "" {
+			var order models.CrmOrder
+			if err := tx.Where("tenant_id = ? AND id = ? AND customer_id = ?", tenant, orderID, rec.CustomerID).First(&order).Error; err != nil {
+				return errors.New("订单不存在或不属于该客户")
+			}
+		}
+		changes := updatesCRM(map[string]any{"status": "used", "used_at": &now, "order_id": orderID}, "order_id")
+		result := tx.Model(&models.CrmCouponRecord{}).Where("tenant_id = ? AND id = ? AND status = ?", tenant, rec.ID, "issued").Updates(changes)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errors.New("优惠券已被核销")
+		}
+		if err := tx.Model(&models.CrmCoupon{}).Where("tenant_id = ? AND id = ?", tenant, coupon.ID).UpdateColumn("used_count", gorm.Expr("used_count + 1")).Error; err != nil {
+			return err
+		}
+		rec.Status, rec.UsedAt, rec.OrderID = "used", &now, orderID
+		return nil
 	})
-	if err != nil {
-		return rec, err
-	}
-	rec.Status = "used"
-	rec.UsedAt = &now
-	rec.OrderID = orderID
-	return rec, nil
+	return rec, err
 }
 
 // ListRecords 列出发放/核销记录。
 func (s CrmCouponService) ListRecords(ctx context.Context, couponID, status string, pager *app.Pager) ([]models.CrmCouponRecord, int64, error) {
-
 
 	if pager == nil {
 		pager = &app.Pager{}

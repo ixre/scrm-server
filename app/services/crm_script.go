@@ -104,7 +104,7 @@ func (s CrmSalesScriptService) Recommend(ctx context.Context, customerID string)
 	stage := "prospect"
 	if opp.StageID != "" {
 		var stageModel models.CrmPipelineStage
-		models.DB.Where("id = ?", opp.StageID).First(&stageModel)
+		models.MustFor(ctx).Where("id = ?", opp.StageID).First(&stageModel)
 		if stageModel.Name != "" {
 			stage = stageModel.Name
 		}

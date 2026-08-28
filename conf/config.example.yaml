@@ -8,10 +8,20 @@ App:
   # 超级管理员userID
   SuperAdmin:
     - WangQiang
+  # 网关签发/校验登录态 JWT 的密钥（≥32字节），生成命令：openssl rand -hex 32
+  # 环境变量 CRM_JWT_SECRET 优先于此项
+  JWTSecret: ""
+  # 网关→core 内部 gRPC 调用签名密钥（≥32字节），两端必须一致，生成命令：openssl rand -hex 32
+  # 环境变量 SCRM_INTERNAL_SECRET 优先于此项
+  InternalSecret: ""
   # 是否开启Models自动迁移，修改Model定义自动同步PostgreSQL表结构
   AutoMigration: true
   # 启动时同步微信数据
   AutoSyncWeWorkData: true
+  # 租户隔离守卫：enforce（默认，拒绝缺少 tenant_id 条件的 CRM 表语句）/ log（仅记录，灰度排查用）
+  TenantGuard: enforce
+  # 老企微表（customer/staff 等）守卫：log（默认）/ enforce
+  LegacyTenantGuard: log
 
 # API服务配置
 Server:
@@ -39,6 +49,11 @@ DB:
   SSLMode: disable
   # 会话时区
   TimeZone: Asia/Shanghai
+  # Per-process connection budget. Reserve capacity for all replicas and jobs.
+  MaxOpenConns: 25
+  MaxIdleConns: 10
+  ConnMaxLifetimeSeconds: 1800
+  ConnMaxIdleTimeSeconds: 300
 
 # redis服务器配置
 Redis:
@@ -93,3 +108,13 @@ DelayQueue:
   QueueName: dq_queue_%s
   # 调用blpop阻塞超时时间, 单位秒, 必须小于redis.read_timeout, 修改此项, redis.read_timeout需做相应调整
   QueueBlockTimeout: 2
+
+# 服务商配置由运营方提供；租户通过渠道设置中的「服务商授权接入」绑定。
+WecomProvider:
+  SuiteID: ""
+  SuiteSecret: ""
+  CallbackToken: ""
+  CallbackAESKey: ""
+  # 加密回调的接收方标识；留空按 SuiteID 校验。
+  ReceiveID: ""
+  RedirectURL: "https://your-domain/console/crm/channel-config"

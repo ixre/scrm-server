@@ -2,8 +2,8 @@ package delay_queue
 
 import (
 	"context"
-	"github.com/redis/go-redis/v9"
 	"core/conf"
+	"github.com/redis/go-redis/v9"
 )
 
 var Rdb *redis.Client
@@ -12,7 +12,7 @@ func NewRedisClient() {
 	Rdb = redis.NewClient(&redis.Options{
 		Addr:        conf.Settings.Redis.Host,
 		Password:    conf.Settings.Redis.Password, // no password set
-		DB:          0,                            // use default DB
+		DB:          conf.Settings.Redis.DBNumber,
 		ReadTimeout: conf.Settings.Redis.ReadTimeout,
 	})
 }

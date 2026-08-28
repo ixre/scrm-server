@@ -103,7 +103,7 @@ func (s CrmAutoTagService) ApplyToCustomer(ctx context.Context, customerID strin
 	}
 	if len(tagsToAdd) > 0 {
 		newTags := append(cust.ChannelTags, tagsToAdd...)
-		models.DB.Model(&models.CrmCustomer{}).Where("id = ?", customerID).
+		models.MustFor(ctx).Model(&models.CrmCustomer{}).Where("id = ?", customerID).
 			Update("channel_tags", newTags)
 		log.Sugar.Infow("auto tag applied", "customer", customerID, "tags", tagsToAdd)
 	}

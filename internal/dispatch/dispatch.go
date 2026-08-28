@@ -9,6 +9,8 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"reflect"
 
 	"core/app/services"
 	app "core/common/app"
@@ -24,6 +26,9 @@ type Registry map[string]map[string]Adapter
 func (r Registry) Register(service, action string, a Adapter) {
 	if r[service] == nil {
 		r[service] = map[string]Adapter{}
+	}
+	if _, exists := r[service][action]; exists {
+		panic(fmt.Sprintf("duplicate business action %s/%s", service, action))
 	}
 	r[service][action] = a
 }
@@ -52,7 +57,11 @@ var Reg = Registry{}
 
 // Bind 把入参 JSON 绑定到目标 struct（等价 gin 的 ShouldBindJSON）。
 func Bind(params json.RawMessage, v any) error {
-	return json.Unmarshal(params, v)
+	normalized, err := normalizeFormTimes(params, reflect.TypeOf(v))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(normalized, v)
 }
 
 // Result 包装"列表 + 总数"，对应 openscrm 常见的 ([]T, total int64) 返回形状。
@@ -103,7 +112,8 @@ func MergePS[T any](p *QueryParams[T]) {
 
 // corpCtx 从 corpID 反查 channel_link 得到对应 tenant_id，注入 ctx。
 // 用于老 openscrm 域（customer/staff/contact_way/group_chat/mass_msg 等）的 dispatch 适配器。
-// 找不到时返回原 ctx（保持兼容，未配 channel_link 的 corp 也能跑，但 tenant 隔离失效）。
+// 找不到时返回原 ctx（不带租户）：CRM 租户表访问会被 TenantScope / 租户守卫拒绝（fail closed），
+// 老企微表仍按 ext_corp_id 过滤。
 //
 // 实际委托给 services.SyncTenantCtx（同一份逻辑），避免重复实现。
 func corpCtx(ctx context.Context, corpID string) context.Context {

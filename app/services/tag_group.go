@@ -25,7 +25,7 @@ func (t TagGroupService) Query(req requests.TagListReq, extCorpID string) ([]*mo
 
 func (t TagGroupService) Create(req requests.CreateTagGroupReq, extCorpID string) (tagGroup *models.TagGroup, err error) {
 	total := int64(0)
-	err = models.DB.Model(&models.TagGroup{}).Where(&models.TagGroup{Name: req.Name}).Count(&total).Error
+	err = models.DB.Model(&models.TagGroup{}).Where("ext_corp_id = ?", extCorpID).Where(&models.TagGroup{Name: req.Name}).Count(&total).Error
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -89,6 +89,7 @@ func (t TagGroupService) Create(req requests.CreateTagGroupReq, extCorpID string
 }
 
 func (t TagGroupService) Delete(req requests.DeleteTagGroupsReq, extCorpID string) (int64, error) {
+ t.groupRepo.ExtCorpID, t.tagRepo.ExtCorpID = extCorpID, extCorpID
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -110,6 +111,7 @@ func (t TagGroupService) Delete(req requests.DeleteTagGroupsReq, extCorpID strin
 //	删除的标签id-RemoveExtTagIDs
 // 	标签列表-Tags 用于新增或更新标签
 func (t TagGroupService) Update(req requests.UpdateTagGroupReq, extCorpID string) (tg models.TagGroup, err error) {
+ t.groupRepo.ExtCorpID, t.tagRepo.ExtCorpID = extCorpID, extCorpID
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -218,6 +220,8 @@ func (t TagGroupService) Update(req requests.UpdateTagGroupReq, extCorpID string
 	return
 }
 
-func (t TagGroupService) ExchangeOrder(e *requests.ExchangeOrderReq) error {
+func (t TagGroupService) ExchangeOrder(e *requests.ExchangeOrderReq, extCorpID string) error {
+ t.groupRepo.ExtCorpID = extCorpID
+
 	return t.groupRepo.ExchangeOrder(e.ExchangeOrderID, e.ID)
 }

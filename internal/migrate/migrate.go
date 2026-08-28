@@ -85,6 +85,19 @@ func applyFile(db *gorm.DB, name string) error {
 	}
 	defer tx.Rollback()
 
+	// Multiple deployment processes may read the same pending version list.
+	// Share the lock with manual migration scripts and recheck after acquiring it.
+	if err := tx.Exec("SELECT pg_advisory_xact_lock(7362726)").Error; err != nil {
+		return err
+	}
+	var count int64
+	if err := tx.Table(schemaMigrationsTable).Where("version = ?", name).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return tx.Commit().Error
+	}
+
 	for _, stmt := range splitStatements(string(content)) {
 		if stmt == "" {
 			continue
@@ -100,9 +113,15 @@ func applyFile(db *gorm.DB, name string) error {
 	return tx.Commit().Error
 }
 
-// splitStatements 按分号切分 SQL 语句。适用于 DDL 迁移（无存储过程/触发器内的分号）。
+// Function/DO migrations use explicit line boundaries, preserving body semicolons.
+// Older plain DDL files retain their original semicolon format.
 func splitStatements(s string) []string {
-	raw := strings.Split(s, ";")
+	delimiter := ";"
+	if strings.HasPrefix(s, "-- migrate:statement\n") {
+		s = strings.TrimPrefix(s, "-- migrate:statement\n")
+		delimiter = "\n-- migrate:statement\n"
+	}
+	raw := strings.Split(s, delimiter)
 	out := make([]string, 0, len(raw))
 	for _, stmt := range raw {
 		out = append(out, strings.TrimSpace(stmt))

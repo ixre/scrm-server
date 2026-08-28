@@ -129,7 +129,9 @@ func (o *Util) UploadMedia(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.CachedUploadMedia(req, conf.Settings.WeWork.ExtCorpID)
+ consoleStaff, err := o.GetConsoleInfo(handler)
+ if err != nil { handler.ResponseError(err); return }
+	item, err := o.srv.CachedUploadMedia(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "CachedUploadMedia failed")
 		handler.ResponseError(err)

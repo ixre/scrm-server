@@ -1,0 +1,8 @@
+package services
+
+var platformPermissionPresets = map[string][]string{
+	"super_admin": {"platform:*:full"},
+	"operator":    {"platform:industry_dict:create", "platform:industry_dict:delete", "platform:industry_dict:update", "platform:log:list", "platform:order:list_all", "platform:payment:list", "platform:plan:create", "platform:plan:get", "platform:plan:list", "platform:plan:list_modules", "platform:plan:set_status", "platform:plan:update", "platform:stats:all_tenant_usage", "platform:stats:overview", "platform:stats:tenant_usage", "platform:tenant:create", "platform:tenant:get_detail", "platform:tenant:list", "platform:tenant:list_paged", "platform:tenant:list_users", "platform:tenant:renew", "platform:tenant:reset_admin_password", "platform:tenant:set_status", "platform:tenant:update"},
+	"finance":     {"platform:log:list", "platform:order:list_all", "platform:order:manual_confirm_pay", "platform:payment:create", "platform:payment:list", "platform:payment:set_status", "platform:payment:update", "platform:plan:create", "platform:plan:get", "platform:plan:list", "platform:plan:list_modules", "platform:plan:update", "platform:stats:all_tenant_usage", "platform:stats:overview", "platform:stats:tenant_usage", "platform:tenant:get_detail", "platform:tenant:list", "platform:tenant:list_paged", "platform:tenant:renew"},
+	"support":     {"platform:log:list", "platform:order:list_all", "platform:payment:list", "platform:plan:get", "platform:plan:list", "platform:plan:list_modules", "platform:stats:all_tenant_usage", "platform:stats:overview", "platform:stats:tenant_usage", "platform:tenant:get_detail", "platform:tenant:list", "platform:tenant:list_paged", "platform:tenant:list_users", "platform:tenant:reset_admin_password"},
+}

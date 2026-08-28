@@ -2,16 +2,14 @@ package services
 
 import (
 	"bytes"
-	"core/common/id_generator"
-	"core/common/identity"
 	"strconv"
+	"strings"
 
 	"context"
 	"errors"
 	"time"
 
 	"core/app/models"
-	"core/common/log"
 
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -24,117 +22,18 @@ func NewCrmOpportunityExt() *CrmOpportunityExtService { return &CrmOpportunityEx
 
 // ChangeStage 商机阶段流转：更新 StageID，并同步阶段的成交概率。
 func (s CrmOpportunityExtService) ChangeStage(ctx context.Context, id, stageID string) error {
-	tenantID := identity.TenantID(ctx)
-
-	if id == "" {
-		return errors.New("id 不能为空")
-	}
-	if stageID == "" {
-		return errors.New("stage_id 不能为空")
-	}
-	// 校验阶段存在且属于本租户。
-	var stage models.CrmPipelineStage
-	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
-		return errors.New("阶段不存在")
-	}
-	// 根据目标阶段推导 status，与 MoveStage 保持一致。
-	newStatus := "open"
-	switch {
-	case stage.IsWon:
-		newStatus = "won"
-	case stage.IsLost:
-		newStatus = "lost"
-	}
-	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Updates(map[string]any{"stage_id": stageID, "probability": stage.Probability, "status": newStatus})
-	if res.Error != nil {
-		log.Sugar.Errorw("opportunity change stage failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	_, err := transitionOpportunities(ctx, []string{id}, stageID)
+	return err
 }
 
 // Win 赢单：Status=won, WonAt=now, WonReason, ActualAmount。自动写入跟进记录。
 func (s CrmOpportunityExtService) Win(ctx context.Context, id, wonReason string, actualAmount float64) error {
-	tenantID := identity.TenantID(ctx)
-	userID := identity.UserID(ctx)
-
-	if id == "" {
-		return errors.New("id 不能为空")
-	}
-	// 先查出商机（用于写跟进记录的 customer_id）
-	var opp models.CrmOpportunity
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&opp).Error; err != nil {
-		return err
-	}
-	now := time.Now()
-	updates := map[string]any{
-		"status":        "won",
-		"won_at":        now,
-		"won_reason":    wonReason,
-		"actual_amount": actualAmount,
-		"lost_at":       nil,
-		"lost_reason":   "",
-	}
-	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND status = ?", id, "open").
-		Updates(updates)
-	if res.Error != nil {
-		log.Sugar.Errorw("opportunity win failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("商机不存在或非进行中状态")
-	}
-	// 自动写入跟进记录
-	s.recordFollowup(ctx, userID, tenantID, opp, "other", "赢单", "赢单原因："+wonReason+"；实际成交金额："+formatFloat(actualAmount))
-	return nil
+	return closeOpportunity(ctx, id, "won", wonReason, actualAmount)
 }
 
 // Lose 输单：Status=lost, LostAt=now, LostReason。自动写入跟进记录。
 func (s CrmOpportunityExtService) Lose(ctx context.Context, id, lostReason string) error {
-	tenantID := identity.TenantID(ctx)
-	userID := identity.UserID(ctx)
-
-	if id == "" {
-		return errors.New("id 不能为空")
-	}
-	var opp models.CrmOpportunity
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&opp).Error; err != nil {
-		return err
-	}
-	now := time.Now()
-	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND status = ?", id, "open").
-		Updates(map[string]any{"status": "lost", "lost_at": now, "lost_reason": lostReason, "won_at": nil})
-	if res.Error != nil {
-		log.Sugar.Errorw("opportunity lose failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("商机不存在或非进行中状态")
-	}
-	// 自动写入跟进记录
-	s.recordFollowup(ctx, userID, tenantID, opp, "other", "输单", "输单原因："+lostReason)
-	return nil
-}
-
-// recordFollowup 写入一条自动跟进记录（赢单/输单等状态变更）。
-func (s CrmOpportunityExtService) recordFollowup(ctx context.Context, userID, tenantID string, opp models.CrmOpportunity, fType, result, content string) {
-	f := models.CrmFollowup{
-		Model:         models.Model{ID: id_generator.StringID()},
-		TenantID:      tenantID,
-		CustomerID:    opp.CustomerID,
-		OpportunityID: opp.ID,
-		UserID:        userID,
-		Type:          fType,
-		Content:       content,
-		Result:        result,
-	}
-	if err := createCRM(models.DB, &f, "CustomerID", "OpportunityID", "UserID", "ContactID"); err != nil {
-		log.Sugar.Errorw("opportunity status change followup create failed", "err", err)
-	}
+	return closeOpportunity(ctx, id, "lost", lostReason, 0)
 }
 
 // formatFloat 格式化金额，去掉无意义小数。
@@ -147,64 +46,43 @@ func formatFloat(v float64) string {
 
 // BatchChangeStage 批量改阶段。根据目标阶段自动推导 status，与 MoveStage/ChangeStage 保持一致。
 func (s CrmOpportunityExtService) BatchChangeStage(ctx context.Context, ids []string, stageID string) error {
-	tenantID := identity.TenantID(ctx)
-
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
-	}
-	if stageID == "" {
-		return errors.New("stage_id 不能为空")
-	}
-	var stage models.CrmPipelineStage
-	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
-		return errors.New("阶段不存在")
-	}
-	// 根据目标阶段推导 status。
-	newStatus := "open"
-	switch {
-	case stage.IsWon:
-		newStatus = "won"
-	case stage.IsLost:
-		newStatus = "lost"
-	}
-	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Updates(map[string]any{"stage_id": stageID, "probability": stage.Probability, "status": newStatus})
-	if res.Error != nil {
-		log.Sugar.Errorw("opportunity batch change stage failed", "err", res.Error)
-	}
-	return res.Error
+	_, err := transitionOpportunities(ctx, ids, stageID)
+	return err
 }
 
 // Reopen 恢复商机为进行中：从 won/lost 恢复为 open，清空赢单/输单相关字段。
 func (s CrmOpportunityExtService) Reopen(ctx context.Context, id string) error {
-	tenantID := identity.TenantID(ctx)
-
-	if id == "" {
-		return errors.New("id 不能为空")
+	var o models.CrmOpportunity
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		o, err = lockSalesRecord[models.CrmOpportunity](ctx, tx, id, false)
+		if err != nil {
+			return err
+		}
+		if o.Status != "won" && o.Status != "lost" {
+			return errors.New("仅已关闭商机可恢复")
+		}
+		var stage models.CrmPipelineStage
+		err = tx.Where("tenant_id = ? AND is_won = false AND is_lost = false", o.TenantID).Order("sort, id").First(&stage).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		applyOpportunityStage(&o, stage)
+		return saveOpportunityState(tx, &o)
+	})
+	if err == nil {
+		opportunityStageEvent(ctx, o)
 	}
-	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).
-		Where("id = ? AND status IN ?", id, []string{"won", "lost"}).
-		Updates(map[string]any{
-			"status":        "open",
-			"won_at":        nil,
-			"lost_at":       nil,
-			"won_reason":    "",
-			"lost_reason":   "",
-			"actual_amount": 0,
-		})
-	if res.Error != nil {
-		log.Sugar.Errorw("opportunity reopen failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("商机不存在或非赢单/输单状态")
-	}
-	return nil
+	return err
 }
 
 // Export 导出商机为 Excel。
 func (s CrmOpportunityExtService) Export(ctx context.Context, status, ownerUserID string) (*bytes.Buffer, string, error) {
-	db := models.MustFor(ctx).Limit(10000).Order("id desc")
+	db, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, "", err
+	}
+	db = db.Limit(10000).Order("id desc")
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -248,37 +126,51 @@ func (s CrmOpportunityExtService) Export(ctx context.Context, status, ownerUserI
 
 // BatchTransfer 批量转移商机归属人。
 func (s CrmOpportunityExtService) BatchTransfer(ctx context.Context, ids []string, toUserID string) (int64, error) {
-	tenantID := identity.TenantID(ctx)
-	if len(ids) == 0 {
-		return 0, errors.New("ids 不能为空")
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
 	}
 	if toUserID == "" {
-		return 0, errors.New("to_user_id 不能为空")
+		return 0, errors.New("请选择接收销售")
 	}
-	res := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Update("owner_user_id", toUserID)
-	if res.Error != nil {
-		log.Sugar.Errorw("crm opportunity batch transfer failed", "err", res.Error)
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateCustomerOwner(ctx, tx, toUserID); err != nil {
+			return err
+		}
+		for _, id := range ids {
+			o, err := lockSalesRecord[models.CrmOpportunity](ctx, tx, id, false)
+			if err != nil {
+				return err
+			}
+			if err = tx.Model(&o).Update("owner_user_id", toUserID).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
-	return res.RowsAffected, res.Error
+	return int64(len(ids)), nil
 }
 
 // BatchImport 批量导入商机。
 func (s CrmOpportunityExtService) BatchImport(ctx context.Context, userID string, rows []map[string]string) (int, int, error) {
-	tenantID := identity.TenantID(ctx)
+	if _, _, err := customerActor(ctx, models.DB); err != nil {
+		return 0, 0, err
+	}
 	success, fail := 0, 0
-	for _, r := range rows {
-		o := models.CrmOpportunity{
-			Model:       models.Model{ID: id_generator.StringID()},
-			TenantID:    tenantID,
-			Title:       r["商机名称"],
-			Product:     r["产品"],
-			Amount:      parseFloat(r["预计金额"]),
-			Status:      "open",
-			OwnerUserID: userID,
-			Remark:      r["备注"],
+	for _, row := range rows {
+		amount, err := strconv.ParseFloat(strings.TrimSpace(row["预计金额"]), 64)
+		if row["预计金额"] == "" {
+			amount, err = 0, nil
 		}
-		if err := models.DB.Create(&o).Error; err != nil {
+		if err != nil {
+			fail++
+			continue
+		}
+		_, err = NewCrmOpportunity().Create(ctx, userID, models.CrmOpportunity{Title: row["商机名称"], CustomerID: strings.TrimSpace(row["客户ID"]), Product: row["产品"], Amount: amount, Remark: row["备注"]})
+		if err != nil {
 			fail++
 		} else {
 			success++

@@ -8,7 +8,6 @@ import (
 	"core/common/id_generator"
 	"core/common/log"
 	"core/common/we_work"
-	"core/conf"
 	gowx "core/pkg/easywework"
 	"strings"
 )
@@ -32,7 +31,7 @@ func EventAddStaffHandler(msg *gowx.RxMessage) error {
 		return err
 	}
 	extStaffID := eventAddExternalContact.GetUserID()
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := msg.ToUserID
 	err := SyncStaff(extCorpID, extStaffID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -44,20 +43,20 @@ func EventAddStaffHandler(msg *gowx.RxMessage) error {
 }
 
 func SyncStaff(extCorpID string, ExtStaffID string) error {
-	client, err := we_work.Clients.Get(conf.Settings.WeWork.ExtCorpID)
+	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
 	}
 
-	info, err := client.Customer.GetUser(ExtStaffID)
+	info, err := client.Contact.GetUser(ExtStaffID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
 	}
 	staff := models.Staff{
 		Model:     models.Model{ID: id_generator.StringID()},
-		ExtCorpID: conf.Settings.WeWork.ExtCorpID,
+		ExtCorpID: extCorpID,
 		RoleID:    string(constants.DefaultCorpStaffRoleID),
 		RoleType:  string(constants.RoleTypeStaff),
 		ExtID:     info.UserID,

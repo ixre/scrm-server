@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"core/app/services"
+ "context"
 	"core/common/log"
 	"time"
 )
@@ -24,7 +25,7 @@ func (o MassMsg) UpdateMassMsgStatus() {
 	}
 
 	// 每小时更新群发状态
-	err = (services.GroupChatMassMsg{}).UpdateGroupMsgSentStatus()
+	err = services.EachWecomCorp(context.Background(), func(ctx context.Context, corpID string) error { return (services.GroupChatMassMsg{}).UpdateGroupMsgSentStatus(corpID) })
 	if err != nil {
 		log.Sugar.Errorw("UpdateMassMsgStatus failed", "err", err)
 		return

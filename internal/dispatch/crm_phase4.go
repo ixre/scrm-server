@@ -147,7 +147,7 @@ func crmScoreRecalculate(ctx context.Context, _, _ string, _ json.RawMessage) (a
 	if err != nil {
 		return nil, err
 	}
-	if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:score:manage"); err != nil {
 		return nil, err
 	}
 	return nil, services.NewCrmScore().RecalculateAll(ctx)

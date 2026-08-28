@@ -5,7 +5,6 @@ import (
 	"core/app/requests"
 	"core/common/app"
 	"core/common/id_generator"
-	"core/conf"
 )
 
 type InternalTag struct {
@@ -20,7 +19,7 @@ func (o InternalTag) Create(req requests.CreateInternalTagReq, extCorpID string)
 	tags := make([]models.InternalTag, 0)
 	for _, name := range req.Names {
 		tag := models.InternalTag{
-			ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: conf.Settings.WeWork.ExtCorpID},
+			ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID},
 			Name:         name,
 		}
 		tags = append(tags, tag)
@@ -33,7 +32,7 @@ func (o InternalTag) Delete(tagIDs []string, extCorpID string) (int64, error) {
 }
 func (o InternalTag) Query(req requests.QueryInternalTagReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]models.InternalTag, int64, error) {
 	tag := models.InternalTag{
-		ExtCorpModel: models.ExtCorpModel{ExtCorpID: conf.Settings.WeWork.ExtCorpID},
+		ExtCorpModel: models.ExtCorpModel{ExtCorpID: extCorpID},
 		ExtStaffID:   req.ExtStaffID,
 	}
 	return o.internalTagRepo.Query(tag, sorter, pager)

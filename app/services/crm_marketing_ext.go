@@ -136,7 +136,7 @@ func (s CrmGroupBuyService) OpenGroup(ctx context.Context, groupBuyID, leaderID 
 		if err := createCRM(tx, &rec); err != nil {
 			return err
 		}
-		return tx.Model(&models.CrmGroupBuy{}).Where("id = ?", groupBuyID).UpdateColumn("opened_groups", gorm.Expr("opened_groups + 1")).Error
+		return tx.Model(&models.CrmGroupBuy{}).Where("tenant_id = ? AND id = ?", tenantID, groupBuyID).UpdateColumn("opened_groups", gorm.Expr("opened_groups + 1")).Error
 	})
 	return rec, err
 }
@@ -166,7 +166,7 @@ func (s CrmGroupBuyService) JoinGroup(ctx context.Context, recordID, memberID st
 		}
 	}
 	var gb models.CrmGroupBuy
-	models.DB.Where("id = ?", rec.GroupBuyID).First(&gb)
+	models.MustFor(ctx).Where("id = ?", rec.GroupBuyID).First(&gb)
 	// 检查是否已满员
 	if rec.CurrentSize >= gb.GroupSize {
 		return rec, errors.New("团已满员")
@@ -187,7 +187,7 @@ func (s CrmGroupBuyService) JoinGroup(ctx context.Context, recordID, memberID st
 	if err := models.DB.Model(&rec).Updates(updates).Error; err != nil {
 		return rec, err
 	}
-	models.DB.Where("id = ?", rec.ID).First(&rec)
+	models.MustFor(ctx).Where("id = ?", rec.ID).First(&rec)
 	return rec, nil
 }
 
@@ -355,7 +355,7 @@ func (s CrmBargainService) Help(ctx context.Context, recordID, helperID string) 
 		return rec, errors.New("已超时")
 	}
 	var b models.CrmBargain
-	models.DB.Where("id = ?", rec.BargainID).First(&b)
+	models.MustFor(ctx).Where("id = ?", rec.BargainID).First(&b)
 	// 检查是否已帮砍
 	for _, id := range rec.HelperIDs {
 		if id == helperID {
@@ -396,7 +396,7 @@ func (s CrmBargainService) Help(ctx context.Context, recordID, helperID string) 
 	}).Error; err != nil {
 		return rec, err
 	}
-	models.DB.Where("id = ?", rec.ID).First(&rec)
+	models.MustFor(ctx).Where("id = ?", rec.ID).First(&rec)
 	return rec, nil
 }
 
@@ -632,7 +632,7 @@ func (s CrmRedPacketService) Claim(ctx context.Context, redPacketID, customerID 
 	// 事务：乐观锁扣库存 + 创建领取记录
 	var rec models.CrmRedPacketRecord
 	err = models.DB.Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&models.CrmRedPacket{}).Where("id = ? AND issued_count < total_count", redPacketID).UpdateColumn("issued_count", gorm.Expr("issued_count + 1"))
+		res := tx.Model(&models.CrmRedPacket{}).Where("tenant_id = ? AND id = ? AND issued_count < total_count", rp.TenantID, redPacketID).UpdateColumn("issued_count", gorm.Expr("issued_count + 1"))
 		if res.Error != nil {
 			return res.Error
 		}

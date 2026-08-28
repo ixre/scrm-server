@@ -2,13 +2,14 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
+	"reflect"
 
 	"core/app/models"
-	"core/common/log"
+	"gorm.io/gorm/clause"
 
 	"gorm.io/gorm"
 )
@@ -22,21 +23,23 @@ func NewCrmDedup() *CrmDedupService { return &CrmDedupService{} }
 // FindDuplicates 按 mobile 查同租户重复客户（mobile 非空）。
 func (s CrmDedupService) FindDuplicates(ctx context.Context, mobile string) ([]models.CrmCustomer, error) {
 
-
 	if mobile == "" {
 		return nil, errors.New("mobile 不能为空")
 	}
 	var cs []models.CrmCustomer
-	err := models.MustFor(ctx).Where("mobile = ?",  mobile).
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Where("mobile = ?", mobile).
 		Order("created_at").Find(&cs).Error
 	return cs, err
 }
 
-// Merge 合并客户：把 duplicateIDs 的所有关联数据转移到 primaryID，然后软删除重复客户。
+// Merge 合并客户：把登记的客户关联数据转移到 primaryID，然后软删除重复客户。
 // 全部在事务内完成。primaryID 自身不被删。
 func (s CrmDedupService) Merge(ctx context.Context, primaryID string, duplicateIDs []string) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if primaryID == "" {
 		return errors.New("primary_id 不能为空")
@@ -49,61 +52,38 @@ func (s CrmDedupService) Merge(ctx context.Context, primaryID string, duplicateI
 			return errors.New("duplicate_ids 不能包含 primary_id")
 		}
 	}
-	return models.DB.Transaction(func(tx *gorm.DB) error {
-		// 1) 迁移关联数据 customer_id → primaryID
-		tables := []struct {
-			Table string
-			Col   string
-		}{
-			{"crm_followup", "customer_id"},
-			{"crm_opportunity", "customer_id"},
-			{"crm_order", "customer_id"},
-			{"crm_activity_record", "customer_id"},
-			{"crm_channel_interaction", "customer_id"},
-			{"crm_transfer_log", "customer_id"},
-			{"crm_coupon_record", "customer_id"},
-			{"crm_seckill_record", "customer_id"},
-			{"crm_lottery_record", "customer_id"},
+	unique := make(map[string]bool)
+	for _, id := range duplicateIDs {
+		unique[id] = true
+	}
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 锁定并验证全部客户，拒绝跨租户/无权访问/不存在的 ID。
+		db, err := customerAccessDB(ctx, tx, true)
+		if err != nil {
+			return err
 		}
-		for _, t := range tables {
-			if err := tx.Table(t.Table).
-				Scopes(models.TenantScope(tenantID)).
-				Where(t.Col+" IN ?", duplicateIDs).
-				Update(t.Col, primaryID).Error; err != nil {
+		ids := append([]string{primaryID}, duplicateIDs...)
+		var customers []models.CrmCustomer
+		if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", ids).Order("id").Find(&customers).Error; err != nil {
+			return err
+		}
+		if len(customers) != len(unique)+1 {
+			return ErrCustomerAccess
+		}
+
+		for _, rel := range customerMergeRelations {
+			if err := tx.Unscoped().Model(reflect.New(reflect.TypeOf(rel.Model).Elem()).Interface()).Where("tenant_id = ? AND "+rel.Column+" IN ?", tenantID, duplicateIDs).Update(rel.Column, primaryID).Error; err != nil {
 				return err
 			}
 		}
-		// 2) ChannelLink 迁移：重复客户的渠道映射转移到 primary（若 primary 无该渠道映射）。
-		var dupLinks []models.ChannelLink
-		if err := tx.Where("channel = ? AND entity_type = ? AND entity_id IN ?",
-			"customer", duplicateIDs).Find(&dupLinks).Error; err != nil {
-			// ChannelLink 表名无 tenant 隔离字段直接用 entity_id
-		}
-		for _, dl := range dupLinks {
-			// 检查 primary 是否已有同渠道映射
-			var existing models.ChannelLink
-			err := tx.Where("channel = ? AND entity_type = ? AND entity_id = ?",
-				dl.Channel, "customer", primaryID).First(&existing).Error
-			if err == gorm.ErrRecordNotFound {
-				// primary 无该渠道映射 → 迁移
-				if err := tx.Model(&models.ChannelLink{}).Where("id = ?", dl.ID).
-					Update("entity_id", primaryID).Error; err != nil {
-					return err
-				}
-			} else if err == nil {
-				// primary 已有该渠道映射 → 删除重复映射
-				if err := tx.Delete(&models.ChannelLink{}, dl.ID).Error; err != nil {
-					return err
-				}
-			}
-		}
-		// 3) 软删除重复客户
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  duplicateIDs).
-			Delete(&models.CrmCustomer{}).Error; err != nil {
+		if err := mergeActivityRecords(tx, tenantID, primaryID, duplicateIDs); err != nil {
 			return err
 		}
-		log.Sugar.Infow("crm customer merged", "tenant", tenantID, "primary", primaryID, "duplicates", duplicateIDs)
-		return nil
+		// 同一客户可拥有同渠道的多个外部身份，全部保留，避免丢失历史互动映射。
+		if err := tx.Unscoped().Model(&models.ChannelLink{}).Where("tenant_id = ? AND entity_type = ? AND entity_id IN ?", tenantID, "customer", duplicateIDs).Update("entity_id", primaryID).Error; err != nil {
+			return err
+		}
+		return tx.Where("tenant_id = ? AND id IN ?", tenantID, duplicateIDs).Delete(&models.CrmCustomer{}).Error
 	})
 }
 
@@ -121,4 +101,94 @@ func pickPrimary(cs []models.CrmCustomer) string {
 	}
 	// 第二优先：最新创建的（cs 已按 created_at 升序，取最后一个）
 	return cs[len(cs)-1].ID
+}
+
+// customerMergeRelations 包含普通外键；有联合唯一键的活动记录单独合并。
+var customerMergeRelations = []struct {
+	Model  any
+	Column string
+}{
+	{&models.CrmLead{}, "customer_id"},
+	{&models.CrmLead{}, "convert_customer_id"},
+	{&models.CrmOpportunity{}, "customer_id"},
+	{&models.CrmFollowup{}, "customer_id"},
+	{&models.CrmOrder{}, "customer_id"},
+	{&models.CrmChannelInteraction{}, "customer_id"},
+	{&models.CrmPoolLog{}, "customer_id"},
+	{&models.CrmTransferLog{}, "customer_id"},
+	{&models.CrmChannelTask{}, "customer_id"},
+	{&models.CrmCouponRecord{}, "customer_id"},
+	{&models.CrmFissionInvite{}, "inviter_customer_id"},
+	{&models.CrmFissionInvite{}, "invitee_customer_id"},
+	{&models.CrmSopTask{}, "customer_id"},
+	{&models.CrmSeckillRecord{}, "customer_id"},
+	{&models.CrmLotteryRecord{}, "customer_id"},
+	{&models.CrmSensitiveAlert{}, "customer_id"},
+	{&models.CrmCustomerLoss{}, "customer_id"},
+	{&models.CrmReplyTimeout{}, "customer_id"},
+	{&models.CrmBargainRecord{}, "customer_id"},
+	{&models.CrmRedPacketRecord{}, "customer_id"},
+	{&models.CrmSignInRecord{}, "customer_id"},
+	{&models.CrmContact{}, "customer_id"},
+	{&models.CrmReceivablesPlan{}, "customer_id"},
+	{&models.CrmReceivables{}, "customer_id"},
+	{&models.CrmQuote{}, "customer_id"},
+	{&models.CrmSignin{}, "customer_id"},
+	{&models.CrmConsume{}, "customer_id"},
+	{&models.CrmProject{}, "customer_id"},
+	{&models.CrmFinanceRecord{}, "customer_id"},
+	{&models.CrmInvoice{}, "customer_id"},
+	{&models.CrmWorkorder{}, "customer_id"},
+	{&models.CrmCallRecord{}, "customer_id"},
+	{&models.CrmAiAnalysis{}, "customer_id"},
+	{&models.CrmAftersales{}, "customer_id"},
+	{&models.CrmOtherIncome{}, "customer_id"},
+	{&models.CrmOtherExpense{}, "customer_id"},
+	{&models.CrmCallList{}, "customer_id"},
+}
+
+func mergeActivityRecords(tx *gorm.DB, tenant, primary string, duplicates []string) error {
+	var records []models.CrmActivityRecord
+	ids := append([]string{primary}, duplicates...)
+	if err := tx.Unscoped().Where("tenant_id = ? AND customer_id IN ?", tenant, ids).Order("id").Find(&records).Error; err != nil {
+		return err
+	}
+	groups := make(map[string][]models.CrmActivityRecord)
+	for _, rec := range records {
+		groups[rec.ActivityID] = append(groups[rec.ActivityID], rec)
+	}
+	for activity, group := range groups {
+		winner := group[0]
+		for _, rec := range group {
+			if rec.CustomerID == primary {
+				winner = rec
+				break
+			}
+		}
+		rank := recordRank(winner.RecordType)
+		alive := !winner.DeletedAt.Valid
+		for _, rec := range group {
+			if recordRank(rec.RecordType) > rank {
+				winner.RecordType = rec.RecordType
+				rank = recordRank(rec.RecordType)
+			}
+			alive = alive || !rec.DeletedAt.Valid
+			if rec.ID != winner.ID {
+				if err := tx.Unscoped().Delete(&rec).Error; err != nil {
+					return err
+				}
+			}
+		}
+		updates := map[string]any{"customer_id": primary, "record_type": winner.RecordType}
+		if alive {
+			updates["deleted_at"] = nil
+		}
+		if err := tx.Unscoped().Model(&models.CrmActivityRecord{}).Where("tenant_id = ? AND id = ?", tenant, winner.ID).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := recomputeActivityCounters(tx, tenant, activity); err != nil {
+			return err
+		}
+	}
+	return nil
 }

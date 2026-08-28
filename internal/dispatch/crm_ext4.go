@@ -89,11 +89,16 @@ func crmQuickRemarkCreate(ctx context.Context, _, _ string, params json.RawMessa
 	u := identity.UserID(ctx)
 	var req struct {
 		Content string `json:"content"`
+		Sort    *int   `json:"sort"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	r, err := services.NewCrmQuickRemark().Create(ctx, u, req.Content)
+	sort := []int{}
+	if req.Sort != nil {
+		sort = append(sort, *req.Sort)
+	}
+	r, err := services.NewCrmQuickRemark().Create(ctx, u, req.Content, sort...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +114,16 @@ func crmQuickRemarkUpdate(ctx context.Context, _, _ string, params json.RawMessa
 	var req struct {
 		ID      string `json:"id"`
 		Content string `json:"content"`
+		Sort    *int   `json:"sort"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuickRemark().Update(ctx, u, req.ID, req.Content)
+	sort := []int{}
+	if req.Sort != nil {
+		sort = append(sort, *req.Sort)
+	}
+	return ok, services.NewCrmQuickRemark().Update(ctx, u, req.ID, req.Content, sort...)
 }
 
 func crmQuickRemarkDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
@@ -155,12 +165,13 @@ func crmFollowupViewTodayTodo(ctx context.Context, _, _ string, params json.RawM
 	}
 	u := identity.UserID(ctx)
 	var req struct {
-		*app.Pager
+		app.Pager
+		Keyword string `json:"keyword"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.PageReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmFollowupView().ListTodayTodo(ctx, u, q)
 	if err != nil {
 		return nil, err
@@ -175,12 +186,13 @@ func crmFollowupViewTodayDone(ctx context.Context, _, _ string, params json.RawM
 	}
 	u := identity.UserID(ctx)
 	var req struct {
-		*app.Pager
+		app.Pager
+		Keyword string `json:"keyword"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.PageReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmFollowupView().ListTodayDone(ctx, u, q)
 	if err != nil {
 		return nil, err
@@ -195,12 +207,13 @@ func crmFollowupViewNeverFollowup(ctx context.Context, _, _ string, params json.
 	}
 	u := identity.UserID(ctx)
 	var req struct {
-		*app.Pager
+		app.Pager
+		Keyword string `json:"keyword"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.PageReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmFollowupView().ListNeverFollowup(ctx, u, q)
 	if err != nil {
 		return nil, err
@@ -372,13 +385,14 @@ func crmReceivablesListExpiring(ctx context.Context, _, _ string, params json.Ra
 		return nil, err
 	}
 	var req struct {
-		Days int `json:"days"`
-		*app.Pager
+		Days    int    `json:"days"`
+		OrderID string `json:"order_id"`
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.DuePlanQuery{PageReq: services.PageReq{Page: req.Page, PageSize: req.PageSize}, OrderID: req.OrderID}
 	items, total, err := services.NewCrmReceivablesExt().ListExpiring(ctx, req.Days, q)
 	if err != nil {
 		return nil, err
@@ -392,12 +406,13 @@ func crmReceivablesListOverdue(ctx context.Context, _, _ string, params json.Raw
 		return nil, err
 	}
 	var req struct {
-		*app.Pager
+		OrderID string `json:"order_id"`
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.DuePlanQuery{PageReq: services.PageReq{Page: req.Page, PageSize: req.PageSize}, OrderID: req.OrderID}
 	items, total, err := services.NewCrmReceivablesExt().ListOverdue(ctx, q)
 	if err != nil {
 		return nil, err
@@ -438,12 +453,18 @@ func crmReceivablesReject(ctx context.Context, _, _ string, params json.RawMessa
 
 // ---------- 报价扩展 dispatch handlers ----------
 
-func crmQuoteGenerateNo(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+func crmQuoteGenerateNo(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	no, err := services.NewCrmQuoteExt().GenerateNo(ctx)
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	no, err := services.NewCrmQuoteExt().GenerateNo(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +546,7 @@ func crmContactListPool(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, err
 	}
 	var req struct {
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err

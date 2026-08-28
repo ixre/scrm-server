@@ -1,10 +1,10 @@
 package we_work
 
 import (
-	"github.com/pkg/errors"
 	"core/common/log"
 	"core/pkg"
 	"core/pkg/easywework"
+	"github.com/pkg/errors"
 	"sync"
 )
 
@@ -16,6 +16,7 @@ var (
 )
 
 type CorpConf struct {
+	AuthKey string `json:"-"`
 	// ExtCorpID 外部企业ID
 	ExtCorpID string `json:"ext_corp_id" validate:"ext_corp_id" gorm:"unique;type:char(18);comment:外部企业ID"`
 	// ContactSecret 通讯录secret
@@ -28,7 +29,23 @@ type CorpConf struct {
 	MainAgentSecret string `json:"main_agent_secret" gorm:"comment:'企业主应用secret'"`
 }
 
+func (clients *WeWorkClients) AddAuthorized(conf CorpConf, fetch func() (string, int64, error)) error {
+	clients.mutex.Lock()
+	defer clients.mutex.Unlock()
+	if existing, ok := clients.clients[conf.ExtCorpID]; ok && existing.config == conf {
+		return nil
+	}
+	app, err := NewWxApp(conf.ExtCorpID, "", conf.MainAgentID)
+	if err != nil {
+		return err
+	}
+	app.UseAccessTokenProvider(fetch)
+	clients.clients[conf.ExtCorpID] = Client{config: conf, MainApp: app, Contact: app, Customer: app}
+	return nil
+}
+
 type Client struct {
+	config   CorpConf
 	MainApp  *workwx.App
 	Contact  *workwx.App
 	Customer *workwx.App
@@ -43,26 +60,20 @@ type WeWorkClients struct {
 
 // SetupClient 在连接db后init
 func SetupClient(conf CorpConf) {
-	once.Do(func() {
-		var err error
-		client, err := NewClient(conf)
-		if err != nil {
-			log.Sugar.Error("NewClient failed", err)
-			//panic(err)
-		}
-		Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{conf.ExtCorpID: client}}
-	})
-}
-
-// EnsureClients 懒初始化全局 Clients map（多租户 per-corp 运行时首次注册前调用）。
-// 与 SetupClient 的 once 并存：SetupClient 走单 corp 全局；此处为「一租户一企微」按 corp 追加。
-func EnsureClients() {
-	if Clients == nil {
-		Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{}}
+	EnsureClients()
+	if err := Clients.Add(conf); err != nil {
+		log.Sugar.Errorw("NewClient failed", "err", err)
 	}
 }
 
+// EnsureClients 懒初始化全局 Clients map（多租户 per-corp 运行时首次注册前调用）。
+// SetupClient 和多租户渠道注册共用同一初始化入口，后续按 corp 追加客户端。
+func EnsureClients() {
+	once.Do(func() { Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{}} })
+}
+
 func NewClient(conf CorpConf) (client Client, err error) {
+	client.config = conf
 	client.Contact, err = NewWxApp(conf.ExtCorpID, conf.ContactSecret, 0)
 	if err != nil {
 		err = errors.Wrap(err, "new Contact app failed")
@@ -85,6 +96,9 @@ func NewClient(conf CorpConf) (client Client, err error) {
 }
 
 func (clients *WeWorkClients) Get(extCorpID string) (client Client, err error) {
+	if clients == nil {
+		return client, errors.New("WeCom clients are not configured")
+	}
 	var ok bool
 	clients.mutex.Lock()
 	defer clients.mutex.Unlock()
@@ -107,12 +121,15 @@ func (clients *WeWorkClients) Remove(extCorpID string) {
 func (clients *WeWorkClients) Add(conf CorpConf) (err error) {
 	clients.mutex.Lock()
 	defer clients.mutex.Unlock()
+	if existing, ok := clients.clients[conf.ExtCorpID]; ok && existing.config == conf {
+		return nil
+	}
 	client, err := NewClient(conf)
 	if err != nil {
 		err = errors.Wrap(err, "NewClient failed")
 		return
 	}
-	Clients.clients[conf.ExtCorpID] = client
+	clients.clients[conf.ExtCorpID] = client
 
 	return
 }

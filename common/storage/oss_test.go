@@ -1,21 +1,26 @@
 package storage
 
 import (
-	"net/http"
+	"core/app/constants"
 	"core/conf"
+	"net/url"
 	"testing"
 )
 
 func TestOSSStorage_SignURL(t *testing.T) {
-	err := conf.SetupSetting()
+	store, err := NewOSS(conf.StorageConfig{EndPoint: "https://oss-cn-hangzhou.aliyuncs.com", AccessKeyId: "test-key-id", AccessKeySecret: "test-secret", Bucket: "test-bucket"})
 	if err != nil {
-		t.Failed()
+		t.Fatal(err)
 	}
-	Setup(conf.Settings.Storage)
-	signedURL, err := FileStorage.SignURL("wwacfbf964143dc303/quick_reply/admin/4566456.jpg", http.MethodPut, 3600*24*365)
+	signed, err := store.SignURL("test/image.jpg", constants.HTTPPut, 60)
 	if err != nil {
-		t.Failed()
+		t.Fatal(err)
 	}
-	println(signedURL)
-
+	parsed, err := url.Parse(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Path != "/test/image.jpg" || parsed.Query().Get("Signature") == "" {
+		t.Fatal("missing object path or signature")
+	}
 }

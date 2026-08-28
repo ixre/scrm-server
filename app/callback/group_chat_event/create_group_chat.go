@@ -6,7 +6,6 @@ import (
 	"core/app/models"
 	"core/app/services"
 	"core/common/we_work"
-	"core/conf"
 	"core/pkg/easywework"
 	gowx "core/pkg/easywework"
 )
@@ -40,7 +39,7 @@ func EventCreateExternalChatHandler(msg *workwx.RxMessage) error {
 	chat := groupChatInfo.GroupChat
 
 	groupChatService := services.NewGroupChatService()
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := msg.ToUserID
 	err = groupChatService.Syncs(services.SyncTenantCtx(context.Background(), extCorpID), chat.ChatID, extCorpID)
 	if err != nil {
 		return err

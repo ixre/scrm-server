@@ -1,210 +1,89 @@
 package services
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"context"
+	"core/app/constants"
+	"core/app/models"
+	"core/app/requests"
+	"core/common/util"
+	"core/conf"
 	"encoding/json"
 	"fmt"
 	"github.com/go-resty/resty/v2"
-	"github.com/pkg/errors"
 	"net/http"
-	"core/app/constants"
-	"core/app/requests"
-	"core/common/ecode"
-	log2 "core/common/log"
-	"core/common/util"
-	"core/conf"
+	"net/url"
 	"path"
 	"strconv"
+	"time"
 )
 
-type MsgArch struct {
-	httpClient *resty.Client
-}
+type MsgArch struct{ httpClient *resty.Client }
 
-// QuerySessions
-// Description: 查会话列表
-func (a *MsgArch) QuerySessions(req requests.QuerySessionReq, extCorpID string) (res interface{}, err error) {
-	h := hmac.New(sha256.New, []byte(conf.Settings.App.InnerSrvAppCode))
-	bytes, err := util.GenBytesOrderByColumn(req)
+func (a *MsgArch) archiveCall(method, endpoint, corpID string, input interface{}) (interface{}, error) {
+	cfg, err := ResolveWecomConfig(context.Background(), corpID)
 	if err != nil {
-		err = errors.WithStack(err)
-		return
+		return nil, err
 	}
-	h.Write(bytes)
-	signedStr := hex.EncodeToString(h.Sum(nil))
-	reqParams := map[string]string{
-		"name":         req.Name,
-		"ext_corp_id":  extCorpID,
-		"ext_staff_id": req.ExtStaffID,
-		"session_type": req.SessionType,
-		"sort_field":   string(req.SortField),
-		"sort_type":    string(req.SortType),
-		"page":         strconv.Itoa(req.Page),
-		"page_size":    strconv.Itoa(req.PageSize),
-		"signature":    signedStr,
+	if err := models.RequirePlanModules(models.DB, cfg.TenantID, "msg_archive"); err != nil {
+		return nil, err
 	}
-
+	if conf.Settings.App.InnerSrvAppCode == "" {
+		return nil, fmt.Errorf("archive internal authentication is not configured")
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return nil, err
+	}
+	var values map[string]interface{}
+	if err := json.Unmarshal(payload, &values); err != nil {
+		return nil, err
+	}
+	values["ext_corp_id"], values["tenant_id"] = cfg.CorpID, cfg.TenantID
+	request := a.httpClient.R().SetHeader("Accept", "application/json")
+	endpoint = path.Join("/api/v1", endpoint)
+	var body []byte
+	query := url.Values{}
+	if method == http.MethodGet {
+		for key, value := range values {
+			if value != nil {
+				query.Set(key, fmt.Sprint(value))
+			}
+		}
+		request.SetQueryString(query.Encode())
+	} else {
+		body, err = json.Marshal(values)
+		if err != nil {
+			return nil, err
+		}
+		request.SetHeader("Content-Type", "application/json").SetBody(body)
+	}
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	request.SetHeader("X-Scrm-Timestamp", ts).SetHeader("X-Scrm-Signature", util.ArchiveRequestSignature(conf.Settings.App.InnerSrvAppCode, ts, method, endpoint, query.Encode(), body))
 	var result constants.JsonResult
-	resp, err := a.httpClient.R().
-		SetQueryParams(reqParams).
-		SetResult(&result).
-		SetHeader("Accept", "application/json").
-		Get(path.Join("/api/v1", constants.MsgArchSrvPathSessions))
+	response, err := request.SetResult(&result).Execute(method, endpoint)
 	if err != nil {
-		err = errors.WithStack(err)
-		return
+		return nil, err
 	}
-	if resp.StatusCode() != http.StatusOK {
-		err = ecode.InternalError
-		return
+	if response.StatusCode() != http.StatusOK || result.Code != 0 {
+		return nil, fmt.Errorf("archive request failed: HTTP %d, code %d", response.StatusCode(), result.Code)
 	}
-
-	log2.Sugar.Debugw("resp", "resp", result.Data)
-
 	return result.Data, nil
 }
 
-// Sync
-// Description: 同步存档会话数据
-func (a *MsgArch) Sync(extCorpID string) error {
-	h := hmac.New(sha256.New, []byte(conf.Settings.App.InnerSrvAppCode))
-	h.Write([]byte(extCorpID))
-
-	body := requests.SyncReq{
-		ExtCorpID: extCorpID,
-		Signature: hex.EncodeToString(h.Sum(nil)),
-	}
-	log2.Sugar.Debugf("signature: %v", body.Signature)
-	reqBytes, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-
-	resp, err := a.httpClient.R().
-		SetHeader("Content-Type", "application/json").
-		SetBody(reqBytes).
-		Post(path.Join("/api/v1", constants.MsgArchSrvPathSync))
-	if err != nil {
-		err = errors.WithStack(err)
-		return err
-	}
-	if resp.StatusCode() != http.StatusOK {
-		err = ecode.InternalError
-		return err
-
-	}
+func (a *MsgArch) QuerySessions(req requests.QuerySessionReq, corpID string) (interface{}, error) {
+	return a.archiveCall(http.MethodGet, constants.MsgArchSrvPathSessions, corpID, req)
+}
+func (a *MsgArch) QueryMsgs(req requests.QueryChatMsgReq, corpID string) (interface{}, error) {
+	return a.archiveCall(http.MethodGet, constants.MsgArchSrvPathMsgs, corpID, req)
+}
+func (a *MsgArch) SearchMsgs(req requests.SearchMsgReq, corpID string) (interface{}, error) {
+	return a.archiveCall(http.MethodGet, constants.MsgArchSrvSearchMsgs, corpID, req)
+}
+func (a *MsgArch) Sync(corpID string) error {
+	_, err := a.archiveCall(http.MethodPost, constants.MsgArchSrvPathSync, corpID, map[string]string{})
 	return err
 }
-
-// QueryMsgs
-// Description: 查消息列表
-func (a *MsgArch) QueryMsgs(req requests.QueryChatMsgReq, extCorpID string) (res interface{}, err error) {
-	key := []byte(conf.Settings.App.InnerSrvAppCode)
-	message, err := util.GenBytesOrderByColumn(req)
-	if err != nil {
-		err = errors.WithStack(err)
-		return
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write(message)
-	MAC := mac.Sum(nil)
-	signedStr := hex.EncodeToString(MAC)
-
-	limit := ""
-	if req.Limit > 0 {
-		limit = strconv.Itoa(req.Limit)
-	}
-	reqParams := map[string]string{
-		"ext_corp_id":   extCorpID,
-		"msg_type":      req.MsgType,
-		"receiver_id":   req.ReceiverID,
-		"ext_staff_id":  req.ExtStaffID,
-		"sort_field":    string(req.SortField),
-		"sort_type":     string(req.SortType),
-		"page":          strconv.Itoa(req.Page),
-		"page_size":     strconv.Itoa(req.PageSize),
-		"send_at_start": string(req.SendAtStart),
-		"send_at_end":   string(req.SendAtEnd),
-		"min_id":        req.MinID,
-		"max_id":        req.MaxID,
-		"limit":         limit,
-		"signature":     signedStr,
-	}
-
-	if req.SendAtStart != "" {
-		reqParams["send_at_start"] = string(req.SendAtStart)
-	}
-
-	if req.SendAtEnd != "" {
-		reqParams["send_at_end"] = string(req.SendAtEnd)
-	}
-
-	var result constants.JsonResult
-	resp, err := a.httpClient.R().
-		SetQueryParams(reqParams).
-		SetHeader("Accept", "application/json").
-		SetResult(&result).
-		Get(path.Join("/api/v1", constants.MsgArchSrvPathMsgs))
-	if err != nil {
-		err = errors.WithStack(err)
-		return
-	}
-	if resp.StatusCode() != http.StatusOK {
-		err = ecode.InternalError
-		return
-	}
-
-	log2.Sugar.Debugw("resp", "resp", result.Data)
-
-	return result.Data, nil
-}
-
-// SearchMsgs
-// Description: 关键字搜索会话
-func (a *MsgArch) SearchMsgs(req requests.SearchMsgReq, extCorpID string) (res interface{}, err error) {
-	key := []byte(conf.Settings.App.InnerSrvAppCode)
-	message, err := util.GenBytesOrderByColumn(req)
-	if err != nil {
-		err = errors.WithStack(err)
-		return
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write(message)
-	MAC := mac.Sum(nil)
-	signedStr := hex.EncodeToString(MAC)
-	reqParams := map[string]string{
-		"ext_corp_id":  extCorpID,
-		"ext_peer_id":  req.ExtPeerID,
-		"ext_staff_id": req.ExtStaffID,
-		"keyword":      req.Keyword,
-		"page":         strconv.Itoa(req.Page),
-		"page_size":    strconv.Itoa(req.PageSize),
-		"signature":    signedStr,
-	}
-
-	var result constants.JsonResult
-	resp, err := a.httpClient.R().
-		SetQueryParams(reqParams).
-		SetHeader("Accept", "application/json").
-		SetResult(&result).
-		Get(path.Join("/api/v1", constants.MsgArchSrvSearchMsgs))
-	if err != nil {
-		err = errors.WithStack(err)
-		return
-	}
-	if resp.StatusCode() != http.StatusOK {
-		err = ecode.InternalError
-		return
-	}
-
-	log2.Sugar.Debugw("resp", "resp", result.Data)
-
-	return result.Data, nil
-}
-
 func NewMsgArch() *MsgArch {
-	hostUrl := fmt.Sprintf("http://%s:%d", conf.Settings.Server.MsgArchSrvHost, conf.Settings.Server.MsgArchHttpPort)
-	return &MsgArch{httpClient: resty.New().SetHostURL(hostUrl)}
+	host := fmt.Sprintf("http://%s:%d", conf.Settings.Server.MsgArchSrvHost, conf.Settings.Server.MsgArchHttpPort)
+	return &MsgArch{httpClient: resty.New().SetHostURL(host).SetTimeout(30 * time.Second)}
 }

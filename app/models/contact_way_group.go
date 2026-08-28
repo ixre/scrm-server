@@ -8,9 +8,6 @@ import (
 	"core/app/constants"
 	"core/common/app"
 	"core/common/ecode"
-	"core/common/log"
-	"core/conf"
-	"os"
 )
 
 // ContactWayGroup 渠道码分组
@@ -119,23 +116,4 @@ func (o ContactWayGroup) Delete(ids []string, extCorpID string) (total int64, er
 	total = result.RowsAffected
 
 	return
-}
-
-func SetupContactWayGroup() {
-	item := &ContactWayGroup{
-		ExtCorpModel: ExtCorpModel{
-			ID:           string(constants.DefaultContactWayGroupID),
-			ExtCorpID:    conf.Settings.WeWork.ExtCorpID,
-			ExtCreatorID: "",
-		},
-		Name:       "默认分组",
-		SortWeight: 0,
-		Count:      0,
-		IsDefault:  constants.True,
-	}
-	err := DB.FirstOrCreate(&item).Error
-	if err != nil {
-		log.TracedError("ContactWayGroup failed", errors.WithStack(err))
-		os.Exit(1)
-	}
 }

@@ -1,10 +1,7 @@
 package models
 
 import (
-	"gorm.io/gorm/clause"
 	"core/app/constants"
-	"core/common/id_generator"
-	"core/conf"
 )
 
 // CustomerInfoDisplayRule 是否显示信息
@@ -34,26 +31,4 @@ func (r CustomerInfoDisplayRule) Get(rules *CustomerInfoDisplayRule) (*CustomerI
 
 func (r CustomerInfoDisplayRule) Updates(id string, rule map[string]interface{}) error {
 	return DB.Model(&CustomerInfoDisplayRule{}).Where("ext_corp_id = ?", id).Updates(&rule).Error
-}
-
-func SetupCustomerInfoDisplayRule() {
-	rule := CustomerInfoDisplayRule{
-		Model:       Model{ID: id_generator.StringID()},
-		ExtCorpID:   conf.Settings.WeWork.ExtCorpID,
-		Age:         constants.True,
-		Description: constants.True,
-		Email:       constants.True,
-		PhoneNumber: constants.True,
-		QQ:          constants.True,
-		Address:     constants.True,
-		Birthday:    constants.True,
-		Weibo:       constants.True,
-	}
-	err := DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_corp_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"age", "description", "email", "address", "qq", "weibo", "birthday", "phone_number"}),
-	}).Create(&rule).Error
-	if err != nil {
-		panic(err)
-	}
 }

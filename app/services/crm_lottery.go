@@ -155,7 +155,7 @@ func (s CrmLotteryService) Draw(ctx context.Context, lotteryID, customerID strin
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	todayEnd := todayStart.Add(24 * time.Hour)
 	var todayCnt int64
-	models.DB.Model(&models.CrmLotteryRecord{}).
+	models.MustFor(ctx).Model(&models.CrmLotteryRecord{}).
 		Where("lottery_id = ? AND customer_id = ? AND drawn_at >= ? AND drawn_at < ?", lotteryID, customerID, todayStart, todayEnd).Count(&todayCnt)
 	if int(todayCnt) >= l.DailyLimit {
 		return rec, fmt.Errorf("超过每日抽奖次数%d次", l.DailyLimit)
@@ -182,7 +182,7 @@ func (s CrmLotteryService) Draw(ctx context.Context, lotteryID, customerID strin
 			return err
 		}
 		// 更新已抽次数
-		if err := tx.Model(&models.CrmLottery{}).Where("id = ?", lotteryID).
+		if err := tx.Model(&models.CrmLottery{}).Where("tenant_id = ? AND id = ?", tenantID, lotteryID).
 			UpdateColumn("drawn_count", gorm.Expr("drawn_count + 1")).Error; err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func (s CrmLotteryService) Draw(ctx context.Context, lotteryID, customerID strin
 		if prize.Type != "thanks" && prize.Count > 0 {
 			prizes = s.updatePrizeIssued(prizes, prize.Name)
 			newPrizesJSON, _ := json.Marshal(prizes)
-			if err := tx.Model(&models.CrmLottery{}).Where("id = ?", lotteryID).
+			if err := tx.Model(&models.CrmLottery{}).Where("tenant_id = ? AND id = ?", tenantID, lotteryID).
 				Update("prizes", string(newPrizesJSON)).Error; err != nil {
 				return err
 			}

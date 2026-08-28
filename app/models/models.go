@@ -4,6 +4,7 @@ import (
 	"core/app/constants"
 	log "core/common/log"
 	"core/conf"
+	"core/migrations"
 	"fmt"
 	"os"
 	"time"
@@ -26,6 +27,12 @@ type Model struct {
 	ID string `gorm:"primaryKey;type:bigint;comment:'ID'" json:"id" validate:"int64"`
 }
 
+// LegacyTenant is populated by the database from the enterprise mapping.
+// Versioned migrations own the column and its NOT NULL constraint.
+type LegacyTenant struct {
+	TenantID string `json:"tenant_id" gorm:"->;type:bigint;-:migration"`
+}
+
 type ExtCorpModel struct {
 	// ID
 	ID string `json:"id" gorm:"primaryKey;type:bigint;comment:'ID'" validate:"int64"`
@@ -46,11 +53,14 @@ type RefModel struct {
 // SetupDB Setup 用于初始化数据库连接
 func SetupDB() {
 	DB = initDB(conf.Settings.DB)
-	SetupPermissions()     // 初始化的权限
-	SetupRoles()           // 初始化默认角色
-	SetupStaffRole()       // 初始化超级管理员权限
-	SetupContactWayGroup() // 初始化默认渠道码分组
-	SetupCustomerInfoDisplayRule()
+	SetupPermissions() // 初始化的权限
+	SetupRoles()       // 初始化默认角色
+	SetupStaffRole()   // 初始化超级管理员权限
+	if conf.Settings.WeWork.ExtCorpID != "" {
+		if err := EnsureWecomDefaults(DB, conf.Settings.WeWork.ExtCorpID); err != nil {
+			panic(err)
+		}
+	}
 }
 
 // SetupSchema 只建立数据库连接并自动迁移表结构（AutoMigrate），
@@ -59,14 +69,45 @@ func SetupSchema() {
 	DB = initDB(conf.Settings.DB)
 }
 
-// AutoMigrate 用于根据结构体定义自动迁移表结构,只新增字段
+// AutoMigrate 同步模型表结构及查询索引。数据回填由版本化 SQL 迁移执行。
 func AutoMigrate(db *gorm.DB) error {
 	if !conf.Settings.App.AutoMigration {
 		return nil
 	}
 
-	err := db.AutoMigrate(
-		// 此处顺序不可改动，以免触发外键约束
+	// 结构迁移会探查整表（如 SELECT * LIMIT 1 读取列类型），属于跨租户的系统操作。
+	db = CrossTenantDB(db)
+	err := db.AutoMigrate(migratedModels()...)
+	if err != nil {
+		log.Sugar.Errorw(err.Error())
+		return err
+	}
+	// 修改 Staff 的 Departments 字段的连接表为 StaffDepartment
+	err = db.SetupJoinTable(&Staff{}, "Departments", &StaffDepartment{})
+	if err != nil {
+		return err
+	}
+
+	// 补充复合索引（涉及 Timestamp 嵌入字段，AutoMigrate 无法通过 struct tag 创建）
+	for _, idx := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_channel_task_status_created ON crm_channel_task (status, created_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_reply_timeout_status_created ON crm_reply_timeout (status, created_at)`,
+	} {
+		if e := db.Exec(idx).Error; e != nil {
+			log.Sugar.Warnw("create composite index failed", "sql", idx, "err", e.Error())
+		}
+	}
+
+	if err := EnsureWecomIndexes(db); err != nil {
+		return err
+	}
+	return createModelIndexes(db)
+}
+
+// migratedModels 返回由 AutoMigrate 管理的全部模型；租户守卫据此预登记租户表。
+func migratedModels() []any {
+	return []any{
+		// 显式注册每张表，禁用物理外键。聚合展示字段不触发自动建表。
 		&Customer{},
 		&CustomerInfo{},
 		&CustomerInfoDisplayRule{},
@@ -114,10 +155,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&ContactWayBackupStaff{},
 		&ContactWayStaff{},
 		&Permission{},
-		&CustomerInfoDisplayRule{},
-		&Tag{},
-		&TagGroup{},
-		&Staff{},
 		&Role{},
 		// CRM 原生模型（渠道无关，本地身份底座）
 		&Tenant{},
@@ -140,6 +177,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmChannelTag{},
 		&CrmActivityRecord{},
 		&CrmChannelConfig{},
+		&WecomSuiteTicket{},
+		&WecomAuthState{},
+		&WecomEventReceipt{},
 		&CrmWecomEventLog{},
 		// Phase 1 销售域深化
 		&CrmPoolRule{},
@@ -149,6 +189,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmTransferLog{},
 		// Phase 2 小红书渠道接入
 		&CrmChannelTask{},
+		&CrmChannelTaskLog{},
 		// Phase 3 营销活动落地
 		&CrmCoupon{},
 		&CrmCouponRecord{},
@@ -232,6 +273,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmAttendance{},
 		&CrmLeave{},
 		&CrmAutoAllocation{},
+		&CrmAllocationLog{},
 		&CrmSeasType{},
 		&CrmCustomerSetting{},
 		&CrmLeadSource{},
@@ -265,24 +307,72 @@ func AutoMigrate(db *gorm.DB) error {
 		// 售后扩展
 		&CrmAftersalesType{},
 		&CrmAftersalesComment{},
-	)
-	if err != nil {
-		log.Sugar.Errorw(err.Error())
-		return err
 	}
-	// 修改 Staff 的 Departments 字段的连接表为 StaffDepartment
-	err = db.SetupJoinTable(&Staff{}, "Departments", &StaffDepartment{})
-	if err != nil {
-		return err
-	}
+}
 
-	// 补充复合索引（涉及 Timestamp 嵌入字段，AutoMigrate 无法通过 struct tag 创建）
-	for _, idx := range []string{
-		`CREATE INDEX IF NOT EXISTS idx_channel_task_status_created ON crm_channel_task (status, created_at)`,
-		`CREATE INDEX IF NOT EXISTS idx_reply_timeout_status_created ON crm_reply_timeout (status, created_at)`,
-	} {
-		if e := db.Exec(idx).Error; e != nil {
-			log.Sugar.Warnw("create composite index failed", "sql", idx, "err", e.Error())
+func createModelIndexes(db *gorm.DB) error {
+	indexes, err := migrations.ModelIndexStatements()
+	if err != nil {
+		return err
+	}
+	reminderIndexes, err := migrations.ReminderIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, reminderIndexes...)
+	channelIndexes, err := migrations.ChannelTaskIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, channelIndexes...)
+	readIndexes, err := migrations.BoundedReadIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, readIndexes...)
+	poolIndexes, err := migrations.PoolRecycleIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, poolIndexes...)
+	allocationIndexes, err := migrations.AllocationIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, allocationIndexes...)
+	businessIndexes, err := migrations.CustomerBusinessIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, businessIndexes...)
+	receiptIndexes, err := migrations.ReceiptRequestIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, receiptIndexes...)
+	financeIndexes, err := migrations.FinanceReadIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, financeIndexes...)
+	leadIndexes, err := migrations.LeadFollowupIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, leadIndexes...)
+	optionIndexes, err := migrations.BusinessOptionIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, optionIndexes...)
+	opportunityIndexes, err := migrations.OpportunityReadIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, opportunityIndexes...)
+	for _, statement := range indexes {
+		if err := db.Exec(statement).Error; err != nil {
+			return fmt.Errorf("create model index: %w", err)
 		}
 	}
 
@@ -319,13 +409,24 @@ func initDB(c conf.DBConfig) (db *gorm.DB) {
 			}},
 	)
 	if err != nil {
-		log.Sugar.Errorw("models.Setup failed", "err", err, "conf", c)
+		log.Sugar.Errorw("models.Setup failed", "err", err)
+		os.Exit(1)
+	}
+	connection, err := db.DB()
+	if err != nil {
+		log.Sugar.Errorw("database connection pool unavailable", "err", err)
+		os.Exit(1)
+	}
+	configureConnectionPool(connection, c)
+
+	if err = UseTenantGuard(db, TenantGuardConfig{Mode: conf.Settings.App.TenantGuard, LegacyMode: conf.Settings.App.LegacyTenantGuard}); err != nil {
+		log.Sugar.Errorw("tenant guard setup failed", "err", err)
 		os.Exit(1)
 	}
 
 	err = AutoMigrate(db)
 	if err != nil {
-		log.Sugar.Errorw("model auto migrate failed", "err", err, "conf", c)
+		log.Sugar.Errorw("model auto migrate failed", "err", err)
 		os.Exit(1)
 	}
 

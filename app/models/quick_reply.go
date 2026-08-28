@@ -13,8 +13,6 @@ import (
 // QuickReply 话术内容
 type QuickReply struct {
 	ExtCorpModel
-	// 内部企业ID
-	CorpId string `gorm:"comment:内部企业id" json:"ext_corp_id"`
 	// 可见部门
 	//DepartmentList constants.Int64ArrayField `gorm:"type:jsonb;comment:可见部门" json:"department_list"`
 	// 话术名
@@ -32,10 +30,9 @@ type QuickReply struct {
 	// 可用范围
 	Scope string `gorm:"type:varchar(64)" json:"scope"`
 	// 话术条目详情
-	ReplyDetails []QuickReplyDetail `gorm:"foreignKey:QuickReplyID" json:"reply_details"`
+	ReplyDetails []QuickReplyDetail `gorm:"-" json:"reply_details"`
 	// 分组ID
-	GroupID string `gorm:"分组ID" json:"group_id"`
-	//QuickReplyGroup QuickReplyGroup `gorm:"foreignKey:GroupID" json:"quick_reply_group"`
+	GroupID string `gorm:"type:bigint;comment:分组ID" json:"group_id"`
 	Timestamp
 }
 
@@ -71,7 +68,10 @@ func (q QuickReply) Delete(ids []string, extCorpId string) (int64, error) {
 
 func (q QuickReply) Get(id string) (QuickReply, error) {
 	var r QuickReply
-	err := DB.Model(&QuickReply{}).Preload("ReplyDetails").Where("id = ?", id).First(&r).Error
+	err := DB.Model(&QuickReply{}).Where("id = ?", id).First(&r).Error
+	if err == nil {
+		err = loadQuickReplyDetails(DB, []*QuickReply{&r})
+	}
 	return r, err
 }
 
@@ -80,7 +80,7 @@ func (q QuickReply) Query(
 
 	db := DB.Table("quick_reply").
 		Joins(" left join quick_reply_group  on quick_reply.group_id = quick_reply_group.id ").
-		Joins("left join staff on staff.ext_id = quick_reply.ext_creator_id").
+		Joins("left join staff on staff.ext_id = quick_reply.ext_creator_id AND staff.ext_corp_id = quick_reply.ext_corp_id AND staff.deleted_at IS NULL").
 		Where(" quick_reply.ext_corp_id = ?", extCorpID).Where("quick_reply.deleted_at is null")
 
 	if req.Keyword != "" {
@@ -88,7 +88,7 @@ func (q QuickReply) Query(
 	}
 
 	if req.GroupID != "" {
-		db.Where("quick_reply.group_id = ?", req.GroupID)
+		db = db.Where("quick_reply.group_id = ?", req.GroupID)
 	}
 
 	// 用闭包支持 and,or 混合查
@@ -117,22 +117,26 @@ func (q QuickReply) Query(
 	db = db.Offset(pager.GetOffset()).Limit(pager.GetLimit())
 
 	err = db.Select("quick_reply.*, staff.avatar_url as avatar").
-		Preload("ReplyDetails").
-		//Preload("QuickReplyGroups").
 		Find(&items).Error
 	if err != nil {
 		err = errors.Wrap(err, "Find quick reply failed")
 		return
 	}
+	ptrs := make([]*QuickReply, len(items))
+	for i := range items {
+		ptrs[i] = &items[i].QuickReply
+	}
+	err = loadQuickReplyDetails(DB, ptrs)
 	return
 }
 
 func (q QuickReply) Create(group *QuickReply) error {
-	return DB.Create(group).Error
+	return DB.Transaction(func(tx *gorm.DB) error { return createQuickReply(tx, group) })
 }
 
 func (q QuickReply) Update(quickReply QuickReply) error {
-	return DB.Model(&quickReply).Where("id = ?", quickReply.ID).Updates(&quickReply).Error
+	_, err := q.UpdateWithDetails(quickReply, nil)
+	return err
 }
 
 func (q QuickReply) QueryByKeyword(keyword string, extCorpID string) (replies []QuickReply, err error) {
@@ -146,7 +150,7 @@ func (q QuickReply) QueryByKeyword(keyword string, extCorpID string) (replies []
 type QuickReplyDetail struct {
 	ExtCorpModel
 	// 话术ID
-	QuickReplyID string `json:"quick_reply_id"`
+	QuickReplyID string `json:"quick_reply_id" gorm:"type:bigint"`
 	// 话术内容json 类型
 	QuickReplyContent constants.QuickReplyField `gorm:"type:jsonb" json:"quick_reply_content"`
 	// 可见范围 corp/staff_event/group
@@ -156,16 +160,4 @@ type QuickReplyDetail struct {
 	// 已使用次数
 	SendCount int `json:"send_count"`
 	Timestamp
-}
-
-func (c QuickReplyDetail) Delete(ids []string) error {
-	return DB.Model(&QuickReplyDetail{}).Where("id in (?)", ids).Delete(&QuickReplyDetail{}).Error
-}
-
-func (c QuickReplyDetail) Upsert(details []QuickReplyDetail) error {
-	return DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns(
-			[]string{"name", "quick_reply_content", "content_type", "ext_staff_id"},
-		)}).CreateInBatches(&details, 1000).Error
 }

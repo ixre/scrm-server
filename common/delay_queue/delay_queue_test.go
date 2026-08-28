@@ -1,41 +1,49 @@
 package delay_queue
 
 import (
-	"fmt"
-	"github.com/stretchr/testify/assert"
-	"log"
 	"core/app/constants"
-	setting "core/conf"
+	"core/conf"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 )
 
-const topic = "test"
-const delayTime = 3
-
 func TestPush(t *testing.T) {
-	setting.SetupSetting()
-	NewRedisClient()
+	addr := os.Getenv("SCRM_TEST_REDIS_ADDR")
+	if addr == "" {
+		t.Skip("set SCRM_TEST_REDIS_ADDR to an isolated Redis instance")
+	}
+	if err := conf.SetupTestSetting(); err != nil {
+		t.Fatal(err)
+	}
+	conf.Settings.Redis.Host = addr
+	conf.Settings.Redis.Password = ""
+	conf.Settings.Redis.DBNumber = 0
+	conf.Settings.Redis.ReadTimeout = 5 * time.Second
+	suffix := fmt.Sprint(time.Now().UnixNano())
+	conf.Settings.DelayQueue.BucketSize = 1
+	conf.Settings.DelayQueue.BucketName = "test_" + suffix + "_bucket_%d"
+	conf.Settings.DelayQueue.QueueName = "test_" + suffix + "_queue_%s"
+	conf.Settings.DelayQueue.QueueBlockTimeout = 5
 	SetupDelayQueue()
-	job := Job{
-		Topic:     topic,
-		ID:        "hao123",
-		ExecuteAt: delayTime + time.Now().In(constants.PRCLocation).Unix(),
-		TTR:       3,
-		Body:      "hi",
+	topic := constants.Topic("test_" + suffix)
+	job := Job{Topic: topic, ID: "test_" + suffix, ExecuteAt: time.Now().Unix(), TTR: 30, Body: "test"}
+	t.Cleanup(func() {
+		for _, timer := range timers {
+			timer.Stop()
+		}
+		_ = Remove(job.ID)
+		_ = Rdb.Close()
+	})
+	if err := Add(job); err != nil {
+		t.Fatal(err)
 	}
-	fmt.Println("b")
-	//job.ExecuteAt = job.ExecuteAt + time.Now().Seconds()
-	err := Add(job)
-	fmt.Println("a")
+	received, err := Listen(topic)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
-	time.Sleep(5 * time.Second)
-
-	receivedJob, err := Listen(topic)
-	if err != nil {
-		log.Fatal(err)
+	if received.ID != job.ID || received.Body != job.Body || received.Topic != job.Topic {
+		t.Fatalf("wrong job: %+v", received)
 	}
-	assert.ObjectsAreEqual(job, receivedJob)
 }

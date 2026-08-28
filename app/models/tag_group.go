@@ -14,12 +14,12 @@ import (
 
 type TagGroup struct {
 	ExtCorpModel
-	ExtID          string                    `gorm:"type:char(64);uniqueIndex;comment:外部标签分组ID" json:"ext_id"`
+	ExtID          string                    `gorm:"type:char(64);comment:外部标签分组ID" json:"ext_id"`
 	Name           string                    `gorm:"index;comment:组名字" json:"name"`
 	CreateTime     int                       `gorm:"type:bigint;comment:" json:"create_time"`
 	Order          uint32                    `gorm:"type:bigint;index;comment:order值大的排序靠前" json:"order"`
 	DepartmentList constants.Int64ArrayField `gorm:"type:jsonb;comment:该标签组可用部门列表,默认0全部可用;" json:"department_list"`
-	Tags           []Tag                     `gorm:"foreignKey:ExtGroupID;references:ExtID" json:"tags"`
+	Tags           []Tag                     `gorm:"foreignKey:ExtCorpID,ExtGroupID;references:ExtCorpID,ExtID" json:"tags"`
 	Timestamp
 }
 
@@ -29,19 +29,19 @@ func (tg TagGroup) ExchangeOrder(ID string, ID2 string) error {
 			Order     uint32    `gorm:"column:order"`
 			UpdatedAt time.Time `gorm:"column:updated_at"`
 		}
-		if err := tx.Table("tag_group").Select(`"order", updated_at`).Where("id = ?", ID).Take(&a).Error; err != nil {
+		if err := tx.Table("tag_group").Select(`"order", updated_at`).Where("id = ? AND ext_corp_id = ?", ID, tg.ExtCorpID).Take(&a).Error; err != nil {
 			return err
 		}
-		if err := tx.Table("tag_group").Select(`"order", updated_at`).Where("id = ?", ID2).Take(&b).Error; err != nil {
+		if err := tx.Table("tag_group").Select(`"order", updated_at`).Where("id = ? AND ext_corp_id = ?", ID2, tg.ExtCorpID).Take(&b).Error; err != nil {
 			return err
 		}
-		if err := tx.Table("tag_group").Where("id = ?", ID).Updates(map[string]interface{}{
+		if err := tx.Table("tag_group").Where("id = ? AND ext_corp_id = ?", ID, tg.ExtCorpID).Updates(map[string]interface{}{
 			"order":      b.Order,
 			"updated_at": b.UpdatedAt,
 		}).Error; err != nil {
 			return err
 		}
-		if err := tx.Table("tag_group").Where("id = ?", ID2).Updates(map[string]interface{}{
+		if err := tx.Table("tag_group").Where("id = ? AND ext_corp_id = ?", ID2, tg.ExtCorpID).Updates(map[string]interface{}{
 			"order":      a.Order,
 			"updated_at": a.UpdatedAt,
 		}).Error; err != nil {
@@ -84,7 +84,7 @@ func (tg TagGroup) Query(param requests.TagListReq, extCorpID string) (groups []
 		}
 	}
 
-	db := DB.Table("tag_group").Joins(" join tag on tag.ext_group_id = tag_group.ext_id ").Where("tag_group.ext_corp_id = ?", extCorpID)
+	db := DB.Table("tag_group").Joins(" join tag on tag.ext_group_id = tag_group.ext_id AND tag.ext_corp_id = tag_group.ext_corp_id ").Where("tag_group.ext_corp_id = ?", extCorpID)
 	if shouldMatch {
 		db = db.Where("tag_group.id in (?)", matchedTagGroupIDs)
 	}
@@ -120,7 +120,7 @@ func (tg TagGroup) Query(param requests.TagListReq, extCorpID string) (groups []
 func (tg TagGroup) Get(ExtTagGroupID string) (TagGroup, error) {
 	group := TagGroup{}
 	err := DB.Model(&TagGroup{}).Preload("Tags").
-		Where("ext_id = ?", ExtTagGroupID).First(&group).Error
+		Where("ext_id = ? AND ext_corp_id = ?", ExtTagGroupID, tg.ExtCorpID).First(&group).Error
 	return group, err
 }
 
@@ -133,7 +133,7 @@ func (tg TagGroup) Create(t *TagGroup) (*TagGroup, error) {
 }
 
 func (tg TagGroup) Delete(extGroupIDs []string) (int64, error) {
-	res := DB.Model(&TagGroup{}).Where("ext_id in ?", extGroupIDs).Delete(&TagGroup{})
+	res := DB.Model(&TagGroup{}).Where("ext_id in ?", extGroupIDs).Where("ext_corp_id = ?", tg.ExtCorpID).Delete(&TagGroup{})
 	return res.RowsAffected, res.Error
 }
 
@@ -151,7 +151,7 @@ func (tg TagGroup) Upsert(group *TagGroup) error {
 	}
 
 	err := DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_id"}},
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"create_time", "name", "order"})},
 	).Omit("Tags").Create(&group).Error
 	if err != nil {
@@ -160,7 +160,7 @@ func (tg TagGroup) Upsert(group *TagGroup) error {
 
 	if len(group.Tags) > 0 {
 		err = DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "ext_id"}},
+			Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
 			DoUpdates: clause.AssignmentColumns([]string{"create_time", "name", "order", "ext_group_id", "group_name"})},
 		).Create(&(group.Tags)).Error
 		if err != nil {
@@ -177,7 +177,7 @@ func (tg TagGroup) Update(group *TagGroup) error {
 		group.DepartmentList = []int64{0}
 	}
 	err := DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_id"}},
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"create_time", "name", "order", "department_list"})},
 	).Omit("Tags").Create(&group).Error
 	if err != nil {

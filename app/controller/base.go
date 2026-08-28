@@ -24,7 +24,7 @@ func (o *Base) GetConsoleInfo(handler *app.Handler) (consoleStaff models.Staff, 
 		return
 	}
 
-	item, err := (&models.Staff{}).Get(consoleStaff.ExtID, "", false)
+	item, err := (&models.Staff{}).Get(consoleStaff.ExtID, consoleStaff.ExtCorpID, false)
 	if err != nil {
 		err = errors.Wrap(err, "CachedGet failed")
 		return
@@ -48,7 +48,7 @@ func (o *Base) GetStaffInfo(handler *app.Handler) (consoleStaff models.Staff, er
 		return
 	}
 
-	item, err := (&models.Staff{}).Get(consoleStaff.ExtID, "", false)
+	item, err := (&models.Staff{}).Get(consoleStaff.ExtID, consoleStaff.ExtCorpID, false)
 	if err != nil {
 		err = errors.Wrap(err, "CachedGet failed")
 		return

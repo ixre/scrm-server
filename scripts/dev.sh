@@ -13,6 +13,36 @@ GATEWAY_BIN="$ROOT/.dev/gateway"
 mkdir -p "$ROOT/.dev"
 
 start() {
+  # 未显式配置时，在 .dev/jwt_secret 初始化并复用一个随机开发密钥（已被 .gitignore 忽略）。
+  if [ -z "${CRM_JWT_SECRET:-}" ]; then
+    local secret_file="$ROOT/.dev/jwt_secret"
+    if [ ! -f "$secret_file" ]; then
+      openssl rand -hex 32 > "$secret_file"
+      chmod 600 "$secret_file"
+      echo "[dev] 已生成开发密钥: $secret_file"
+    fi
+    CRM_JWT_SECRET="$(cat "$secret_file")"
+  fi
+  if [ "${#CRM_JWT_SECRET}" -lt 32 ]; then
+    echo "请先设置至少 32 字节的 CRM_JWT_SECRET" >&2
+    return 1
+  fi
+  export CRM_JWT_SECRET
+  # 网关 → core 内部调用签名密钥（两端必须一致），与 JWT 密钥分开管理。
+  if [ -z "${SCRM_INTERNAL_SECRET:-}" ]; then
+    local internal_secret_file="$ROOT/.dev/internal_secret"
+    if [ ! -f "$internal_secret_file" ]; then
+      openssl rand -hex 32 > "$internal_secret_file"
+      chmod 600 "$internal_secret_file"
+      echo "[dev] 已生成内部调用密钥: $internal_secret_file"
+    fi
+    SCRM_INTERNAL_SECRET="$(cat "$internal_secret_file")"
+  fi
+  if [ "${#SCRM_INTERNAL_SECRET}" -lt 32 ]; then
+    echo "请先设置至少 32 字节的 SCRM_INTERNAL_SECRET" >&2
+    return 1
+  fi
+  export SCRM_INTERNAL_SECRET
   stop 2>/dev/null || true
 
   echo "[dev] building core…"

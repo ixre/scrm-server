@@ -1,11 +1,16 @@
 package models
 
-import "gorm.io/gorm/clause"
+import (
+	"fmt"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"strings"
+)
 
 type GroupChatMember struct {
 	ExtCorpModel
-	ExtChatID string `gorm:"index;type:char(64);uniqueIndex:idx_chat_id_user_id;comment:群聊id" json:"ext_chat_id"`
-	Userid    string `gorm:"type:char(64);uniqueIndex:idx_chat_id_user_id;comment:群成员id" json:"userid"`
+	ExtChatID string `gorm:"index;type:char(64);comment:群聊id" json:"ext_chat_id"`
+	Userid    string `gorm:"type:char(64);comment:群成员id" json:"userid"`
 	// 成员类型。 1 - 企业成员 2 - 外部联系人
 	Type int `gorm:"type:smallint;comment:群成员类型" json:"type"`
 	// 入群时间
@@ -26,10 +31,41 @@ func (m GroupChatMember) TableName() string {
 }
 
 func (m GroupChatMember) Upsert(list []GroupChatMember) error {
-	return DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_chat_id"}},
+	return DB.Transaction(func(tx *gorm.DB) error { return upsertGroupChatMembers(tx, list) })
+}
+
+func upsertGroupChatMembers(tx *gorm.DB, list []GroupChatMember) error {
+	if len(list) == 0 {
+		return nil
+	}
+	keys := make(map[[2]string]bool)
+	var pairs [][]any
+	for _, member := range list {
+		key := [2]string{strings.TrimSpace(member.ExtCorpID), strings.TrimSpace(member.ExtChatID)}
+		if !keys[key] {
+			keys[key] = true
+			pairs = append(pairs, []any{key[0], key[1]})
+		}
+	}
+	var parents []GroupChat
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Select("ext_corp_id", "ext_chat_id").Where("(ext_corp_id,ext_chat_id) IN ?", pairs).Find(&parents).Error; err != nil {
+		return err
+	}
+	if len(parents) != len(keys) {
+		return fmt.Errorf("群成员对应的企业群聊不存在")
+	}
+	result := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_chat_id"}, {Name: "userid"}},
 		DoUpdates: clause.AssignmentColumns([]string{"type", "join_time", "join_scene", "invitor", "unionid"}),
-	}).CreateInBatches(&list, len(list)).Error
+		Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "group_chat_member.ext_corp_id = excluded.ext_corp_id"}}},
+	}).CreateInBatches(&list, 100)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != int64(len(list)) {
+		return fmt.Errorf("群成员已属于其他企业")
+	}
+	return nil
 }
 
 // Delete

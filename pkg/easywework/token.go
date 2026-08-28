@@ -130,7 +130,7 @@ func (t *token) setGetTokenFunc(f func() (tokenInfo, error)) {
 func (t *token) getToken() string {
 	// intensive mutex juggling action
 	t.mutex.RLock()
-	if t.token == "" {
+	if t.token == "" || !time.Now().Before(t.lastRefresh.Add(t.expiresIn).Add(-time.Minute)) {
 		t.mutex.RUnlock() // RWMutex doesn't like recursive locking
 		_ = t.syncToken()
 		t.mutex.RLock()
@@ -170,7 +170,6 @@ func (t *token) tokenRefresher(ctx context.Context) {
 			}
 
 			waitDuration = t.lastRefresh.Add(t.expiresIn).Add(-refreshTimeWindow).Sub(t.lastRefresh)
-			fmt.Println("access_token", "token", t.token, "expiresIn", t.expiresIn, "nextRefreshTime", waitDuration)
 			if waitDuration < minRefreshDuration {
 				waitDuration = minRefreshDuration
 			}

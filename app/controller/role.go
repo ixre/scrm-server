@@ -1,14 +1,14 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"core/app/constants"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"core/common/ecode"
 	"core/conf"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type Role struct {
@@ -39,7 +39,12 @@ func (o *Role) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(req, conf.Settings.WeWork.ExtCorpID, &req.Sorter, &req.Pager)
+	consoleStaff, err := o.GetConsoleInfo(handler)
+	if err != nil {
+		handler.ResponseError(err)
+		return
+	}
+	items, total, err := o.srv.Query(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
 		handler.ResponseError(err)
@@ -68,7 +73,12 @@ func (o *Role) Get(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Get(id)
+	consoleStaff, err := o.GetConsoleInfo(handler)
+	if err != nil {
+		handler.ResponseError(err)
+		return
+	}
+	item, err := o.srv.Get(id, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
 		handler.ResponseError(err)
@@ -103,7 +113,12 @@ func (o *Role) Create(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Create(req, conf.Settings.WeWork.ExtCorpID)
+	consoleStaff, err := o.GetConsoleInfo(handler)
+	if err != nil {
+		handler.ResponseError(err)
+		return
+	}
+	item, err := o.srv.Create(req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Create failed")
 		handler.ResponseError(err)
@@ -146,7 +161,12 @@ func (o *Role) Update(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Update(id, req)
+	consoleStaff, err := o.GetConsoleInfo(handler)
+	if err != nil {
+		handler.ResponseError(err)
+		return
+	}
+	item, err := o.srv.Update(id, req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
 		handler.ResponseError(err)
@@ -181,7 +201,12 @@ func (o *Role) AssignToStaffs(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.AssignToStaffs(req.ExtStaffIDs, req.RoleID)
+	consoleStaff, err := o.GetConsoleInfo(handler)
+	if err != nil {
+		handler.ResponseError(err)
+		return
+	}
+	total, err := o.srv.AssignToStaffs(req.ExtStaffIDs, req.RoleID, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "AssignToStaffs failed")
 		handler.ResponseError(err)
@@ -210,7 +235,12 @@ func (o *Role) QueryStaffs(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.QueryStaffs(req, conf.Settings.WeWork.ExtCorpID, &req.Sorter, &req.Pager)
+	consoleStaff, err := o.GetConsoleInfo(handler)
+	if err != nil {
+		handler.ResponseError(err)
+		return
+	}
+	items, total, err := o.srv.QueryStaffs(req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "QueryStaffs failed")
 		handler.ResponseError(err)

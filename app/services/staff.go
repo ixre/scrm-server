@@ -1,14 +1,8 @@
 package services
 
 import (
-	"context"
 	"bytes"
-	"fmt"
-	"github.com/gogf/gf/os/gfile"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"github.com/thoas/go-funk"
-	"github.com/xuri/excelize/v2"
+	"context"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
@@ -20,6 +14,12 @@ import (
 	"core/common/we_work"
 	"core/conf"
 	gowx "core/pkg/easywework"
+	"fmt"
+	"github.com/gogf/gf/os/gfile"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
+	"github.com/xuri/excelize/v2"
 	"path"
 	"path/filepath"
 	"time"
@@ -69,6 +69,7 @@ func (o StaffService) Sync(ctx context.Context, extCorpID string) (err error) {
 }
 
 func (o StaffService) SyncStaffByCorp(ctx context.Context, extCorpID string) (err error) {
+	ctx = SyncTenantCtx(ctx, extCorpID)
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -87,7 +88,7 @@ func (o StaffService) SyncStaffByCorp(ctx context.Context, extCorpID string) (er
 	staffDepts := make([]models.StaffDepartment, 0)
 	for _, idInfo := range userIdInfos {
 		staff := models.Staff{
-			ExtCorpID:    conf.Settings.WeWork.ExtCorpID,
+			ExtCorpID:    extCorpID,
 			RoleID:       string(constants.DefaultCorpStaffRoleID),
 			RoleType:     string(constants.RoleTypeStaff),
 			ExtID:        idInfo.UserId,
@@ -112,13 +113,13 @@ func (o StaffService) SyncStaffByCorp(ctx context.Context, extCorpID string) (er
 		return err
 	}
 
-	staffIDExtIds, err := o.staffRepo.GetIDsByExtIDs(extStaffIDs)
+	staffIDExtIds, err := o.staffRepo.GetIDsByExtIDs(extStaffIDs, extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
 	}
 
-	deptIDExtIDs, err := o.deptRepo.GetIDsByExtIDs(extDeptIDs)
+	deptIDExtIDs, err := o.deptRepo.GetIDsByExtIDs(extDeptIDs, extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
@@ -146,7 +147,7 @@ func (o StaffService) SyncStaffByCorp(ctx context.Context, extCorpID string) (er
 	return nil
 }
 
-func (o StaffService) Query(ctx context.Context, 
+func (o StaffService) Query(ctx context.Context,
 	req requests.QueryStaffReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]*models.Staff, int64, error) {
 	staff := models.Staff{
 		ExtCorpID:     extCorpID,
@@ -225,7 +226,7 @@ func (o StaffService) StaffInfoStatistics(ctx context.Context, userID string, ex
 	return o.customerStaffRepo.GetStaffByStaffID(startTime, endTime, userID)
 }
 
-func (o StaffService) UpdateCustomerInternalTag(ctx context.Context, 
+func (o StaffService) UpdateCustomerInternalTag(ctx context.Context,
 	req requests.UpdateCustomerInternalTagsReq, extCorpID string) error {
 	customerStaff := models.CustomerStaff{
 		ExtCorpModel:  models.ExtCorpModel{ExtCorpID: extCorpID},
@@ -245,7 +246,7 @@ func (o StaffService) UpdateCustomerInternalTag(ctx context.Context,
 			customerStaff.InternalTagIDs = append(customerStaff.InternalTagIDs, tagID)
 		}
 	}
-	err = o.customerStaffRepo.Update(&models.CustomerStaff{InternalTagIDs: customerStaff.InternalTagIDs}, req.ExtStaffID, req.ExtCustomerID)
+	err = o.customerStaffRepo.Update(&models.CustomerStaff{InternalTagIDs: customerStaff.InternalTagIDs}, req.ExtStaffID, req.ExtCustomerID, extCorpID)
 	if err != nil {
 		return err
 	}
@@ -255,6 +256,7 @@ func (o StaffService) UpdateCustomerInternalTag(ctx context.Context,
 // UpdateCustomerTag
 // Description: 员工更新客户标签
 func (o StaffService) UpdateCustomerTag(ctx context.Context, req requests.UpdateCustomerTagsReq, extStaffID, extCorpID string) error {
+	o.tagRepo.ExtCorpID = extCorpID
 	defer util.FuncTracer("req", req)()
 	for _, extCustomerID := range req.ExtCustomerIDs {
 		// 查所有客户
@@ -268,7 +270,7 @@ func (o StaffService) UpdateCustomerTag(ctx context.Context, req requests.Update
 			err = errors.WithStack(err)
 			return err
 		}
-		customer, err := o.CustomerRepo.GetByExtID(extCustomerID, nil, false)
+		customer, err := o.CustomerRepo.GetByExtID(extCustomerID, extCorpID, nil, false)
 		if err != nil {
 			err = errors.WithStack(err)
 			return err
@@ -298,7 +300,7 @@ func (o StaffService) UpdateCustomerTag(ctx context.Context, req requests.Update
 				// 记录事件流水
 				for _, extTagID := range req.RemoveExtTagIDs {
 					content := fmt.Sprintf(constants.RemoveTagEvent, staff.Name, customer.Name, tagsMap[extTagID].Name)
-					ce := o.GenEventModel(ctx, extStaffID, extCustomerID, content, constants.CustomerEventCustomerAction, constants.EventNameDeleteExternalUser)
+					ce := o.GenEventModel(SyncTenantCtx(ctx, extCorpID), extStaffID, extCustomerID, content, constants.CustomerEventCustomerAction, constants.EventNameDeleteExternalUser)
 					ces = append(ces, ce)
 				}
 			}
@@ -328,7 +330,7 @@ func (o StaffService) UpdateCustomerTag(ctx context.Context, req requests.Update
 				// 记录事件流水
 				for _, extTagID := range req.RemoveExtTagIDs {
 					content := fmt.Sprintf(constants.AddTagEvent, staff.Name, customer.Name, tagsMap[extTagID].Name)
-					ce := o.GenEventModel(ctx, extStaffID, extCustomerID, content, constants.CustomerEventCustomerAction, constants.EventNameAddExternalUser)
+					ce := o.GenEventModel(SyncTenantCtx(ctx, extCorpID), extStaffID, extCustomerID, content, constants.CustomerEventCustomerAction, constants.EventNameAddExternalUser)
 					ces = append(ces, ce)
 				}
 			}
@@ -341,12 +343,12 @@ func (o StaffService) UpdateCustomerTag(ctx context.Context, req requests.Update
 	return nil
 }
 
-func (o StaffService) GenEventModel(ctx context.Context, 
+func (o StaffService) GenEventModel(ctx context.Context,
 	extStaffID, extCustomerID, content string, eventType constants.EventType, eventName constants.EventName) (ce models.CustomerEvent) {
 
 	ce = models.CustomerEvent{
 		ExtCorpModel: models.ExtCorpModel{
-			ID: id_generator.StringID(), ExtCorpID: conf.Settings.WeWork.ExtCorpID, ExtCreatorID: extStaffID},
+			ID: id_generator.StringID(), ExtCorpID: we_work.CorpID(ctx), ExtCreatorID: extStaffID},
 		Content:       content,
 		EventType:     string(eventType),
 		EventName:     string(eventName),
@@ -359,7 +361,7 @@ func (o StaffService) GenEventModel(ctx context.Context,
 
 // SyncStaffSignatures
 // Description: 通过数据签名的方式同步员工数据
-func (o StaffService) SyncStaffSignatures(ctx context.Context, ) error {
+func (o StaffService) SyncStaffSignatures(ctx context.Context) error {
 	//departments, err := we_work.App.ListAllDepartments()
 	//if err != nil {
 	//	log.Sugar.Error("ListAllDepartments failed", err)
@@ -483,7 +485,7 @@ func (o StaffService) SyncStaffSignatures(ctx context.Context, ) error {
 // SendWelcomeMsg
 // Description: 执行发送欢迎语的流程
 // Detail: 查DB中的欢迎语,发送到wx
-func (o StaffService) SendWelcomeMsg(ctx context.Context, 
+func (o StaffService) SendWelcomeMsg(ctx context.Context,
 	welcomeMsg constants.AutoReplyField, welcomeCode string, extCorpID string, extStaffID string) error {
 
 	wxClient, err := we_work.Clients.Get(extCorpID)
@@ -516,7 +518,7 @@ func (o StaffService) SendWelcomeMsg(ctx context.Context,
 // SendDefaultWelcomeMsg
 // Description: 发送默认欢迎语
 // Detail: 渠道码没有欢迎语,使用默认欢迎语
-func (o StaffService) SendDefaultWelcomeMsg(ctx context.Context, 
+func (o StaffService) SendDefaultWelcomeMsg(ctx context.Context,
 	welcomeCode string, extCorpID string, extStaffID string) error {
 	welcomeMsg, err := o.staffRepo.GetWelcomeMsgByExtStaffID(extStaffID, extCorpID)
 	if err != nil {
@@ -528,7 +530,7 @@ func (o StaffService) SendDefaultWelcomeMsg(ctx context.Context,
 
 // QueryMainInfo
 // Description: 查询员工的简要信息,有缓存
-func (o StaffService) QueryMainInfo(ctx context.Context, 
+func (o StaffService) QueryMainInfo(ctx context.Context,
 	req requests.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (models.StaffsMainInfoCache, error) {
 	pager.SetDefault()
 	return o.staffRepo.CachedQueryMainInfo(req, extCorpID, pager)
@@ -536,7 +538,7 @@ func (o StaffService) QueryMainInfo(ctx context.Context,
 
 // ExportDeleteCustomerList
 // Description: 导出删人提醒记录
-func (o StaffService) ExportDeleteCustomerList(ctx context.Context, 
+func (o StaffService) ExportDeleteCustomerList(ctx context.Context,
 	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string) (*bytes.Buffer, string, error) {
 
 	log.Sugar.Debugw("ExportDeleteCustomerList", "req", req)
@@ -603,8 +605,11 @@ func (o StaffService) ExportDeleteCustomerList(ctx context.Context,
 
 // UpdateStaffMsgArchStatus 每15分钟刷新员工开通会话存档的状态
 // 1-会话内容存档办公版 2- 会话内容存档服务版 3-会话内容存档企业版
-func (o StaffService) UpdateStaffMsgArchStatus(ctx context.Context, ) error {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+func (o StaffService) UpdateStaffMsgArchStatus(ctx context.Context) error {
+	return EachWecomCorp(ctx, o.updateStaffMsgArchStatus)
+}
+
+func (o StaffService) updateStaffMsgArchStatus(ctx context.Context, extCorpID string) error {
 	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)

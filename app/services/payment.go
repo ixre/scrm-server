@@ -370,7 +370,7 @@ func generateQrCodeBase64(content string) (string, error) {
 func checkSeatLimit(tenantID string, plan models.Plan) error {
 	if plan.MaxUsers > 0 {
 		var count int64
-		models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", tenantID).Count(&count)
+		models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL AND status = 1", tenantID).Count(&count)
 		if int(count) > plan.MaxUsers {
 			return fmt.Errorf("当前已有 %d 个用户，超过「%s」套餐的坐席上限(%d)，请先删除或停用多余用户再切换套餐", count, plan.Name, plan.MaxUsers)
 		}
@@ -560,7 +560,8 @@ func (s TenantOrderService) GetOrder(tenantID, orderID string) (models.TenantOrd
 // GetOrderByNo 按订单号获取
 func (s TenantOrderService) GetOrderByNo(orderNo string) (models.TenantOrder, error) {
 	var order models.TenantOrder
-	err := models.DB.Where("order_no = ?", orderNo).First(&order).Error
+	// 订单号全局唯一（支付回调按订单号反查）：显式跨租户。
+	err := models.CrossTenant().Where("order_no = ?", orderNo).First(&order).Error
 	return order, err
 }
 
@@ -614,7 +615,7 @@ func (s TenantOrderService) ListAllOrders(req OrderListReq) (OrderListResult, er
 	if req.PageSize > 200 {
 		req.PageSize = 200
 	}
-	q := models.DB.Model(&models.TenantOrder{})
+	q := models.CrossTenant().Model(&models.TenantOrder{}) // 平台端：全部租户订单
 	if req.TenantID != "" {
 		q = q.Where("tenant_id = ?", req.TenantID)
 	}
@@ -675,7 +676,8 @@ type OrderListResult struct {
 // ManualConfirmPay 平台端手动确认支付（模拟支付回调，用于测试/线下收款）
 func (s TenantOrderService) ManualConfirmPay(orderID string) error {
 	var order models.TenantOrder
-	if err := models.DB.Where("id = ?", orderID).First(&order).Error; err != nil {
+	// 平台端人工确认收款：按订单 ID 跨租户定位，后续写入以订单 TenantID 锁定。
+	if err := models.CrossTenant().Where("id = ?", orderID).First(&order).Error; err != nil {
 		return errors.New("订单不存在")
 	}
 	if order.PayStatus == models.PayStatusPaid {

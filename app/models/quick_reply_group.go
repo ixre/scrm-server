@@ -1,14 +1,14 @@
 package models
 
 import (
+	"core/app/constants"
+	"core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/constants"
-	"core/common/app"
 )
 
-//QuickReplyGroup 话术库分组
+// QuickReplyGroup 话术库分组
 type QuickReplyGroup struct {
 	ExtCorpModel
 	// 分组名称
@@ -20,9 +20,9 @@ type QuickReplyGroup struct {
 	// 是否为顶级分组
 	IsTopGroup constants.Boolean `gorm:"type:smallint;comment:是否是顶级分组" json:"is_top_group"`
 	// 下级分组
-	SubGroups []QuickReplyGroup `gorm:"foreignKey:ParentID;comment:二级分组" json:"sub_groups"`
+	SubGroups []QuickReplyGroup `gorm:"-" json:"sub_groups"`
 	// 话术条目
-	QuickReplies []QuickReply `gorm:"foreignKey:GroupID" json:"quick_replies"`
+	QuickReplies []QuickReply `gorm:"-" json:"quick_replies"`
 	Order        int64        `gorm:"type:int" json:"order"`
 	Timestamp
 }
@@ -48,7 +48,6 @@ func (qg QuickReplyGroup) Delete(tx *gorm.DB, ids []string, extCorpID string) er
 		err = errors.Wrap(err, "Delete QuickReplyGroup failed")
 		return err
 	}
-	//err = tx.Model(&QuickReply{}).Where("ext_corp_id = ?", extCorpID).Where("quick_reply_group_id in (?)", ids).Update("quick_reply_group_id", nil).Error
 	return nil
 }
 
@@ -61,7 +60,6 @@ func (qg QuickReplyGroup) Get(id string, extCorpID string) ([]QuickReplyGroup, e
 	if extCorpID != "" {
 		db.Where("ext_corp_id = ?", extCorpID)
 	}
-	//err := db.Preload("SubGroups").Find(&group).Error
 	// v1 暂时没有使用SubGroups
 	err := db.Find(&group).Error
 	return group, err
@@ -84,22 +82,29 @@ func (qg QuickReplyGroup) Query(
 	pager.SetDefault()
 	db = db.Offset(pager.GetOffset()).Limit(pager.GetLimit())
 
-	//err = db.Preload("SubGroups").Preload("QuickReplies").Preload("QuickReplies.ReplyDetails").Find(&groups).Error
 	// v1 暂时没有使用SubGroups
-	err = db.Preload("QuickReplies").Preload("QuickReplies.ReplyDetails").Find(&groups).Error
+	err = db.Find(&groups).Error
 	if err != nil {
 		err = errors.Wrap(err, "Find QuickReplyGroup failed")
 		return
 	}
+	err = loadQuickReplyGroups(DB, groups, nil)
 	return
 }
 
 func (qg QuickReplyGroup) Create(group QuickReplyGroup) error {
-	return DB.Create(&group).Error
+	return DB.Transaction(func(tx *gorm.DB) error { return createQuickReplyGroup(tx, &group) })
 }
 
 func (qg QuickReplyGroup) CreateInBatches(groups []QuickReplyGroup) error {
-	return DB.Create(groups).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for i := range groups {
+			if err := createQuickReplyGroup(tx, &groups[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (qg QuickReplyGroup) Upsert(groups []QuickReplyGroup) error {
@@ -118,18 +123,25 @@ func (qg QuickReplyGroup) QueryByKeyword(
 	err = DB.Model(&QuickReplyGroup{}).
 		Where("ext_corp_id  = ?", extCorpID).
 		Where("Name like ?", keyword+"%").
-		Preload("QuickReplies").Preload("QuickReplies.ReplyDetails").
 		Offset(pager.GetOffset()).Limit(pager.GetLimit()).
 		Find(&groups).Error
+	if err == nil {
+		err = loadQuickReplyGroups(DB, groups, nil)
+	}
 	return
 }
 
 func (qg QuickReplyGroup) QueryByID(extCorpID string, groupIDs []string, repliesIDs []string) (groups []QuickReplyGroup, err error) {
+	if repliesIDs == nil {
+		repliesIDs = []string{}
+	}
 	err = DB.Model(&QuickReplyGroup{}).
 		Where("ext_corp_id  = ?", extCorpID).
-		Preload("QuickReplies", " id in (?)", repliesIDs).Preload("QuickReplies.ReplyDetails").
 		Where("id in (?)", groupIDs).
 		Find(&groups).Error
+	if err == nil {
+		err = loadQuickReplyGroups(DB, groups, repliesIDs)
+	}
 	return
 }
 

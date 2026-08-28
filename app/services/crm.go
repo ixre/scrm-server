@@ -10,6 +10,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -36,8 +39,9 @@ import (
 // SyncTenantCtx 从 corp_id 反查对应的 tenant_id，包成 ctx 返回。
 // 用于 Syncs() 等没有 grpc ctx 的启动期同步任务，以及 controller/consumer 等
 // 已有 corpID 但 ctx 无 tenant 的调用方。反查走 channel_link(wecom, tenant)；
-// 找不到则返回原 ctx（保持兼容，未配 channel_link 的 corp 也能跑）。
+// 找不到则返回原 ctx（不带租户）：后续 For(ctx) / TenantScope 会以 ErrMissingTenant 拒绝租户表访问。
 func SyncTenantCtx(ctx context.Context, corpID string) context.Context {
+	ctx = we_work.WithCorpID(ctx, corpID)
 	if corpID == "" {
 		return ctx
 	}
@@ -46,7 +50,8 @@ func SyncTenantCtx(ctx context.Context, corpID string) context.Context {
 		return ctx
 	}
 	var link models.ChannelLink
-	if err := models.DB.Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom, "tenant", corpID).
+	// 由企业反查租户本身是跨租户查找。
+	if err := models.CrossTenant().Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom, "tenant", corpID).
 		First(&link).Error; err != nil {
 		return ctx
 	}
@@ -307,15 +312,17 @@ func (s TenantService) GetDetail(id string) (TenantDetail, error) {
 
 // CurrentTenantInfo 租户端当前套餐/到期信息 + 当前用户角色。
 type CurrentTenantInfo struct {
-	Name      string     `json:"name"`
-	Code      string     `json:"code"`
-	Plan      string     `json:"plan"`
-	PlanName  string     `json:"plan_name"`
-	ExpireAt  *time.Time `json:"expire_at"`
-	MaxUsers  int        `json:"max_users"`
-	UserCount int64      `json:"user_count"`
-	RoleCode  string     `json:"role_code"`
-	IsAdmin   bool       `json:"is_admin"`
+	Name         string     `json:"name"`
+	Code         string     `json:"code"`
+	Plan         string     `json:"plan"`
+	PlanName     string     `json:"plan_name"`
+	ExpireAt     *time.Time `json:"expire_at"`
+	MaxUsers     int        `json:"max_users"`
+	MaxCustomers int        `json:"max_customers"`
+	Modules      []string   `json:"modules"`
+	UserCount    int64      `json:"user_count"`
+	RoleCode     string     `json:"role_code"`
+	IsAdmin      bool       `json:"is_admin"`
 }
 
 // GetCurrentInfo 租户端：当前登录用户查看本租户套餐信息 + 自己的角色编码。
@@ -335,22 +342,25 @@ func (s TenantService) GetCurrentInfo(tenantID, userID string) (CurrentTenantInf
 		var plan models.Plan
 		if err := models.DB.Where("code = ?", t.Plan).First(&plan).Error; err == nil {
 			info.PlanName = plan.Name
+			info.MaxUsers = models.PlanLimit(plan.MaxUsers, t.MaxUsers)
+			info.MaxCustomers = models.PlanLimit(plan.MaxCustomers, t.MaxCustomers)
+			_ = json.Unmarshal([]byte(plan.Modules), &info.Modules)
 		}
 	}
-	models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", tenantID).Count(&info.UserCount)
+	models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL AND status = 1", tenantID).Count(&info.UserCount)
 
 	if userID != "" {
 		var u models.User
 		if err := models.DB.Where("id = ? AND tenant_id = ?", userID, tenantID).First(&u).Error; err == nil {
 			if u.RoleID != "" {
 				var role models.CrmRole
-				if err := models.DB.Where("id = ?", u.RoleID).First(&role).Error; err == nil {
+				if err := models.DB.Where("id = ? AND tenant_id = ?", u.RoleID, tenantID).First(&role).Error; err == nil {
 					info.RoleCode = role.Code
 				}
 			}
 		}
 	}
-	info.IsAdmin = info.RoleCode == "admin"
+	info.IsAdmin = RequireCRMPermission(identity.WithIdentity(context.Background(), identity.Identity{TenantID: tenantID, UserID: userID}), "crm:user:set_password") == nil
 	return info, nil
 }
 
@@ -365,7 +375,7 @@ func (s TenantService) ListUsers(tenantID string) ([]map[string]any, error) {
 		roleName := ""
 		if u.RoleID != "" {
 			var role models.CrmRole
-			models.DB.Where("id = ?", u.RoleID).First(&role)
+			models.DB.Where("id = ? AND tenant_id = ?", u.RoleID, u.TenantID).First(&role)
 			roleName = role.Name
 		}
 		result = append(result, map[string]any{
@@ -395,7 +405,7 @@ func (s TenantService) ResetAdminPassword(tenantID, userID string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	if err := models.DB.Model(&models.User{}).Where("id = ?", userID).Update("password", h).Error; err != nil {
+	if err := models.DB.Model(&models.User{}).Where("id = ? AND tenant_id = ?", userID, tenantID).Update("password", h).Error; err != nil {
 		return "", err
 	}
 	return pw, nil
@@ -499,45 +509,40 @@ func NewPlatformAuth() *PlatformAuthService { return &PlatformAuthService{} }
 
 // PlatformLoginResult 平台超管登录结果，网关据此签发 is_platform=true 的 JWT。
 type PlatformLoginResult struct {
-	AdminID     string   `json:"admin_id"`
-	Username    string   `json:"username"`
-	Name        string   `json:"name"`
-	Role        string   `json:"role"`
-	Mobile      string   `json:"mobile"`
-	Email       string   `json:"email"`
-	Authorities []string `json:"authorities"` // 前端菜单 authority（Platform* 格式 + role 本身）
+	SessionVersion int64    `json:"session_version"`
+	AdminID        string   `json:"admin_id"`
+	Username       string   `json:"username"`
+	Name           string   `json:"name"`
+	Role           string   `json:"role"`
+	Mobile         string   `json:"mobile"`
+	Email          string   `json:"email"`
+	Authorities    []string `json:"authorities"` // 前端菜单 authority（Platform* 格式 + 权限点）
 }
 
-// platformRoleAuthorities 把平台角色映射为前端菜单 authority。
-// super_admin 拥有全部平台权限；其它角色按职责分配。
-func platformRoleAuthorities(role string) []string {
-	auth := []string{role} // role 本身也作为 authority（支持菜单按角色控制）
-	switch role {
-	case "super_admin":
-		auth = append(auth,
-			"PlatformTenant_Full", "PlatformTenant_Read",
-			"PlatformBilling_Full", "PlatformBilling_Read",
-			"PlatformStats_Full", "PlatformStats_Read",
-			"PlatformLog_Full", "PlatformLog_Read",
-			"PlatformSetting_Full",
-		)
-	case "operator":
-		auth = append(auth,
-			"PlatformTenant_Full", "PlatformTenant_Read",
-			"PlatformStats_Full", "PlatformStats_Read",
-		)
-	case "finance":
-		auth = append(auth,
-			"PlatformBilling_Full", "PlatformBilling_Read",
-			"PlatformTenant_Read",
-			"PlatformStats_Read",
-		)
-	case "support":
-		auth = append(auth,
-			"PlatformTenant_Read",
-			"PlatformLog_Read",
-			"PlatformStats_Read",
-		)
+// platformPermissionAuthorities maps persisted platform grants to menu authorities.
+func platformPermissionAuthorities(perms []string) []string {
+	auth := append([]string{}, perms...)
+	resources := map[string]string{"tenant": "PlatformTenant", "plan": "PlatformBilling", "payment": "PlatformBilling", "order": "PlatformBilling", "stats": "PlatformStats", "log": "PlatformLog", "admin": "PlatformSetting"}
+	for resource, name := range resources {
+		read, write := false, false
+		if HasPlatformPermission(perms, "platform:"+resource+":full") {
+			read, write = true, true
+		}
+		for _, point := range perms {
+			if strings.HasPrefix(point, "platform:"+resource+":") {
+				read = true
+				action := strings.TrimPrefix(point, "platform:"+resource+":")
+				if !strings.HasPrefix(action, "list") && !strings.HasPrefix(action, "get") && action != "overview" && !strings.Contains(action, "usage") {
+					write = true
+				}
+			}
+		}
+		if read {
+			auth = append(auth, name+"_Read")
+		}
+		if write {
+			auth = append(auth, name+"_Full")
+		}
 	}
 	return auth
 }
@@ -552,26 +557,36 @@ func (s PlatformAuthService) Login(username, password string) (PlatformLoginResu
 		return PlatformLoginResult{}, err
 	}
 	if a.Status != 1 {
-		return PlatformLoginResult{}, errors.New("账号已停用")
+		bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
+		return PlatformLoginResult{}, errors.New("用户名或密码错误")
 	}
-	if a.Password == "" || bcrypt.CompareHashAndPassword([]byte(a.Password), []byte(password)) != nil {
+	candidateHash := a.Password
+	if candidateHash == "" {
+		candidateHash = string(dummyPasswordHash)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(candidateHash), []byte(password)) != nil || a.Password == "" {
 		return PlatformLoginResult{}, errors.New("用户名或密码错误")
 	}
 	models.DB.Model(&models.PlatformAdmin{}).Where("id = ?", a.ID).Update("last_login_at", time.Now())
 	return PlatformLoginResult{
-		AdminID:     a.ID,
-		Username:    a.Username,
-		Name:        a.Name,
-		Role:        a.Role,
-		Mobile:      a.Mobile,
-		Email:       a.Email,
-		Authorities: platformRoleAuthorities(a.Role),
+		SessionVersion: a.AuthVersion,
+		AdminID:        a.ID,
+		Username:       a.Username,
+		Name:           a.Name,
+		Role:           a.Role,
+		Mobile:         a.Mobile,
+		Email:          a.Email,
+		Authorities:    platformPermissionAuthorities(a.Perms),
 	}, nil
 }
 
-// SeedPlatformAdmin 幂等地创建默认平台超管账号（master/123456），仅非生产环境执行。
+// SeedPlatformAdmin creates a development account only with an explicit strong bootstrap password.
 func SeedPlatformAdmin() {
-	if conf.Settings.App.Env == "PROD" {
+	if conf.Settings.App.Env != "DEV" && conf.Settings.App.Env != "TEST" {
+		return
+	}
+	bootstrapPassword := os.Getenv("CRM_BOOTSTRAP_ADMIN_PASSWORD")
+	if validatePassword(bootstrapPassword) != nil {
 		return
 	}
 	var cnt int64
@@ -579,7 +594,7 @@ func SeedPlatformAdmin() {
 	if cnt > 0 {
 		return
 	}
-	h, err := hashPassword("123456")
+	h, err := hashPassword(bootstrapPassword)
 	if err != nil {
 		return
 	}
@@ -589,6 +604,7 @@ func SeedPlatformAdmin() {
 		Password: h,
 		Name:     "平台超管",
 		Role:     "super_admin",
+		Perms:    platformPresetPermissions("super_admin"),
 		Status:   1,
 	})
 }
@@ -600,17 +616,9 @@ var defaultRoles = []struct {
 	Perms      constants.StringArrayField
 	IsDefault  bool
 }{
-	{"admin", "租户管理员", constants.StringArrayField{
-		"crm:user:set_password", "crm:user:create",
-		"crm:risk:full", "crm:marketing_ext:full", "crm:group_sop:full", "crm:smart_card:full",
-	}, false},
-	{"manager", "销售经理", constants.StringArrayField{
-		"crm:user:create",
-		"crm:risk:full", "crm:marketing_ext:full", "crm:group_sop:full", "crm:smart_card:full",
-	}, false},
-	{"sales", "销售", constants.StringArrayField{
-		"crm:smart_card:full",
-	}, true},
+	{"admin", "租户管理员", constants.StringArrayField{"crm:*:full"}, false},
+	{"manager", "销售经理", constants.StringArrayField{"crm:*:read", "crm:*:write", "crm:manage:full", "crm:data:all", "crm:pool:manage", "crm:pool:assign", "crm:customer:transfer", "crm:quota:manage", "crm:dedup:manage", "crm:score:manage", "crm:user:create", "crm:smart_card:full", "crm:risk:full", "crm:marketing_ext:full", "crm:group_sop:full"}, false},
+	{"sales", "销售", constants.StringArrayField{"crm:customer:read", "crm:customer:write", "crm:contact:read", "crm:contact:write", "crm:lead:read", "crm:lead:write", "crm:opportunity:read", "crm:opportunity:write", "crm:followup:read", "crm:followup:write", "crm:order:read", "crm:order:write", "crm:smart_card:full", "crm:dashboard:read", "crm:todo:read", "crm:todo:write", "crm:pool:read", "crm:pool:write", "crm:pipeline:read", "crm:product:read", "crm:quick_remark:read", "crm:quick_followup:read", "crm:followup_view:read", "crm:followup_comment:read", "crm:followup_comment:write", "crm:batch:write", "crm:field_def:read", "crm:field_value:read", "crm:field_value:write", "crm:channel_interaction:read", "crm:channel_interaction:write", "crm:channel_task:read", "crm:channel_task:write"}, true},
 }
 
 var defaultStages = []struct {
@@ -759,20 +767,24 @@ func SeedCRMDefaults() {
 	}
 	for _, t := range ts {
 		seedTenantDefaults(t.ID)
-		seedChannelConfig(t.ID)
+		// Global credentials are never assigned to a tenant implicitly.
+
 	}
 }
 
-// demoTenantCode 演示租户编码；demoAdminPassword 演示管理员初始密码。
+// demoTenantCode is the explicitly enabled demonstration tenant.
 const (
 	demoTenantCode    = "demo"
 	demoAdminUsername = "admin"
-	demoAdminPassword = "123456"
 )
 
-// SeedDemoAccount 幂等地创建演示租户与登录账号（demo/admin/123456），仅非生产环境执行。
+// SeedDemoAccount requires an explicit development/test password.
 func SeedDemoAccount() {
-	if conf.Settings.App.Env == "PROD" {
+	if conf.Settings.App.Env != "DEV" && conf.Settings.App.Env != "TEST" {
+		return
+	}
+	demoPassword := os.Getenv("CRM_DEMO_ADMIN_PASSWORD")
+	if validatePassword(demoPassword) != nil {
 		return
 	}
 	// 幂等：租户不存在则创建，并补齐默认角色/阶段。
@@ -797,7 +809,7 @@ func SeedDemoAccount() {
 	if err := models.DB.Model(&models.User{}).Scopes(models.TenantScope(t.ID)).Where("username = ?", demoAdminUsername).Count(&cnt).Error; err != nil || cnt > 0 {
 		return
 	}
-	h, err := hashPassword(demoAdminPassword)
+	h, err := hashPassword(demoPassword)
 	if err != nil {
 		return
 	}
@@ -821,7 +833,7 @@ func SeedDemoAccount() {
 	}
 }
 
-// seedChannelConfig 若配置了真实企微 corp（conf.Settings.WeWork），为租户幂等引导一条渠道接入配置 + 租户级 ChannelLink。
+// seedChannelConfig is retained only for explicit legacy imports; startup never calls it.
 // dev 占位（"todo"/空）或租户已有该 corp 配置则跳过。仅部署真实企微凭据时生效。
 func seedChannelConfig(tenantID string) {
 	ww := conf.Settings.WeWork
@@ -858,27 +870,16 @@ func seedChannelConfig(tenantID string) {
 	if cfg.CallbackAesKey, cerr = util.AESEncode(ww.CallbackAesKey); cerr != nil {
 		return
 	}
-	if err := models.DB.Create(&cfg).Error; err != nil {
+	if err := models.DB.Transaction(func(tx *gorm.DB) error {
+		if err := models.EnsureWecomTenantLink(tx, tenantID, cfg.CorpID); err != nil {
+			return err
+		}
+		return tx.Create(&cfg).Error
+	}); err != nil {
 		log.Sugar.Errorw("seed channel config failed", "err", err)
 		return
 	}
 	registerWecomClient(cfg)
-	// 租户级 wecom 链路（供 ChannelSummary 读 corp_id 统计企微资源）
-	var link models.ChannelLink
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("channel = ? AND entity_type = ?", constants.ChannelWecom, "tenant").
-		First(&link).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			models.DB.Create(&models.ChannelLink{
-				Model:      models.Model{ID: id_generator.StringID()},
-				TenantID:   tenantID,
-				Channel:    constants.ChannelWecom,
-				EntityType: "tenant",
-				EntityID:   tenantID,
-				ExtID:      ww.ExtCorpID,
-				ExtCorpID:  ww.ExtCorpID,
-			})
-		}
-	}
 }
 
 // isTodo 判断配置值是否为 dev 占位（空或含 "todo"）。
@@ -902,24 +903,18 @@ type UserCreateReq struct {
 }
 
 func (s UserService) Create(ctx context.Context, req UserCreateReq) (models.User, string, error) {
-	tenantID := identity.TenantID(ctx)
-
-	// 套餐坐席数限制：MaxUsers > 0 时检查当前用户数是否已达上限。
-	var tenant models.Tenant
-	if err := models.DB.Where("id = ?", tenantID).First(&tenant).Error; err == nil {
-		if tenant.MaxUsers > 0 {
-			var count int64
-			models.DB.Model(&models.User{}).Where("tenant_id = ? AND deleted_at IS NULL", tenantID).Count(&count)
-			if int(count) >= tenant.MaxUsers {
-				return models.User{}, "", errors.New("当前套餐坐席数已达上限(" + strconv.Itoa(tenant.MaxUsers) + ")，请升级套餐或联系平台管理员")
-			}
-		}
+	if err := RequireCRMPermission(ctx, "crm:user:create"); err != nil {
+		return models.User{}, "", err
 	}
+	tenantID := identity.TenantID(ctx)
 
 	if req.RoleID == "" {
 		req.RoleID = "sales"
 	}
 	req.RoleID = resolveRoleID(ctx, req.RoleID)
+	if err := requireAssignableRole(ctx, req.RoleID); err != nil {
+		return models.User{}, "", err
+	}
 	u := models.User{
 		Model:        models.Model{ID: id_generator.StringID()},
 		TenantID:     tenantID,
@@ -953,7 +948,13 @@ func (s UserService) Create(ctx context.Context, req UserCreateReq) (models.User
 		}
 		u.Password = h
 	}
-	err := createCRM(models.MustFor(ctx), &u, "RoleID", "DepartmentID")
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var role models.CrmRole
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("tenant_id=? AND id=?", tenantID, u.RoleID).First(&role).Error; err != nil {
+			return err
+		}
+		return createCRM(tx, &u, "RoleID", "DepartmentID")
+	})
 	if err != nil {
 		log.Sugar.Errorw("crm user create failed", "err", err)
 	}
@@ -1058,6 +1059,21 @@ func resolveRoleID(ctx context.Context, roleID string) string {
 }
 
 func (s UserService) Update(ctx context.Context, userID string, req UserUpdateReq) error {
+	if err := requireManageableUser(ctx, userID); err != nil {
+		return err
+	}
+	if err := RequireCRMPermission(ctx, "crm:user:update"); err != nil {
+		return err
+	}
+	if req.Status != nil && *req.Status != 1 && *req.Status != 2 {
+		return errors.New("账号状态无效")
+	}
+	if req.RoleID != "" {
+		req.RoleID = resolveRoleID(ctx, req.RoleID)
+		if err := requireAssignableRole(ctx, req.RoleID); err != nil {
+			return err
+		}
+	}
 
 	m := map[string]any{}
 	if req.Name != nil {
@@ -1093,7 +1109,37 @@ func (s UserService) Update(ctx context.Context, userID string, req UserUpdateRe
 		m["status"] = *req.Status
 	}
 	m = updatesCRM(m, "RoleID", "DepartmentID")
-	return models.MustFor(ctx).Model(&models.User{}).Where("id = ?", userID).Updates(m).Error
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var tenant models.Tenant
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", identity.TenantID(ctx)).First(&tenant).Error; err != nil {
+			return err
+		}
+		var target models.User
+		if err := tx.Where("tenant_id=? AND id=?", tenant.ID, userID).First(&target).Error; err != nil {
+			return err
+		}
+		var role models.CrmRole
+		if req.RoleID != "" {
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("tenant_id=? AND id=?", tenant.ID, req.RoleID).First(&role).Error; err != nil {
+				return err
+			}
+		}
+		disabling := req.Status != nil && *req.Status != 1
+		changingRole := req.RoleID != "" && req.RoleID != target.RoleID
+		if target.Status == 1 && (disabling || changingRole && !HasCRMPermission(role.Perms, "crm:*:full")) {
+			var currentRole models.CrmRole
+			if err := tx.Where("tenant_id=? AND id=?", tenant.ID, target.RoleID).First(&currentRole).Error; err == nil && HasCRMPermission(currentRole.Perms, "crm:*:full") {
+				var count int64
+				if err := tx.Table(`"user" u`).Joins("JOIN crm_role r ON r.id=u.role_id AND r.tenant_id=u.tenant_id AND r.deleted_at IS NULL").Where("u.tenant_id=? AND u.deleted_at IS NULL AND u.status=1 AND r.perms @> ?::jsonb", tenant.ID, `["crm:*:full"]`).Count(&count).Error; err != nil {
+					return err
+				}
+				if count <= 1 {
+					return errors.New("不能停用或降权最后一个租户管理员")
+				}
+			}
+		}
+		return tx.Model(&models.User{}).Where("tenant_id=? AND id=?", tenant.ID, userID).Updates(m).Error
+	})
 }
 
 // GetCurrent 返回 ctx 中本地用户（user_id）的完整 User 行，供前端 header/个人中心使用。
@@ -1255,8 +1301,20 @@ func hashPassword(p string) (string, error) {
 }
 
 func validatePassword(p string) error {
-	if n := len(p); n < 6 || n > 64 {
-		return errors.New("密码长度需 6-64 位")
+	if n := len(p); n < 10 || n > 64 {
+		return errors.New("密码长度需 10-64 位，且包含字母和数字")
+	}
+	letter, digit := false, false
+	for _, r := range p {
+		if r >= '0' && r <= '9' {
+			digit = true
+		}
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' {
+			letter = true
+		}
+	}
+	if !letter || !digit {
+		return errors.New("密码需同时包含字母和数字")
 	}
 	return nil
 }
@@ -1266,15 +1324,23 @@ var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("scrm-timing-equal
 
 // randPassword 生成 n 位随机密码（crypto/rand，去易混淆字符）。
 func randPassword(n int) (string, error) {
+	if n < 10 || n > 64 {
+		return "", errors.New("随机密码长度必须为 10-64 位")
+	}
 	const charset = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+	for {
+		b := make([]byte, n)
+		for i := range b {
+			index, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+			if err != nil {
+				return "", err
+			}
+			b[i] = charset[index.Int64()]
+		}
+		if validatePassword(string(b)) == nil {
+			return string(b), nil
+		}
 	}
-	for i := range b {
-		b[i] = charset[int(b[i])%len(charset)]
-	}
-	return string(b), nil
 }
 
 // ---------- CrmAuth（本地账号登录，SaaS 多租户）----------
@@ -1285,84 +1351,59 @@ func NewCrmAuth() *CrmAuthService { return &CrmAuthService{} }
 
 // LoginResult 登录成功后返回的本地身份，网关据此签发 JWT。
 type LoginResult struct {
-	TenantID     string   `json:"tenant_id"`
-	TenantName   string   `json:"tenant_name"`
-	UserID       string   `json:"user_id"`
-	Username     string   `json:"username"`
-	Name         string   `json:"name"`
-	Mobile       string   `json:"mobile"`
-	Position     string   `json:"position"`
-	DepartmentID string   `json:"department_id"`
-	RoleID       string   `json:"role_id"`
-	RoleCode     string   `json:"role_code"`
-	Perms        []string `json:"perms"`
-	Authorities  []string `json:"authorities"` // 前端菜单 authority 用（Biz 格式 + role_code）
-	Avatar       string   `json:"avatar"`
-	CorpID       string   `json:"corp_id"`
-	StaffID      string   `json:"staff_id"`
+	SessionVersion int64    `json:"session_version"`
+	TenantID       string   `json:"tenant_id"`
+	TenantName     string   `json:"tenant_name"`
+	UserID         string   `json:"user_id"`
+	Username       string   `json:"username"`
+	Name           string   `json:"name"`
+	Mobile         string   `json:"mobile"`
+	Position       string   `json:"position"`
+	DepartmentID   string   `json:"department_id"`
+	RoleID         string   `json:"role_id"`
+	RoleCode       string   `json:"role_code"`
+	Perms          []string `json:"perms"`
+	Authorities    []string `json:"authorities"` // 前端菜单 authority 用（Biz 格式 + role_code）
+	Avatar         string   `json:"avatar"`
+	CorpID         string   `json:"corp_id"`
+	StaffID        string   `json:"staff_id"`
 }
 
-// crmPermsToAuthorities 将 CRM 角色编码 + perms 映射为前端菜单 authority 格式（Biz_*）。
+// crmPermsToAuthorities 将实际权限点映射为前端菜单 authority 格式（Biz_*）。
 // CRM 原生权限点（crm:xxx:full）与企微菜单 authority（BizXxx_Full）格式不同，
 // 这里做桥接，使密码登录用户也能被菜单级权限过滤正确处理。
 func crmPermsToAuthorities(roleCode string, perms []string) []string {
-	auth := []string{roleCode} // role_code 本身也作为 authority（支持菜单按角色控制）
-	has := func(p string) bool {
-		for _, x := range perms {
-			if x == p {
-				return true
+	auth := append([]string{}, perms...)
+	bridges := map[string][]string{
+		"risk": {"BizSensitiveWord", "BizRiskCenter"}, "sensitive_word": {"BizSensitiveWord"}, "group_sop": {"BizGroupSop"}, "marketing_ext": {"BizMarketingExt"}, "smart_card": {"BizSmartCard"}, "customer": {"BizCustomerInfo", "BizDeleteCustomer"}, "customer_tag": {"BizCustomerTag"}, "customer_loss": {"BizCustomerLoss"}, "channel_config": {"BizContactWay"}, "mass_msg": {"BizMassMsg"}, "welcome_msg": {"BizWelcomeMsg"}, "group_chat": {"BizCustomerGroupChat"}, "msg_arch": {"BizMsgArch"}, "role": {"BizRole"}, "user": {"BizStaff"},
+	}
+	for resource, names := range bridges {
+		full := HasCRMPermission(perms, "crm:"+resource+":full")
+		read := full || HasCRMPermission(perms, "crm:"+resource+":read")
+		for _, name := range names {
+			if full {
+				auth = append(auth, name+"_Full")
+			}
+			if read {
+				auth = append(auth, name+"_Read")
 			}
 		}
-		return false
-	}
-	// admin/manager 拥有全部 Phase 7 权限
-	if roleCode == "admin" || roleCode == "manager" || has("crm:risk:full") {
-		auth = append(auth, "BizSensitiveWord_Full", "BizSensitiveWord_Read")
-		auth = append(auth, "BizRiskCenter_Full", "BizRiskCenter_Read")
-	}
-	if roleCode == "admin" || roleCode == "manager" || has("crm:group_sop:full") {
-		auth = append(auth, "BizGroupSop_Full", "BizGroupSop_Read")
-	}
-	if roleCode == "admin" || roleCode == "manager" || has("crm:marketing_ext:full") {
-		auth = append(auth, "BizMarketingExt_Full", "BizMarketingExt_Read")
-	}
-	if has("crm:smart_card:full") || roleCode == "admin" || roleCode == "manager" || roleCode == "sales" {
-		auth = append(auth, "BizSmartCard_Full", "BizSmartCard_Read")
-	}
-	// admin/manager 补齐基础 CRM 菜单权限（客户/线索/商机等菜单目前无 authority 限制，这里补上以备将来）
-	if roleCode == "admin" || roleCode == "manager" {
-		auth = append(auth, "BizCustomerInfo_Full", "BizCustomerInfo_Read")
-		auth = append(auth, "BizCustomerTag_Full", "BizCustomerTag_Read")
-		auth = append(auth, "BizCustomerLoss_Full", "BizCustomerLoss_Read")
-		auth = append(auth, "BizContactWay_Full", "BizContactWay_Read")
-		auth = append(auth, "BizMassMsg_Full", "BizMassMsg_Read")
-		auth = append(auth, "BizWelcomeMsg_Full", "BizWelcomeMsg_Read")
-		auth = append(auth, "BizCustomerGroupChat_Full", "BizCustomerGroupChat_Read")
-		auth = append(auth, "BizDeleteCustomer_Full", "BizDeleteCustomer_Read")
-		auth = append(auth, "BizMsgArch_Full", "BizMsgArch_Read")
-	}
-	if roleCode == "admin" {
-		auth = append(auth, "BizRole_Full", "BizRole_Read")
-		auth = append(auth, "BizStaffInfo_Full", "BizStaffInfo_Read")
-		auth = append(auth, "BizDepartment_Full", "BizDepartment_Read")
 	}
 	return auth
 }
 
-// Login 按 tenant_code + username + password 校验，返回本地身份。
-// SaaS 多租户：租户编码全局唯一，用户归属在租户内解析，与企微渠道无关。
 func (s CrmAuthService) Login(tenantCode, username, password string) (LoginResult, error) {
 	var t models.Tenant
 	if err := models.DB.Where("code = ?", tenantCode).First(&t).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
-			return LoginResult{}, errors.New("租户不存在或已停用")
+			return LoginResult{}, errors.New("用户名或密码错误")
 		}
 		return LoginResult{}, err
 	}
 	if t.Status != 1 {
 		bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
-		return LoginResult{}, errors.New("租户不存在或已停用")
+		return LoginResult{}, errors.New("用户名或密码错误")
 	}
 	var u models.User
 	if err := models.DB.Scopes(models.TenantScope(t.ID)).Where("username = ?", username).First(&u).Error; err != nil {
@@ -1373,17 +1414,22 @@ func (s CrmAuthService) Login(tenantCode, username, password string) (LoginResul
 		return LoginResult{}, err
 	}
 	if u.Status != 1 {
-		return LoginResult{}, errors.New("账号已停用")
-	}
-	if u.Password == "" || bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) != nil {
+		bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
 		return LoginResult{}, errors.New("用户名或密码错误")
 	}
-	models.DB.Model(&models.User{}).Where("id = ?", u.ID).Update("last_login_at", time.Now())
+	candidateHash := u.Password
+	if candidateHash == "" {
+		candidateHash = string(dummyPasswordHash)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(candidateHash), []byte(password)) != nil || u.Password == "" {
+		return LoginResult{}, errors.New("用户名或密码错误")
+	}
+	models.DB.Model(&models.User{}).Where("id = ? AND tenant_id = ?", u.ID, u.TenantID).Update("last_login_at", time.Now())
 	// 解析该本地用户企微渠道身份（ChannelLink user→wecom staff），供网关签发统一会话 JWT，
 	// 使密码登录同样能访问企微渠道功能。无映射（非企微员工）则两字段留空，退回纯本地会话。
 	var corpID, staffID string
 	var link models.ChannelLink
-	if err := models.DB.Where("channel = ? AND entity_type = ? AND entity_id = ?", "wecom", "user", u.ID).
+	if err := models.DB.Where("tenant_id = ? AND channel = ? AND entity_type = ? AND entity_id = ?", u.TenantID, "wecom", "user", u.ID).
 		First(&link).Error; err == nil {
 		corpID = link.ExtCorpID
 		staffID = link.ExtID
@@ -1399,26 +1445,33 @@ func (s CrmAuthService) Login(tenantCode, username, password string) (LoginResul
 		}
 	}
 	return LoginResult{
-		TenantID:     t.ID,
-		TenantName:   t.Name,
-		UserID:       u.ID,
-		Username:     u.Username,
-		Name:         u.Name,
-		Mobile:       u.Mobile,
-		Position:     u.Position,
-		DepartmentID: u.DepartmentID,
-		RoleID:       u.RoleID,
-		RoleCode:     roleCode,
-		Perms:        perms,
-		Authorities:  crmPermsToAuthorities(roleCode, perms),
-		Avatar:       u.Avatar,
-		CorpID:       corpID,
-		StaffID:      staffID,
+		SessionVersion: u.AuthVersion,
+		TenantID:       t.ID,
+		TenantName:     t.Name,
+		UserID:         u.ID,
+		Username:       u.Username,
+		Name:           u.Name,
+		Mobile:         u.Mobile,
+		Position:       u.Position,
+		DepartmentID:   u.DepartmentID,
+		RoleID:         u.RoleID,
+		RoleCode:       roleCode,
+		Perms:          perms,
+		Authorities:    crmPermsToAuthorities(roleCode, perms),
+		Avatar:         u.Avatar,
+		CorpID:         corpID,
+		StaffID:        staffID,
 	}, nil
 }
 
 // SetPassword 管理员重置用户密码（须有本地身份）。
 func (s CrmAuthService) SetPassword(ctx context.Context, id, password string) error {
+	if err := requireManageableUser(ctx, id); err != nil {
+		return err
+	}
+	if err := RequireCRMPermission(ctx, "crm:user:set_password"); err != nil {
+		return err
+	}
 	tenantID := identity.TenantID(ctx)
 
 	if err := validatePassword(password); err != nil {
@@ -1440,6 +1493,9 @@ func (s CrmAuthService) SetPassword(ctx context.Context, id, password string) er
 
 // ChangePassword 用户自助改密（须有本地身份）。
 func (s CrmAuthService) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+	if userID == "" || userID != identity.UserID(ctx) {
+		return ErrPermissionDenied
+	}
 	tenantID := identity.TenantID(ctx)
 
 	var u models.User
@@ -1456,7 +1512,14 @@ func (s CrmAuthService) ChangePassword(ctx context.Context, userID, oldPassword,
 	if err != nil {
 		return err
 	}
-	return models.DB.Model(&models.User{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", userID).Update("password", h).Error
+	result := models.DB.Model(&models.User{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND password = ? AND auth_version = ?", userID, u.Password, u.AuthVersion).Update("password", h)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("密码已更新，请重新登录")
+	}
+	return nil
 }
 
 // ---------- CrmCustomer ----------
@@ -1470,8 +1533,21 @@ func (s CrmCustomerService) Create(ctx context.Context, userID string, req model
 
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
-	if req.OwnerUserID == "" {
+	if strings.TrimSpace(req.Name) == "" && strings.TrimSpace(req.Mobile) == "" {
+		return req, errors.New("客户名称或手机号至少填写一项")
+	}
+	if req.ExtCustomerID != "" || req.ExtCorpID != "" {
+		return req, errors.New("外部渠道身份只能由渠道同步建立")
+	}
+	if req.PoolStatus == 1 {
+		req.OwnerUserID = ""
+	} else if req.OwnerUserID == "" {
 		req.OwnerUserID = userID
+	}
+	if identity.UserID(ctx) != "" {
+		if err := validateCustomerOwner(ctx, models.DB, req.OwnerUserID); err != nil {
+			return req, err
+		}
 	}
 	// 无归属销售（导入/表单等无 userID 场景）→ 进公海池待认领。
 	if req.OwnerUserID == "" {
@@ -1504,8 +1580,41 @@ func (s CrmCustomerService) Create(ctx context.Context, userID string, req model
 }
 
 func (s CrmCustomerService) Update(ctx context.Context, id string, req models.CrmCustomer) (models.CrmCustomer, error) {
-	tenantID := identity.TenantID(ctx)
+	var result models.CrmCustomer
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error { var err error; result, err = s.updateCustomer(ctx, tx, id, req); return err })
+	if err == nil {
+		if linkErr := upsertCustomerChannelLink(ctx, result); linkErr != nil {
+			log.Sugar.Errorw("crm customer channel link upsert failed", "err", linkErr)
+		}
+	}
+	return result, err
+}
 
+func (s CrmCustomerService) updateCustomer(ctx context.Context, tx *gorm.DB, id string, req models.CrmCustomer) (models.CrmCustomer, error) {
+	tenantID := identity.TenantID(ctx)
+	db, err := customerAccessDB(ctx, tx, true)
+	if err != nil {
+		return req, err
+	}
+	if err := validateCustomerOwner(ctx, tx, req.OwnerUserID); err != nil {
+		return req, err
+	}
+
+	var existing models.CrmCustomer
+	if err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&existing).Error; err != nil {
+		return req, ErrCustomerAccess
+	}
+	if (req.ExtCustomerID != "" && req.ExtCustomerID != existing.ExtCustomerID) || (req.ExtCorpID != "" && req.ExtCorpID != existing.ExtCorpID) {
+		return req, errors.New("外部渠道身份不能通过客户编辑修改")
+	}
+	if existing.OwnerUserID != req.OwnerUserID {
+		if existing.IsLocked || existing.ReassignStatus != 0 {
+			return req, errors.New("客户已锁定或正在转交，不能直接修改归属")
+		}
+		if existing.PoolStatus == 1 && req.OwnerUserID != "" {
+			return req, errors.New("公海客户请使用认领或分配操作")
+		}
+	}
 	req.ID = id
 	req.TenantID = tenantID
 	upd := updatesCRM(map[string]any{
@@ -1542,16 +1651,43 @@ func (s CrmCustomerService) Update(ctx context.Context, id string, req models.Cr
 	if req.OwnerUserID != "" {
 		upd["pool_status"] = 0
 		upd["pool_at"] = nil
-		selectCols = append(selectCols, "pool_status", "pool_at")
+	} else {
+		upd["pool_status"] = 1
+		upd["pool_at"] = time.Now()
+		upd["owner_user_id"] = nil
 	}
-	err := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Select(selectCols).Updates(upd).Error
+	if existing.OwnerUserID != req.OwnerUserID && req.OwnerUserID == "" {
+		for key, value := range recycledCustomerChanges(existing, time.Now()) {
+			upd[key] = value
+			selectCols = append(selectCols, key)
+		}
+		actor, _, err := customerActor(ctx, tx)
+		if err != nil {
+			return req, err
+		}
+		if err = poolLog(tx, tenantID, existing, "recycle", actor, "", "编辑客户移入公海"); err != nil {
+			return req, err
+		}
+	} else if existing.OwnerUserID != req.OwnerUserID {
+		upd["claimed_at"] = time.Now()
+		selectCols = append(selectCols, "claimed_at")
+		entry := models.CrmTransferLog{Model: models.Model{ID: id_generator.StringID()}, TenantID: tenantID, CustomerID: id, FromUserID: existing.OwnerUserID, ToUserID: req.OwnerUserID, OperatorUserID: identity.UserID(ctx), Reason: "编辑客户调整归属"}
+		if err = createCRM(tx, &entry); err != nil {
+			return req, err
+		}
+	}
+	selectCols = append(selectCols, "pool_status", "pool_at")
+	result := tx.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND id = ?", tenantID, id).Select(selectCols).Updates(upd)
+	err = result.Error
+	if err == nil && result.RowsAffected == 0 {
+		return req, ErrCustomerAccess
+	}
 	if err != nil {
 		log.Sugar.Errorw("crm customer update failed", "err", err)
 		return req, err
 	}
-	if err := upsertCustomerChannelLink(ctx, req); err != nil {
-		log.Sugar.Errorw("crm customer channel link upsert failed", "err", err)
+	if err = tx.Where("tenant_id = ? AND id = ?", tenantID, id).First(&req).Error; err != nil {
+		return req, err
 	}
 	return req, nil
 }
@@ -1582,9 +1718,9 @@ func upsertCustomerChannelLink(ctx context.Context, c models.CrmCustomer) error 
 	}
 	tenantID := identity.TenantID(ctx)
 	var link models.ChannelLink
-	err := models.DB.Where("channel = ? AND entity_type = ? AND entity_id = ?", c.Source, "customer", c.ID).First(&link).Error
+	err := models.DB.Where("tenant_id = ? AND channel = ? AND entity_type = ? AND entity_id = ?", tenantID, c.Source, "customer", c.ID).First(&link).Error
 	if err == nil {
-		return models.DB.Model(&models.ChannelLink{}).Where("id = ?", link.ID).
+		return models.DB.Model(&models.ChannelLink{}).Where("tenant_id = ? AND id = ?", tenantID, link.ID).
 			Updates(map[string]any{"ext_id": c.ExtCustomerID, "ext_corp_id": c.ExtCorpID}).Error
 	}
 	if err != gorm.ErrRecordNotFound {
@@ -1602,15 +1738,51 @@ func upsertCustomerChannelLink(ctx context.Context, c models.CrmCustomer) error 
 }
 
 func (s CrmCustomerService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmCustomer{})
-	return res.RowsAffected, res.Error
+	if len(ids) == 0 {
+		return 0, errors.New("ids 不能为空")
+	}
+	var count int64
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		db, err := customerAccessDB(ctx, tx, true)
+		if err != nil {
+			return err
+		}
+		var rows []models.CrmCustomer
+		if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", ids).Find(&rows).Error; err != nil {
+			return err
+		}
+		unique := make(map[string]bool)
+		for _, id := range ids {
+			unique[id] = true
+		}
+		if len(rows) != len(unique) {
+			return ErrCustomerAccess
+		}
+		for _, row := range rows {
+			if err := guardEntityReferences(tx, row.TenantID, "customer", row.ID, false); err != nil {
+				return err
+			}
+			if err := recycleEntity(ctx, tx, "customer", row.ID, row.Name); err != nil {
+				return err
+			}
+		}
+		res := tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Delete(&models.CrmCustomer{})
+		count = res.RowsAffected
+		return res.Error
+	})
+	return count, err
 }
 
 func (s CrmCustomerService) Get(ctx context.Context, id string) (models.CrmCustomer, error) {
-
 	var c models.CrmCustomer
-	err := models.MustFor(ctx).Where("id = ?", id).First(&c).Error
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return c, err
+	}
+	err = db.Where("id = ?", id).First(&c).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = ErrCustomerAccess
+	}
 	return c, err
 }
 
@@ -1621,10 +1793,15 @@ func (s CrmCustomerService) GetDetail(ctx context.Context, id string) (map[strin
 	if err != nil {
 		return nil, err
 	}
-	var follows []models.CrmFollowup
-	if err := models.MustFor(ctx).Where("customer_id = ?", id).
-		Order("created_at desc").Find(&follows).Error; err != nil {
-		return nil, err
+	histories := map[string]CustomerHistoryPage{}
+	historyPages := map[string]map[string]any{}
+	for _, kind := range []string{"followups", "activity_records", "channel_interactions", "transfer_logs"} {
+		page, err := s.History(ctx, CustomerHistoryRequest{CustomerID: id, Kind: kind})
+		if err != nil {
+			return nil, err
+		}
+		histories[kind] = page
+		historyPages[kind] = map[string]any{"has_more": page.HasMore, "next_cursor": page.NextCursor}
 	}
 	// 企微互动（消息存档单聊）：经 CrmCustomer 上的渠道快照 ext_customer_id 关联 chat_msg。
 	var msgs []models.ChatMsg
@@ -1632,37 +1809,38 @@ func (s CrmCustomerService) GetDetail(ctx context.Context, id string) (map[strin
 		target, _ := json.Marshal([]string{c.ExtCustomerID})
 		if err := models.DB.Where(`ext_corp_id = ? AND room_id = '' AND ("from" = ? OR to_list @> ?::jsonb)`,
 			c.ExtCorpID, c.ExtCustomerID, string(target)).
+			Where(`EXISTS (SELECT 1 FROM channel_link customer_link
+				JOIN channel_link tenant_link ON tenant_link.channel = 'wecom' AND tenant_link.entity_type = 'tenant'
+				AND tenant_link.ext_id = customer_link.ext_corp_id AND tenant_link.tenant_id = customer_link.tenant_id
+				AND tenant_link.entity_id = customer_link.tenant_id AND tenant_link.deleted_at IS NULL
+				WHERE customer_link.tenant_id = ? AND customer_link.entity_type = 'customer' AND customer_link.entity_id = ?
+				AND customer_link.channel = 'wecom' AND customer_link.ext_corp_id = ? AND customer_link.ext_id = ?
+				AND customer_link.deleted_at IS NULL)`, c.TenantID, c.ID, c.ExtCorpID, c.ExtCustomerID).
 			Order("msg_time desc").Limit(20).Find(&msgs).Error; err != nil {
 			return nil, err
 		}
 	}
-	// 非企微渠道互动（小红书留资/评论/私信等），企微互动仍走上方 chat_msg。
-	var interactions []models.CrmChannelInteraction
-	if err := models.MustFor(ctx).Where("customer_id = ? AND channel <> ?", id, constants.ChannelWecom).
-		Order("happened_at desc").Limit(20).Find(&interactions).Error; err != nil {
-		return nil, err
-	}
-	// 活动参与史（营销活动触达/参与/转化明细）。
-	activityRecs, err := NewCrmActivity().ListByCustomer(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	// 转移历史。
-	transferLogs, _, _ := NewCrmTransfer().ListTransferLog(ctx, id, &app.Pager{Page: 1, PageSize: 20})
 	return map[string]any{
-		"customer": c, "followups": follows, "wecom_messages": msgs,
-		"channel_interactions": interactions, "activity_records": activityRecs,
-		"transfer_logs": transferLogs,
+		"customer": c, "followups": histories["followups"].Items, "wecom_messages": msgs,
+		"channel_interactions": histories["channel_interactions"].Items,
+		"activity_records":     histories["activity_records"].Items, "transfer_logs": histories["transfer_logs"].Items,
+		"history_pages": historyPages,
 	}, nil
 }
 
 func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUserID string, source string, outFlowStatus int, poolStatus int, category string, pager *app.Pager) ([]models.CrmCustomer, int64, error) {
+	if ownerUserID == "__me__" {
+		ownerUserID = identity.UserID(ctx)
+	}
 
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.MustFor(ctx)
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
 	if keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -1689,7 +1867,7 @@ func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUser
 	case "shared":
 		db = db.Where("shared_staff_ids @> ?", constants.StringArrayField{uid})
 	case "unreceive":
-		db = db.Where("(owner_user_id IS NULL OR owner_user_id = '' OR owner_user_id = '0') AND pool_status = ?", 0)
+		db = db.Where("owner_user_id IS NULL AND pool_status = ?", 0)
 	case "reassign":
 		db = db.Where("reassign_status = ?", 1)
 	}
@@ -1698,14 +1876,18 @@ func (s CrmCustomerService) Query(ctx context.Context, keyword string, ownerUser
 		return nil, 0, err
 	}
 	var cs []models.CrmCustomer
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("score desc, id desc").Find(&cs).Error
+	err = db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("score desc, id desc").Find(&cs).Error
 	return cs, total, err
 }
 
 // Export 导出客户列表为 Excel（最多 10000 行）。
 func (s CrmCustomerService) Export(ctx context.Context, ownerUserID string) (*bytes.Buffer, string, error) {
 
-	db := models.MustFor(ctx).Limit(10000).Order("id desc")
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, "", err
+	}
+	db = db.Limit(10000).Order("id desc")
 	if ownerUserID != "" {
 		db = db.Where("owner_user_id = ?", ownerUserID)
 	}
@@ -1747,13 +1929,16 @@ func (s CrmCustomerService) BatchImport(ctx context.Context, userID string, rows
 	success, fail := 0, 0
 	for _, r := range rows {
 		c := models.CrmCustomer{
-			Model:    models.Model{ID: id_generator.StringID()},
-			TenantID: tenantID,
-			Name:     r["姓名"],
-			Mobile:   r["手机"],
-			Company:  r["公司"],
-			Source:   constants.SourceImport,
+			Model:      models.Model{ID: id_generator.StringID()},
+			TenantID:   tenantID,
+			Name:       r["姓名"],
+			Mobile:     r["手机"],
+			Company:    r["公司"],
+			Source:     constants.SourceImport,
+			PoolStatus: 1,
 		}
+		now := time.Now()
+		c.PoolAt = &now
 		if c.Name == "" && c.Mobile == "" {
 			fail++
 			continue
@@ -1784,58 +1969,104 @@ type CrmLeadService struct{}
 func NewCrmLead() *CrmLeadService { return &CrmLeadService{} }
 
 func (s CrmLeadService) Create(ctx context.Context, userID string, req models.CrmLead) (models.CrmLead, error) {
-	tenantID := identity.TenantID(ctx)
-
-	req.ID = id_generator.StringID()
-	req.TenantID = tenantID
-	if req.OwnerUserID == "" {
-		req.OwnerUserID = userID
+	req.ID, req.TenantID = id_generator.StringID(), identity.TenantID(ctx)
+	if userID != identity.UserID(ctx) {
+		return req, ErrCustomerAccess
 	}
-	err := createCRM(models.DB, &req, "CustomerID", "OwnerUserID")
-	if err != nil {
-		log.Sugar.Errorw("crm lead create failed", "err", err)
+	if req.Status == "" {
+		req.Status = "new"
 	}
+	if req.Status != "new" && req.Status != "contacted" {
+		return req, errors.New("新线索必须为待跟进或已联系状态")
+	}
+	req.ConvertCustomerID, req.ConvertAt, req.ConvertRemark = "", nil, ""
+	if req.PoolStatus == 1 {
+		req.OwnerUserID = ""
+		req.NextFollowupAt, req.NextAction = nil, ""
+		now := time.Now()
+		req.PoolAt = &now
+	} else {
+		req.PoolStatus, req.PoolAt = 0, nil
+		if req.OwnerUserID == "" {
+			req.OwnerUserID = userID
+		}
+	}
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateLead(ctx, tx, &req); err != nil {
+			return err
+		}
+		return createCRM(tx, &req)
+	})
 	return req, err
 }
 
 func (s CrmLeadService) Update(ctx context.Context, id string, req models.CrmLead) (models.CrmLead, error) {
-	tenantID := identity.TenantID(ctx)
-
-	req.ID = id
-	req.TenantID = tenantID
-
-	// 已转化线索不允许修改状态（防止状态被改回 new/contacted 导致流程断裂）
-	var existing models.CrmLead
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
-		return req, err
-	}
-	statusVal := req.Status
-	if existing.ConvertCustomerID != "" || existing.Status == "qualified" {
-		statusVal = existing.Status
-	}
-
-	err := models.DB.Model(&models.CrmLead{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Select("customer_id", "owner_user_id", "title", "company", "name", "mobile", "source", "status", "remark").
-		Updates(updatesCRM(map[string]any{
-			"customer_id": req.CustomerID, "owner_user_id": req.OwnerUserID, "title": req.Title,
-			"company": req.Company, "name": req.Name, "mobile": req.Mobile, "source": req.Source,
-			"status": statusVal, "remark": req.Remark,
-		}, "customer_id", "owner_user_id")).Error
-	if err != nil {
-		log.Sugar.Errorw("crm lead update failed", "err", err)
-	}
-	return req, err
+	var lead models.CrmLead
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		lead, err = lockSalesRecord[models.CrmLead](ctx, tx, id, false)
+		if err != nil {
+			return err
+		}
+		if err = mutableLead(lead); err != nil {
+			return err
+		}
+		if lead.PoolStatus == 1 {
+			return errors.New("请先领取线索再编辑")
+		}
+		if req.Status != "" && req.Status != lead.Status {
+			return errors.New("请使用标记联系、流失或转客户操作变更状态")
+		}
+		req.ID, req.TenantID = lead.ID, lead.TenantID
+		if req.OwnerUserID == "" {
+			req.OwnerUserID = lead.OwnerUserID
+		}
+		if err = validateLead(ctx, tx, &req); err != nil {
+			return err
+		}
+		changes := map[string]any{"title": req.Title, "company": req.Company, "name": req.Name, "mobile": req.Mobile, "source": req.Source, "remark": req.Remark, "email": req.Email, "position": req.Position, "address": req.Address, "province": req.Province, "city": req.City, "district": req.District, "owner_user_id": req.OwnerUserID, "customer_id": nullableSalesID(req.CustomerID)}
+		if err = tx.Model(&lead).Updates(changes).Error; err != nil {
+			return err
+		}
+		return tx.First(&lead, "tenant_id = ? AND id = ?", lead.TenantID, id).Error
+	})
+	return lead, err
 }
 
 func (s CrmLeadService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmLead{})
-	return res.RowsAffected, res.Error
+	return mutateLeads(ctx, ids, func(tx *gorm.DB, lead *models.CrmLead) error {
+		if lead.ConvertCustomerID != "" || lead.Status == "qualified" {
+			return errors.New("已转化线索需要保留来源记录")
+		}
+		for _, model := range []any{&models.CrmFollowup{}, &models.CrmOpportunity{}} {
+			var count int64
+			if err := tx.Model(model).Where("tenant_id = ? AND lead_id = ?", lead.TenantID, lead.ID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return errors.New("线索已有跟进或商机记录，请保留或标记流失")
+			}
+		}
+		if err := recycleEntity(ctx, tx, "lead", lead.ID, lead.Title); err != nil {
+			return err
+		}
+		return tx.Delete(lead).Error
+	})
 }
 
 // BatchImport 批量导入线索。rows 为解析后的行列映射。
 // 导入的线索默认 status=new，source=import；无归属人时进入线索池。
 func (s CrmLeadService) BatchImport(ctx context.Context, userID string, rows []map[string]string) (int, int, error) {
+	actor, _, err := customerActor(ctx, models.DB)
+	if err != nil {
+		return 0, 0, err
+	}
+	if actor.ID != userID {
+		return 0, 0, ErrCustomerAccess
+	}
+	if len(rows) > 1000 {
+		return 0, 0, errors.New("单次最多导入1000条线索，请分批提交")
+	}
 	tenantID := identity.TenantID(ctx)
 
 	success, fail := 0, 0
@@ -1887,10 +2118,13 @@ func (s CrmLeadService) BatchImport(ctx context.Context, userID string, rows []m
 }
 
 func (s CrmLeadService) Get(ctx context.Context, id string) (models.CrmLead, error) {
-
-	var l models.CrmLead
-	err := models.MustFor(ctx).Where("id = ?", id).First(&l).Error
-	return l, err
+	var lead models.CrmLead
+	db, err := salesAccessDB(ctx, models.DB, true)
+	if err != nil {
+		return lead, err
+	}
+	err = db.Where("id = ?", id).First(&lead).Error
+	return lead, err
 }
 
 func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID string, keyword string, pager *app.Pager) ([]models.CrmLead, int64, error) {
@@ -1899,7 +2133,10 @@ func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID st
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.MustFor(ctx)
+	db, err := salesAccessDB(ctx, models.DB, true)
+	if err != nil {
+		return nil, 0, err
+	}
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -1915,7 +2152,7 @@ func (s CrmLeadService) Query(ctx context.Context, status string, ownerUserID st
 		return nil, 0, err
 	}
 	var ls []models.CrmLead
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&ls).Error
+	err = db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&ls).Error
 	return ls, total, err
 }
 
@@ -1926,37 +2163,72 @@ type CrmPipelineStageService struct{}
 func NewCrmPipelineStage() *CrmPipelineStageService { return &CrmPipelineStageService{} }
 
 func (s CrmPipelineStageService) Create(ctx context.Context, req models.CrmPipelineStage) (models.CrmPipelineStage, error) {
-
-	req.ID = id_generator.StringID()
-	req.TenantID = identity.TenantID(ctx)
-	err := models.MustFor(ctx).Create(&req).Error
-	if err != nil {
-		log.Sugar.Errorw("crm stage create failed", "err", err)
+	req.ID, req.TenantID = id_generator.StringID(), identity.TenantID(ctx)
+	if err := requireCRMManager(ctx, models.DB); err != nil {
+		return req, err
 	}
-	return req, err
+	if err := validatePipelineStage(&req); err != nil {
+		return req, err
+	}
+	return req, createCRM(models.DB.WithContext(ctx), &req)
 }
 
 func (s CrmPipelineStageService) Update(ctx context.Context, id string, req models.CrmPipelineStage) (models.CrmPipelineStage, error) {
-
-	req.ID = id
-	req.TenantID = identity.TenantID(ctx)
-	err := models.MustFor(ctx).Model(&models.CrmPipelineStage{}).Where("id = ?", id).
-		Select("name", "sort", "probability", "is_won", "is_lost", "color", "description").
-		Updates(map[string]any{
-			"name": req.Name, "sort": req.Sort, "probability": req.Probability,
-			"is_won": req.IsWon, "is_lost": req.IsLost,
-			"color": req.Color, "description": req.Description,
-		}).Error
-	if err != nil {
-		log.Sugar.Errorw("crm stage update failed", "err", err)
+	req.ID, req.TenantID = id, identity.TenantID(ctx)
+	if err := validatePipelineStage(&req); err != nil {
+		return req, err
 	}
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireCRMManager(ctx, tx); err != nil {
+			return err
+		}
+		var old models.CrmPipelineStage
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", req.TenantID, id).First(&old).Error; err != nil {
+			return err
+		}
+		if old.IsWon != req.IsWon || old.IsLost != req.IsLost || old.Probability != req.Probability {
+			var count int64
+			if err := tx.Unscoped().Model(&models.CrmOpportunity{}).Where("tenant_id = ? AND stage_id = ?", req.TenantID, id).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return errors.New("阶段已有商机，不能改变终态或成交概率；请新增阶段后迁移")
+			}
+		}
+		return tx.Model(&old).Updates(map[string]any{"name": req.Name, "sort": req.Sort, "probability": req.Probability, "is_won": req.IsWon, "is_lost": req.IsLost, "color": req.Color, "description": req.Description}).Error
+	})
 	return req, err
 }
 
 func (s CrmPipelineStageService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmPipelineStage{})
-	return res.RowsAffected, res.Error
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
+	}
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireCRMManager(ctx, tx); err != nil {
+			return err
+		}
+		var stages []models.CrmPipelineStage
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Order("id").Find(&stages).Error; err != nil {
+			return err
+		}
+		if len(stages) != len(ids) {
+			return errors.New("销售阶段不存在")
+		}
+		var count int64
+		if err := tx.Unscoped().Model(&models.CrmOpportunity{}).Where("tenant_id = ? AND stage_id IN ?", identity.TenantID(ctx), ids).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New("销售阶段已有商机，不能删除")
+		}
+		return tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Delete(&models.CrmPipelineStage{}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 func (s CrmPipelineStageService) List(ctx context.Context) ([]models.CrmPipelineStage, error) {
@@ -1973,98 +2245,154 @@ type CrmOpportunityService struct{}
 func NewCrmOpportunity() *CrmOpportunityService { return &CrmOpportunityService{} }
 
 func (s CrmOpportunityService) Create(ctx context.Context, userID string, req models.CrmOpportunity) (models.CrmOpportunity, error) {
-	tenantID := identity.TenantID(ctx)
-
-	req.ID = id_generator.StringID()
-	req.TenantID = tenantID
+	req.ID, req.TenantID = id_generator.StringID(), identity.TenantID(ctx)
+	if userID != identity.UserID(ctx) {
+		return req, ErrCustomerAccess
+	}
 	if req.OwnerUserID == "" {
 		req.OwnerUserID = userID
 	}
-	// stage 是状态的唯一真相：创建时若指定阶段，按目标阶段终态推导 status。
-	if req.StageID != "" {
+	if req.Status != "" && req.Status != "open" {
+		return req, errors.New("新商机应为进行中状态")
+	}
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateOpportunity(ctx, tx, &req); err != nil {
+			return err
+		}
 		var stage models.CrmPipelineStage
-		if err := models.MustFor(ctx).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
-			switch {
-			case stage.IsWon:
-				req.Status = "won"
-			case stage.IsLost:
-				req.Status = "lost"
-			default:
-				req.Status = "open"
+		var err error
+		if req.StageID != "" {
+			stage, err = opportunityStage(ctx, tx, req.StageID)
+		} else {
+			err = tx.Where("tenant_id = ? AND is_won = false AND is_lost = false", req.TenantID).Order("sort, id").First(&stage).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				err = nil
 			}
 		}
-	}
-	if req.Status == "" {
-		req.Status = "open"
-	}
-	err := createCRM(models.DB, &req, "CustomerID", "LeadID", "OwnerUserID", "StageID")
-	if err != nil {
-		log.Sugar.Errorw("crm opportunity create failed", "err", err)
-	}
+		if err != nil {
+			return err
+		}
+		if stage.IsWon || stage.IsLost {
+			return errors.New("请先创建进行中的商机，再办理赢单或输单")
+		}
+		applyOpportunityStage(&req, stage)
+		return createCRM(tx, &req)
+	})
 	return req, err
 }
 
 func (s CrmOpportunityService) Update(ctx context.Context, id string, req models.CrmOpportunity) (models.CrmOpportunity, error) {
-	tenantID := identity.TenantID(ctx)
-
-	req.ID = id
-	req.TenantID = tenantID
-
-	// 已关闭（赢单/输单）商机不允许通过编辑改 status/stage_id，必须用 Reopen 恢复。
-	var existing models.CrmOpportunity
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
-		return req, err
-	}
-	if existing.Status == "won" || existing.Status == "lost" {
-		req.Status = existing.Status
-		req.StageID = existing.StageID
-	} else if req.StageID != "" {
-		// stage 是状态的唯一真相：改 stage 时按目标阶段的终态推导 status，避免与 MoveStage 不一致。
-		var stage models.CrmPipelineStage
-		if err := models.MustFor(ctx).Where("id = ?", req.StageID).First(&stage).Error; err == nil {
-			switch {
-			case stage.IsWon:
-				req.Status = "won"
-			case stage.IsLost:
-				req.Status = "lost"
-			default:
-				req.Status = "open"
-			}
-		}
-	}
-	err := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Select("customer_id", "lead_id", "owner_user_id", "stage_id", "title", "product", "amount", "expected_close_date", "status", "remark").
-		Updates(updatesCRM(map[string]any{
-			"customer_id": req.CustomerID, "lead_id": req.LeadID, "owner_user_id": req.OwnerUserID,
-			"stage_id": req.StageID, "title": req.Title, "product": req.Product, "amount": req.Amount,
-			"expected_close_date": req.ExpectedCloseDate, "status": req.Status, "remark": req.Remark,
-		}, "customer_id", "lead_id", "owner_user_id", "stage_id")).Error
-	if err != nil {
-		log.Sugar.Errorw("crm opportunity update failed", "err", err)
-	}
-	return req, err
-}
-
-func (s CrmOpportunityService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmOpportunity{})
-	return res.RowsAffected, res.Error
-}
-
-func (s CrmOpportunityService) Get(ctx context.Context, id string) (models.CrmOpportunity, error) {
-
 	var o models.CrmOpportunity
-	err := models.MustFor(ctx).Where("id = ?", id).First(&o).Error
+	changed := false
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		o, err = lockSalesRecord[models.CrmOpportunity](ctx, tx, id, false)
+		if err != nil {
+			return err
+		}
+		if o.Status != "open" {
+			return errors.New("已关闭商机请先恢复再编辑")
+		}
+		if req.Status != "" && req.Status != o.Status {
+			return errors.New("请通过阶段或赢单/输单操作变更状态")
+		}
+		req.ID, req.TenantID = o.ID, o.TenantID
+		if req.OwnerUserID == "" {
+			req.OwnerUserID = o.OwnerUserID
+		}
+		if req.CustomerID != o.CustomerID {
+			return errors.New("商机客户不能直接更换，请为新客户另建商机")
+		}
+		if err = validateOpportunity(ctx, tx, &req); err != nil {
+			return err
+		}
+		o.Amount = req.Amount
+		if req.StageID != "" && req.StageID != o.StageID {
+			stage, err := opportunityStage(ctx, tx, req.StageID)
+			if err != nil {
+				return err
+			}
+			if err = moveOpportunity(ctx, tx, &o, stage); err != nil {
+				return err
+			}
+			changed = true
+		}
+		// Preserve the stage-derived state; editing the form cannot bypass transition guards.
+		updates := map[string]any{"lead_id": nullableSalesID(req.LeadID), "owner_user_id": req.OwnerUserID, "title": req.Title, "product": req.Product, "amount": req.Amount, "expected_close_date": req.ExpectedCloseDate, "remark": req.Remark}
+		o.ExpectedRevenue = math.Round(o.Amount*float64(o.Probability)) / 100
+		updates["expected_revenue"] = o.ExpectedRevenue
+		if err = tx.Model(&o).Updates(updates).Error; err != nil {
+			return err
+		}
+		return tx.First(&o, "tenant_id = ? AND id = ?", o.TenantID, id).Error
+	})
+	if err == nil && changed {
+		opportunityStageEvent(ctx, o)
+	}
 	return o, err
 }
 
-func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID string, ownerUserID string, keyword string, pager *app.Pager) ([]models.CrmOpportunity, int64, error) {
+func (s CrmOpportunityService) Delete(ctx context.Context, ids []string) (int64, error) {
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
+	}
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, id := range ids {
+			o, err := lockSalesRecord[models.CrmOpportunity](ctx, tx, id, false)
+			if err != nil {
+				return err
+			}
+			if o.Status != "open" {
+				return errors.New("已关闭商机应保留业务记录")
+			}
+			for _, model := range []any{&models.CrmFollowup{}, &models.CrmQuote{}, &models.CrmOrder{}} {
+				var count int64
+				if err = tx.Model(model).Where("tenant_id = ? AND opportunity_id = ?", o.TenantID, id).Count(&count).Error; err != nil {
+					return err
+				}
+				if count > 0 {
+					return errors.New("商机已有跟进、报价或合同，应保留业务记录")
+				}
+			}
+			if err = recycleEntity(ctx, tx, "opportunity", o.ID, o.Title); err != nil {
+				return err
+			}
+			if err = tx.Delete(&o).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
+}
+
+func (s CrmOpportunityService) Get(ctx context.Context, id string) (models.CrmOpportunity, error) {
+	var o models.CrmOpportunity
+	db, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return o, err
+	}
+	err = db.Where("id = ?", id).First(&o).Error
+	return o, err
+}
+
+func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID string, ownerUserID string, keyword string, pager *app.Pager, customerIDs ...string) ([]models.CrmOpportunity, int64, error) {
 
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.MustFor(ctx)
+	db, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(customerIDs) > 0 && customerIDs[0] != "" {
+		db = db.Where("customer_id = ?", customerIDs[0])
+	}
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -2082,53 +2410,17 @@ func (s CrmOpportunityService) Query(ctx context.Context, status string, stageID
 		return nil, 0, err
 	}
 	var os []models.CrmOpportunity
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&os).Error
+	err = db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&os).Error
 	return os, total, err
 }
 
-// MoveStage 移动商机阶段；到达赢单/输单终态时同步 status。
+// MoveStage 移动进行中的商机阶段；赢单/输单必须通过专用操作填写原因。
 // 若租户开启了跟进强制校验，需近 N 天有跟进记录方可移动。
 func (s CrmOpportunityService) MoveStage(ctx context.Context, id, stageID string) (models.CrmOpportunity, error) {
-	tenantID := identity.TenantID(ctx)
-
-	var o models.CrmOpportunity
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&o).Error; err != nil {
-		return o, err
+	if _, err := transitionOpportunities(ctx, []string{id}, stageID); err != nil {
+		return models.CrmOpportunity{}, err
 	}
-	var stage models.CrmPipelineStage
-	if err := models.MustFor(ctx).Where("id = ?", stageID).First(&stage).Error; err != nil {
-		return o, err
-	}
-	// 阶段流转校验：移动到非终态阶段时校验跟进（赢单/输单终态不校验，允许直接关闭）。
-	if !stage.IsWon && !stage.IsLost {
-		if err := checkMoveStageGuard(ctx, id); err != nil {
-			return o, err
-		}
-	}
-	updates := map[string]any{"stage_id": stageID}
-	switch {
-	case stage.IsWon:
-		updates["status"] = "won"
-	case stage.IsLost:
-		updates["status"] = "lost"
-	default:
-		updates["status"] = "open"
-	}
-	err := models.DB.Model(&models.CrmOpportunity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).Updates(updates).Error
-	o.StageID = stageID
-	o.Status, _ = updates["status"].(string)
-	// Phase 4：阶段变化触发 SOP 自动化
-	if err == nil {
-		NewCrmSop().Trigger(ctx, "stage_change", map[string]string{
-			"customer_id":    o.CustomerID,
-			"opportunity_id": o.ID,
-			"stage_id":       stageID,
-		})
-		if o.CustomerID != "" {
-			TriggerScoreUpdate(tenantID, o.CustomerID)
-		}
-	}
-	return o, err
+	return s.Get(ctx, id)
 }
 
 // ---------- CrmFollowup ----------
@@ -2138,53 +2430,268 @@ type CrmFollowupService struct{}
 func NewCrmFollowup() *CrmFollowupService { return &CrmFollowupService{} }
 
 func (s CrmFollowupService) Create(ctx context.Context, userID string, req models.CrmFollowup) (models.CrmFollowup, error) {
-	tenantID := identity.TenantID(ctx)
-
 	req.ID = id_generator.StringID()
-	req.TenantID = tenantID
-	if req.UserID == "" {
-		req.UserID = userID
+	req.TenantID = identity.TenantID(ctx)
+	req.UserID = identity.UserID(ctx)
+	if req.UserID == "" || req.UserID != userID {
+		return req, ErrCustomerAccess
 	}
-	err := createCRM(models.DB, &req, "CustomerID", "LeadID", "OpportunityID", "UserID")
-	if err != nil {
-		log.Sugar.Errorw("crm followup create failed", "err", err)
-	} else if req.CustomerID != "" {
-		TriggerScoreUpdate(tenantID, req.CustomerID)
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		return req, errors.New("请填写跟进内容")
+	}
+	if req.Type == "" {
+		req.Type = "other"
+	}
+	if req.Duration < 0 {
+		return req, errors.New("跟进时长不能为负数")
+	}
+	switch req.Type {
+	case "call", "phone", "visit", "message", "wechat", "email", "meeting", "other":
+	default:
+		return req, errors.New("跟进方式无效")
+	}
+	switch req.Result {
+	case "", "positive", "neutral", "negative":
+	default:
+		return req, errors.New("跟进结果无效")
+	}
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if req.ContactID != "" {
+			if err := contactWriteLock(ctx, tx); err != nil {
+				return err
+			}
+		}
+		actor, manager, err := customerActor(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if req.OpportunityID != "" {
+			var o models.CrmOpportunity
+			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", req.TenantID, req.OpportunityID).First(&o).Error; err != nil {
+				return errors.New("关联商机不存在")
+			}
+			if !manager && o.OwnerUserID != actor.ID {
+				return ErrCustomerAccess
+			}
+			if req.CustomerID != "" && req.CustomerID != o.CustomerID {
+				return errors.New("跟进客户与商机客户不一致")
+			}
+			req.CustomerID = o.CustomerID
+		}
+		if req.LeadID != "" {
+			var l models.CrmLead
+			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id = ?", req.TenantID, req.LeadID).First(&l).Error; err != nil {
+				return errors.New("关联线索不存在")
+			}
+			if !manager && l.OwnerUserID != actor.ID {
+				return ErrCustomerAccess
+			}
+			if err = mutableLead(l); err != nil {
+				return err
+			}
+			if l.PoolStatus == 1 {
+				return errors.New("请先领取线索再跟进")
+			}
+			if req.CustomerID != "" && req.CustomerID != l.CustomerID {
+				return errors.New("跟进客户与线索客户不一致")
+			}
+			req.CustomerID = l.CustomerID
+			if err = validateLeadAppointment(req.NextFollowupAt, req.NextAction); err != nil {
+				return err
+			}
+			changes := map[string]any{"next_followup_at": req.NextFollowupAt, "next_action": strings.TrimSpace(req.NextAction)}
+			if l.Status == "new" || l.Status == "" {
+				changes["status"] = "contacted"
+			}
+			if err = tx.Model(&l).Updates(changes).Error; err != nil {
+				return err
+			}
+		}
+		if req.ContactID != "" && req.CustomerID == "" {
+			return errors.New("请选择联系人所属客户")
+		}
+		if req.CustomerID == "" && req.LeadID == "" && req.OpportunityID == "" {
+			return errors.New("请选择跟进客户、线索或商机")
+		}
+		if req.CustomerID != "" {
+			db, err := customerAccessDB(ctx, tx, true)
+			if err != nil {
+				return err
+			}
+			var customer models.CrmCustomer
+			if err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", req.CustomerID).First(&customer).Error; err != nil {
+				return ErrCustomerAccess
+			}
+			if customer.ReassignStatus == 1 {
+				return errors.New("请先接收转交客户再跟进")
+			}
+			if customer.PoolStatus == 1 {
+				return errors.New("请先领取公海客户再跟进")
+			}
+			if req.ContactID != "" {
+				var contact models.CrmContact
+				if err = tx.Where("tenant_id = ? AND id = ? AND customer_id = ?", req.TenantID, req.ContactID, req.CustomerID).First(&contact).Error; err != nil {
+					return errors.New("联系人不属于当前客户")
+				}
+			}
+			// A new follow-up supersedes the previous reminder, including clearing a completed reminder.
+			if req.LeadID == "" {
+				if err = tx.Model(&customer).Update("next_followup_at", req.NextFollowupAt).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return createCRM(tx, &req)
+	})
+	if err == nil && req.CustomerID != "" {
+		TriggerScoreUpdate(req.TenantID, req.CustomerID)
 	}
 	return req, err
 }
 
 func (s CrmFollowupService) Delete(ctx context.Context, ids []string) (int64, error) {
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
+	}
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		actor, manager, err := customerActor(ctx, tx)
+		if err != nil {
+			return err
+		}
+		var rows []models.CrmFollowup
+		if err = tx.Where("tenant_id = ? AND id IN ?", actor.TenantID, ids).Order("id").Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) != len(ids) {
+			return errors.New("跟进记录不存在或已删除")
+		}
+		// Lock lead parents before customers, matching conversion's lock order.
+		var leads []models.CrmLead
+		if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id IN (?)", actor.TenantID, tx.Model(&models.CrmFollowup{}).Select("lead_id").Where("tenant_id = ? AND id IN ?", actor.TenantID, ids)).Order("id").Find(&leads).Error; err != nil {
+			return err
+		}
+		if err = tx.Where("tenant_id = ? AND id IN ?", actor.TenantID, ids).Order("id").Find(&rows).Error; err != nil {
+			return err
+		}
+		customerIDs := []string{}
+		customerScheduleChanged := map[string]bool{}
+		convertedLeads := map[string]string{}
+		for _, lead := range leads {
+			convertedLeads[lead.ID] = lead.ConvertCustomerID
+		}
+		for _, row := range rows {
+			if !manager && row.UserID != actor.ID {
+				return ErrCustomerAccess
+			}
+			if row.CustomerID != "" {
+				customerIDs = append(customerIDs, row.CustomerID)
+				if row.LeadID == "" || convertedLeads[row.LeadID] == row.CustomerID {
+					customerScheduleChanged[row.CustomerID] = true
+				}
+			}
+		}
+		var customers []models.CrmCustomer
+		access, err := customerAccessDB(ctx, tx, true)
+		if err != nil {
+			return err
+		}
+		if len(customerIDs) > 0 {
+			if err = access.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", customerIDs).Order("id").Find(&customers).Error; err != nil {
+				return err
+			}
+			allowed := map[string]bool{}
+			for _, c := range customers {
+				allowed[c.ID] = true
+			}
+			for _, id := range customerIDs {
+				if !allowed[id] {
+					return ErrCustomerAccess
+				}
+			}
+		}
+		for _, l := range leads {
+			if !manager && l.OwnerUserID != actor.ID {
+				return ErrCustomerAccess
+			}
+		}
+		res := tx.Where("tenant_id = ? AND id IN ?", actor.TenantID, ids).Delete(&models.CrmFollowup{})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != int64(len(ids)) {
+			return errors.New("跟进记录已变化，请刷新后重试")
+		}
+		for _, lead := range leads {
+			if lead.PoolStatus == 1 || mutableLead(lead) != nil {
+				continue
+			}
+			var latest models.CrmFollowup
+			err = tx.Where("tenant_id = ? AND lead_id = ?", actor.TenantID, lead.ID).Order("id DESC").First(&latest).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			if err = tx.Model(&lead).Updates(map[string]any{"next_followup_at": latest.NextFollowupAt, "next_action": latest.NextAction}).Error; err != nil {
+				return err
+			}
+		}
 
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmFollowup{})
-	return res.RowsAffected, res.Error
+		for _, c := range customers {
+			if !customerScheduleChanged[c.ID] {
+				continue
+			}
+			var latest models.CrmFollowup
+			err = tx.Where("tenant_id = ? AND customer_id = ? AND (lead_id IS NULL OR EXISTS (SELECT 1 FROM crm_lead l WHERE l.id = crm_followup.lead_id AND l.tenant_id = crm_followup.tenant_id AND l.convert_customer_id = crm_followup.customer_id))", actor.TenantID, c.ID).Order("created_at desc, id desc").First(&latest).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			if err = tx.Model(&c).Update("next_followup_at", latest.NextFollowupAt).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 func (s CrmFollowupService) ListByCustomer(ctx context.Context, customerID string) ([]models.CrmFollowup, error) {
-
-	var fs []models.CrmFollowup
-	err := models.MustFor(ctx).Where("customer_id = ?", customerID).
-		Order("created_at desc").Find(&fs).Error
-	return fs, err
+	if _, err := NewCrmCustomer().Get(ctx, customerID); err != nil {
+		return nil, err
+	}
+	var rows []models.CrmFollowup
+	err := models.MustFor(ctx).Where("customer_id = ?", customerID).Order("created_at desc, id desc").Limit(1001).Find(&rows).Error
+	if err == nil && len(rows) > 1000 {
+		return nil, errors.New("历史记录超过1000条，请使用 crm_customer.History 分页读取")
+	}
+	return rows, err
 }
 
 func (s CrmFollowupService) ListByOpportunity(ctx context.Context, opportunityID string) ([]models.CrmFollowup, error) {
-
-	var fs []models.CrmFollowup
-	err := models.MustFor(ctx).Where("opportunity_id = ?", opportunityID).
-		Order("created_at desc").Find(&fs).Error
-	return fs, err
+	if _, err := NewCrmOpportunity().Get(ctx, opportunityID); err != nil {
+		return nil, err
+	}
+	var rows []models.CrmFollowup
+	err := models.MustFor(ctx).Where("opportunity_id = ?", opportunityID).Order("created_at desc, id desc").Find(&rows).Error
+	return rows, err
 }
 
 func (s CrmFollowupService) ListByLead(ctx context.Context, leadID string) ([]models.CrmFollowup, error) {
-
-	var fs []models.CrmFollowup
-	err := models.MustFor(ctx).Where("lead_id = ?", leadID).
-		Order("created_at desc").Find(&fs).Error
-	return fs, err
+	if _, err := NewCrmLead().Get(ctx, leadID); err != nil {
+		return nil, err
+	}
+	var rows []models.CrmFollowup
+	err := models.MustFor(ctx).Where("lead_id = ?", leadID).Order("id DESC").Limit(1001).Find(&rows).Error
+	if err == nil && len(rows) > 1000 {
+		return nil, errors.New("线索跟进超过1000条，请使用 crm_lead.History 分页查询")
+	}
+	return rows, err
 }
 
-// FollowupReminder 跟进提醒项：客户 + 到期时间 + 逾期天数。
+// FollowupReminder 客户跟进提醒，逾期天数按当前时间计算。
 type FollowupReminder struct {
 	CustomerID     string     `json:"customer_id"`
 	CustomerName   string     `json:"customer_name"`
@@ -2195,24 +2702,25 @@ type FollowupReminder struct {
 // ListReminders 今日待跟进：owner=userID 且 next_followup_at <= 今天结束 且非公海。
 func (s CrmFollowupService) ListReminders(ctx context.Context, userID string) ([]FollowupReminder, error) {
 
-	now := time.Now()
-	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-	return s.queryReminders(ctx, userID, "next_followup_at <= ?", endOfToday)
+	_, end := followupDay(time.Now())
+	return s.queryReminders(ctx, userID, "next_followup_at < ?", end)
 }
 
 // ListOverdue 已逾期跟进：owner=userID 且 next_followup_at < 今天开始 且非公海。
 func (s CrmFollowupService) ListOverdue(ctx context.Context, userID string) ([]FollowupReminder, error) {
 
-	now := time.Now()
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	return s.queryReminders(ctx, userID, "next_followup_at < ?", startOfToday)
+	start, _ := followupDay(time.Now())
+	return s.queryReminders(ctx, userID, "next_followup_at < ?", start)
 }
 
 func (s CrmFollowupService) queryReminders(ctx context.Context, userID, cond string, bound time.Time) ([]FollowupReminder, error) {
 
 	var cs []models.CrmCustomer
-	if err := models.MustFor(ctx).Where("owner_user_id = ? AND pool_status = ? AND next_followup_at IS NOT NULL AND "+cond,
-		userID, 0, bound).
+	db, err := actionableFollowupCustomers(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Where(cond, bound).
 		Order("next_followup_at asc").Limit(50).Find(&cs).Error; err != nil {
 		return nil, err
 	}
@@ -2247,93 +2755,69 @@ type CrmOrderService struct{}
 func NewCrmOrder() *CrmOrderService { return &CrmOrderService{} }
 
 func (s CrmOrderService) Create(ctx context.Context, userID string, req models.CrmOrder, couponCode string) (models.CrmOrder, error) {
-	tenantID := identity.TenantID(ctx)
-
-	req.ID = id_generator.StringID()
-	req.TenantID = tenantID
-	if req.UserID == "" {
-		req.UserID = userID
+	req = newOrder(ctx, userID, req)
+	if req.PaidAmount != 0 {
+		return req, errors.New("请先保存合同，再通过回款登记记录已收款")
 	}
-	if req.Status == "" {
-		req.Status = "draft"
-	}
-	if req.PayStatus == "" {
-		req.PayStatus = "unpaid"
-	}
-	if req.OrderNo == "" {
-		req.OrderNo = "SO" + time.Now().Format("20060102150405") + req.ID[len(req.ID)-6:]
-	}
-	// 优惠券联动：传入 coupon_code 则核销券 + 计算折扣金额
-	if couponCode != "" {
-		rec, err := NewCrmCoupon().Verify(ctx, couponCode, "")
-		if err != nil {
-			return req, fmt.Errorf("优惠券核销失败: %v", err)
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateOrder(ctx, tx, &req); err != nil {
+			return err
 		}
-		req.CouponID = rec.CouponID
-		// 查券模板计算折扣
-		var coupon models.CrmCoupon
-		if err := models.DB.Where("id = ?", rec.CouponID).First(&coupon).Error; err == nil {
-			switch coupon.CouponType {
-			case "discount":
-				req.CouponAmount = req.Amount * (1 - coupon.FaceValue)
-			case "cash":
-				if req.Amount >= coupon.Threshold {
-					req.CouponAmount = coupon.FaceValue
-				}
-			case "gift":
-				req.CouponAmount = 0 // 兑换券不抵扣金额
-			}
-		}
-	}
-	err := createCRM(models.DB, &req, "CustomerID", "LeadID", "OpportunityID", "UserID")
-	if err != nil {
-		log.Sugar.Errorw("crm order create failed", "err", err)
-	} else if req.CustomerID != "" {
-		TriggerScoreUpdate(tenantID, req.CustomerID)
-		// SOP 触发：下单
-		NewCrmSop().Trigger(ctx, "order_created", map[string]string{
-			"customer_id":  req.CustomerID,
-			"order_id":     req.ID,
-			"order_status": req.Status,
-		})
+		return createOrderWithCoupon(ctx, tx, &req, strings.TrimSpace(couponCode))
+	})
+	if err == nil {
+		TriggerScoreUpdate(req.TenantID, req.CustomerID)
+		NewCrmSop().Trigger(ctx, "order_created", map[string]string{"customer_id": req.CustomerID, "order_id": req.ID, "order_status": req.Status})
 	}
 	return req, err
 }
 
 func (s CrmOrderService) Update(ctx context.Context, id string, req models.CrmOrder) (models.CrmOrder, error) {
-	tenantID := identity.TenantID(ctx)
-
-	req.ID = id
-	req.TenantID = tenantID
-	// 已作废/已完成的订单不允许通过编辑改 status/pay_status，必须用专用操作。
-	var existing models.CrmOrder
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&existing).Error; err != nil {
-		return req, err
-	}
-	statusVal := req.Status
-	payStatusVal := req.PayStatus
-	if existing.Status == "cancelled" || existing.Status == "completed" {
-		statusVal = existing.Status
-		payStatusVal = existing.PayStatus
-	}
-	err := models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Select("customer_id", "opportunity_id", "user_id", "title", "amount", "paid_amount", "status", "pay_status", "signed_at", "remark").
-		Updates(updatesCRM(map[string]any{
-			"customer_id": req.CustomerID, "opportunity_id": req.OpportunityID, "user_id": req.UserID,
-			"title": req.Title, "amount": req.Amount, "paid_amount": req.PaidAmount,
-			"status": statusVal, "pay_status": payStatusVal,
-			"signed_at": req.SignedAt, "remark": req.Remark,
-		}, "customer_id", "opportunity_id", "user_id")).Error
-	if err != nil {
-		log.Sugar.Errorw("crm order update failed", "err", err)
-	}
-	return req, err
+	return s.updateContract(ctx, id, req)
 }
 
 func (s CrmOrderService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmOrder{})
-	return res.RowsAffected, res.Error
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
+	}
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, id := range ids {
+			order, err := lockPaymentOrder(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			if order.Status != "draft" && order.Status != "cancelled" {
+				return errors.New("已签约合同请先作废，不能直接删除")
+			}
+			if order.PaidAmount > 0 || order.CouponID != "" {
+				return errors.New("已有收款或优惠券的合同应保留业务记录")
+			}
+			for _, model := range []any{&models.CrmReceivables{}, &models.CrmReceivablesPlan{}, &models.CrmQuote{}} {
+				var count int64
+				if err = tx.Model(model).Where("tenant_id = ? AND order_id = ?", order.TenantID, id).Count(&count).Error; err != nil {
+					return err
+				}
+				if count > 0 {
+					return errors.New("合同已有回款或计划，请保留合同及其关联记录")
+				}
+			}
+			if err = guardEntityReferences(tx, order.TenantID, "order", order.ID, false); err != nil {
+				return err
+			}
+			if err = recycleEntity(ctx, tx, "order", order.ID, order.Title); err != nil {
+				return err
+			}
+			if err = tx.Delete(&order).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 func (s CrmOrderService) Query(ctx context.Context, status string, ownerUserID string, pager *app.Pager) ([]models.CrmOrder, int64, error) {
@@ -2342,7 +2826,14 @@ func (s CrmOrderService) Query(ctx context.Context, status string, ownerUserID s
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
+	actor, manager, err := customerActor(ctx, models.DB)
+	if err != nil {
+		return nil, 0, err
+	}
 	db := models.MustFor(ctx)
+	if !manager {
+		db = db.Where("user_id = ?", actor.ID)
+	}
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
@@ -2354,7 +2845,7 @@ func (s CrmOrderService) Query(ctx context.Context, status string, ownerUserID s
 		return nil, 0, err
 	}
 	var os []models.CrmOrder
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&os).Error
+	err = db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("id desc").Find(&os).Error
 	return os, total, err
 }
 
@@ -2410,6 +2901,13 @@ func (s CrmReportService) SalesSummary(ctx context.Context) (SalesSummary, error
 
 // PipelineFunnel 销售漏斗：open 商机按阶段聚合金额/数量。
 func (s CrmReportService) PipelineFunnel(ctx context.Context, ownerUserID string) ([]map[string]any, error) {
+	scope, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, err
+	}
+	if ownerUserID != "" {
+		scope = scope.Where("owner_user_id = ?", ownerUserID)
+	}
 
 	stages, err := NewCrmPipelineStage().List(ctx)
 	if err != nil {
@@ -2421,10 +2919,7 @@ func (s CrmReportService) PipelineFunnel(ctx context.Context, ownerUserID string
 		Amount  float64 `gorm:"column:amount"`
 	}
 	var rows []row
-	q := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
-	if ownerUserID != "" {
-		q = q.Where("owner_user_id = ?", ownerUserID)
-	}
+	q := scope.Session(&gorm.Session{}).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
 	if err := q.Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
 		Group("stage_id").Scan(&rows).Error; err != nil {
 		return nil, err
@@ -2447,6 +2942,13 @@ func (s CrmReportService) PipelineFunnel(ctx context.Context, ownerUserID string
 // PipelineInspection 销售管线分析：对标 Salesforce Pipeline Inspection。
 // 汇总各阶段的商机数量、金额、加权金额、平均停留天数，以及整体赢单/输单率。
 func (s CrmReportService) PipelineInspection(ctx context.Context, ownerUserID string) (map[string]any, error) {
+	scope, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, err
+	}
+	if ownerUserID != "" {
+		scope = scope.Where("owner_user_id = ?", ownerUserID)
+	}
 	stages, err := NewCrmPipelineStage().List(ctx)
 	if err != nil {
 		return nil, err
@@ -2459,10 +2961,7 @@ func (s CrmReportService) PipelineInspection(ctx context.Context, ownerUserID st
 		Amount  float64 `gorm:"column:amount"`
 	}
 	var openRows []stageRow
-	openQ := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
-	if ownerUserID != "" {
-		openQ = openQ.Where("owner_user_id = ?", ownerUserID)
-	}
+	openQ := scope.Session(&gorm.Session{}).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
 	if err := openQ.Select("stage_id, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS amount").
 		Group("stage_id").Scan(&openRows).Error; err != nil {
 		return nil, err
@@ -2478,10 +2977,7 @@ func (s CrmReportService) PipelineInspection(ctx context.Context, ownerUserID st
 		AvgDays float64 `gorm:"column:avg_days"`
 	}
 	var ageRows []ageRow
-	ageQ := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
-	if ownerUserID != "" {
-		ageQ = ageQ.Where("owner_user_id = ?", ownerUserID)
-	}
+	ageQ := scope.Session(&gorm.Session{}).Model(&models.CrmOpportunity{}).Where("status = ?", "open")
 	if err := ageQ.Select("stage_id, AVG(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400) AS avg_days").
 		Group("stage_id").Scan(&ageRows).Error; err != nil {
 		return nil, err
@@ -2498,10 +2994,7 @@ func (s CrmReportService) PipelineInspection(ctx context.Context, ownerUserID st
 		Amount float64 `gorm:"column:amount"`
 	}
 	var wlRows []wonLostRow
-	wlQ := models.MustFor(ctx).Model(&models.CrmOpportunity{}).Where("status IN ?", []string{"won", "lost"})
-	if ownerUserID != "" {
-		wlQ = wlQ.Where("owner_user_id = ?", ownerUserID)
-	}
+	wlQ := scope.Session(&gorm.Session{}).Model(&models.CrmOpportunity{}).Where("status IN ?", []string{"won", "lost"})
 	if err := wlQ.Select("status, COUNT(*) AS cnt, COALESCE(SUM(actual_amount),0) AS amount").
 		Group("status").Scan(&wlRows).Error; err != nil {
 		return nil, err
@@ -3125,7 +3618,7 @@ func (s CrmActivityService) SetStatus(ctx context.Context, id, status string) er
 	if !transitions[a.Status][status] {
 		return errors.New("非法的状态流转：" + a.Status + " → " + status)
 	}
-	return models.DB.Model(&models.CrmActivity{}).Where("id = ?", id).Update("status", status).Error
+	return models.DB.Model(&models.CrmActivity{}).Where("tenant_id = ? AND id = ?", a.TenantID, id).Update("status", status).Error
 }
 
 func (s CrmActivityService) Delete(ctx context.Context, ids []string) (int64, error) {
@@ -3386,13 +3879,16 @@ func funnelCounts(converted, participated, reached int) (reach, participate, con
 
 // recomputeActivityCounters 从参与明细重算活动触达/参与/转化计数（累计漏斗）。
 func (s CrmActivityService) recomputeActivityCounters(ctx context.Context, activityID string) error {
-	tenantID := identity.TenantID(ctx)
+	return recomputeActivityCounters(models.DB.WithContext(ctx), identity.TenantID(ctx), activityID)
+}
+
+func recomputeActivityCounters(db *gorm.DB, tenantID, activityID string) error {
 
 	var perType []struct {
 		RecordType string
 		N          int
 	}
-	if err := models.DB.Model(&models.CrmActivityRecord{}).
+	if err := db.Model(&models.CrmActivityRecord{}).
 		Select("record_type, COUNT(*) AS n").Scopes(models.TenantScope(tenantID)).Where("activity_id = ?", activityID).
 		Group("record_type").Scan(&perType).Error; err != nil {
 		return err
@@ -3409,7 +3905,7 @@ func (s CrmActivityService) recomputeActivityCounters(ctx context.Context, activ
 		}
 	}
 	reach, participate, conversion := funnelCounts(converted, participated, reached)
-	return models.DB.Model(&models.CrmActivity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", activityID).
+	return db.Model(&models.CrmActivity{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", activityID).
 		Updates(map[string]any{
 			"reach_count":       reach,
 			"participate_count": participate,
@@ -3447,13 +3943,20 @@ func (s CrmActivityService) ListRecords(ctx context.Context, activityID, recordT
 
 // ListByCustomer 返回某客户的活动参与史（带活动名/类型/状态），客户360使用。
 func (s CrmActivityService) ListByCustomer(ctx context.Context, customerID string) ([]CustomerActivityRow, error) {
+	if _, err := NewCrmCustomer().Get(ctx, customerID); err != nil {
+		return nil, err
+	}
 	tenantID := identity.TenantID(ctx)
 
 	var rows []CustomerActivityRow
-	err := models.DB.Table("crm_activity_record").
+	err := models.DB.WithContext(ctx).Table("crm_activity_record").
 		Select("crm_activity_record.*, crm_activity.name AS activity_name, crm_activity.activity_type AS activity_type, crm_activity.status AS activity_status").
-		Joins("LEFT JOIN crm_activity ON crm_activity.id = crm_activity_record.activity_id").Scopes(models.TenantScope(tenantID)).Where("crm_activity_record.customer_id = ?", customerID).
-		Order("crm_activity_record.happened_at desc, crm_activity_record.id desc").Scan(&rows).Error
+		Joins("LEFT JOIN crm_activity ON crm_activity.id = crm_activity_record.activity_id AND crm_activity.tenant_id = crm_activity_record.tenant_id AND crm_activity.deleted_at IS NULL").
+		Where("crm_activity_record.tenant_id = ? AND crm_activity_record.customer_id = ? AND crm_activity_record.deleted_at IS NULL", tenantID, customerID).
+		Order("crm_activity_record.happened_at desc, crm_activity_record.id desc").Limit(1001).Scan(&rows).Error
+	if err == nil && len(rows) > 1000 {
+		return nil, errors.New("历史记录超过1000条，请使用 crm_customer.History 分页读取")
+	}
 	return rows, err
 }
 
@@ -3463,84 +3966,28 @@ type CrmChannelInteractionService struct{}
 
 func NewCrmChannelInteraction() *CrmChannelInteractionService { return &CrmChannelInteractionService{} }
 
-// Create 录入渠道互动（非企微渠道的留资/评论/私信等，企微互动仍走消息存档）。
-func (s CrmChannelInteractionService) Create(ctx context.Context, userID string, req models.CrmChannelInteraction) (models.CrmChannelInteraction, error) {
-	tenantID := identity.TenantID(ctx)
-
-	if req.CustomerID == "" {
-		return req, errors.New("customer_id 不能为空")
-	}
-	var c models.CrmCustomer
-	if err := models.MustFor(ctx).Where("id = ?", req.CustomerID).First(&c).Error; err != nil {
-		return req, errors.New("客户不存在")
-	}
-	if req.Channel == "" {
-		req.Channel = constants.ChannelGeneral
-	}
-	if req.ActionType == "" {
-		req.ActionType = "other"
-	}
-	if req.HappenedAt == nil {
-		now := time.Now()
-		req.HappenedAt = &now
-	}
-	req.ID = id_generator.StringID()
-	req.TenantID = tenantID
-	err := createCRM(models.DB, &req)
-	if err != nil {
-		log.Sugar.Errorw("crm channel interaction create failed", "err", err)
-	}
-	return req, err
-}
-
-func (s CrmChannelInteractionService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmChannelInteraction{})
-	return res.RowsAffected, res.Error
-}
-
-// Query 分页查询渠道互动，可按客户/渠道过滤。
-func (s CrmChannelInteractionService) Query(ctx context.Context, customerID, channel string, pager *app.Pager) ([]models.CrmChannelInteraction, int64, error) {
-
-	if pager == nil {
-		pager = &app.Pager{}
-	}
-	pager.SetDefault()
-	db := models.MustFor(ctx)
-	if customerID != "" {
-		db = db.Where("customer_id = ?", customerID)
-	}
-	if channel != "" {
-		db = db.Where("channel = ?", channel)
-	}
-	var total int64
-	if err := db.Model(&models.CrmChannelInteraction{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var items []models.CrmChannelInteraction
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("happened_at desc, id desc").Find(&items).Error
-	return items, total, err
-}
-
 // ---------- CrmChannelConfig（渠道接入配置，一租户一企微）----------
 
 // ChannelConfigReq 渠道配置入参。secrets 空串语义：创建=未填；更新=不修改。
 type ChannelConfigReq struct {
-	Channel         string `json:"channel"`
-	CorpID          string `json:"corp_id"`
-	Name            string `json:"name"`
-	ContactSecret   string `json:"contact_secret"`
-	CustomerSecret  string `json:"customer_secret"`
-	MainAgentID     int64  `json:"main_agent_id"`
-	MainAgentSecret string `json:"main_agent_secret"`
-	CallbackToken   string `json:"callback_token"`
-	CallbackAesKey  string `json:"callback_aes_key"`
-	CallbackURL     string `json:"callback_url"`
-	Enabled         int    `json:"enabled"`
-	Remark          string `json:"remark"`
-	XhsAppSecret    string `json:"xhs_app_secret"`
-	GzhAppSecret    string `json:"gzh_app_secret"`
-	DouyinAppSecret string `json:"douyin_app_secret"`
+	Channel            string `json:"channel"`
+	CorpID             string `json:"corp_id"`
+	Name               string `json:"name"`
+	ContactSecret      string `json:"contact_secret"`
+	CustomerSecret     string `json:"customer_secret"`
+	MainAgentID        int64  `json:"main_agent_id"`
+	MainAgentSecret    string `json:"main_agent_secret"`
+	CallbackToken      string `json:"callback_token"`
+	CallbackAesKey     string `json:"callback_aes_key"`
+	CallbackURL        string `json:"callback_url"`
+	Enabled            int    `json:"enabled"`
+	Remark             string `json:"remark"`
+	XhsAppSecret       string `json:"xhs_app_secret"`
+	GzhAppSecret       string `json:"gzh_app_secret"`
+	DouyinAppSecret    string `json:"douyin_app_secret"`
+	MsgArchEnabled     int    `json:"msg_arch_enabled"`
+	MsgArchSecret      string `json:"msg_arch_secret"`
+	MsgArchPrivateKeys string `json:"msg_arch_private_keys"`
 }
 
 type CrmChannelConfigService struct{}
@@ -3557,6 +4004,9 @@ func MaskSecret(s string) string {
 
 // Create 新增渠道接入配置。corp_id 全局唯一（一个企微号只被一个租户接入）。
 func (s CrmChannelConfigService) Create(ctx context.Context, req ChannelConfigReq) (ChannelConfigVO, error) {
+	if err := requireChannelEntitlement(ctx, req.Channel, req.MsgArchEnabled == 1); err != nil {
+		return ChannelConfigVO{}, err
+	}
 	tenantID := identity.TenantID(ctx)
 
 	cfg := models.CrmChannelConfig{
@@ -3588,21 +4038,38 @@ func (s CrmChannelConfigService) Create(ctx context.Context, req ChannelConfigRe
 	}
 	// corp_id 全局唯一
 	var cnt int64
-	if err := models.DB.Model(&models.CrmChannelConfig{}).Where("corp_id = ?", cfg.CorpID).Count(&cnt).Error; err != nil {
+	if err := models.CrossTenant().Model(&models.CrmChannelConfig{}).Where("corp_id = ?", cfg.CorpID).Count(&cnt).Error; err != nil {
 		return toChannelConfigVO(cfg), err
 	}
 	if cnt > 0 {
 		return toChannelConfigVO(cfg), errors.New("该 corp_id 已被其他租户配置")
 	}
+	if err := applyArchiveConfig(&cfg, req); err != nil {
+		return toChannelConfigVO(cfg), err
+	}
 	if err := encryptChannelSecrets(&cfg, req); err != nil {
 		return toChannelConfigVO(cfg), err
 	}
-	if err := createCRM(models.DB, &cfg); err != nil {
+	if err := models.DB.Transaction(func(tx *gorm.DB) error {
+		if cfg.Channel == constants.ChannelWecom {
+			if err := models.EnsureWecomTenantLink(tx, tenantID, cfg.CorpID); err != nil {
+				return err
+			}
+			if cfg.Enabled == 1 {
+				if err := models.EnsureWecomDefaults(tx, cfg.CorpID); err != nil {
+					return err
+				}
+			}
+		}
+		return createCRM(tx, &cfg)
+	}); err != nil {
 		log.Sugar.Errorw("crm channel config create failed", "err", err)
 		return toChannelConfigVO(cfg), err
 	}
 	if cfg.Channel == constants.ChannelWecom {
-		registerWecomClient(cfg)
+		if err := registerWecomClient(cfg); err != nil {
+			return toChannelConfigVO(cfg), err
+		}
 	}
 	return toChannelConfigVO(cfg), nil
 }
@@ -3611,14 +4078,15 @@ func (s CrmChannelConfigService) Create(ctx context.Context, req ChannelConfigRe
 func toChannelConfigVO(cfg models.CrmChannelConfig) ChannelConfigVO {
 	return ChannelConfigVO{
 		CrmChannelConfig: cfg,
-		ContactSecret:    MaskSecret(cfg.ContactSecret),
-		CustomerSecret:   MaskSecret(cfg.CustomerSecret),
-		MainAgentSecret:  MaskSecret(cfg.MainAgentSecret),
-		CallbackToken:    MaskSecret(cfg.CallbackToken),
-		CallbackAesKey:   MaskSecret(cfg.CallbackAesKey),
-		XhsAppSecret:     MaskSecret(cfg.XhsAppSecret),
-		GzhAppSecret:     MaskSecret(cfg.GzhAppSecret),
-		DouyinAppSecret:  MaskSecret(cfg.DouyinAppSecret),
+		MsgArchSecret:    MaskSecret(cfg.MsgArchSecret), MsgArchPrivateKeys: MaskSecret(cfg.MsgArchPrivateKeys),
+		ContactSecret:   MaskSecret(cfg.ContactSecret),
+		CustomerSecret:  MaskSecret(cfg.CustomerSecret),
+		MainAgentSecret: MaskSecret(cfg.MainAgentSecret),
+		CallbackToken:   MaskSecret(cfg.CallbackToken),
+		CallbackAesKey:  MaskSecret(cfg.CallbackAesKey),
+		XhsAppSecret:    MaskSecret(cfg.XhsAppSecret),
+		GzhAppSecret:    MaskSecret(cfg.GzhAppSecret),
+		DouyinAppSecret: MaskSecret(cfg.DouyinAppSecret),
 	}
 }
 
@@ -3629,9 +4097,16 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 	if err := models.MustFor(ctx).Where("id = ?", id).First(&cfg).Error; err != nil {
 		return toChannelConfigVO(cfg), errors.New("渠道配置不存在")
 	}
+	if cfg.AuthMode == "provider" && req.MainAgentID != 0 && req.MainAgentID != cfg.MainAgentID {
+		return toChannelConfigVO(cfg), errors.New("服务商应用 ID 由授权信息管理")
+	}
+	if cfg.Channel == constants.ChannelWecom && ((req.CorpID != "" && req.CorpID != cfg.CorpID) || (req.Channel != "" && req.Channel != cfg.Channel)) {
+		return toChannelConfigVO(cfg), errors.New("企微配置的企业和渠道不可改绑，请新增配置并停用原配置")
+	}
 	if req.CorpID != "" && req.CorpID != cfg.CorpID {
 		var cnt int64
-		if err := models.DB.Model(&models.CrmChannelConfig{}).
+		// corp_id 全局唯一：显式跨租户检查。
+		if err := models.CrossTenant().Model(&models.CrmChannelConfig{}).
 			Where("corp_id = ? AND id <> ?", req.CorpID, id).Count(&cnt).Error; err != nil {
 			return toChannelConfigVO(cfg), err
 		}
@@ -3657,6 +4132,15 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 	}
 	if req.MainAgentID != 0 {
 		cfg.MainAgentID = req.MainAgentID
+	}
+	if err := applyArchiveConfig(&cfg, req); err != nil {
+		return toChannelConfigVO(cfg), err
+	}
+	if err := validateChannelConfig(&cfg); err != nil {
+		return toChannelConfigVO(cfg), err
+	}
+	if err := requireChannelEntitlement(ctx, cfg.Channel, cfg.MsgArchEnabled == 1); err != nil {
+		return toChannelConfigVO(cfg), err
 	}
 	// secrets：空串不改；否则重新加密覆盖
 	var err error
@@ -3707,20 +4191,35 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 	case constants.ChannelDouyin:
 		cfg.DouyinAppID = cfg.CorpID
 	}
-	if err := models.DB.Model(&models.CrmChannelConfig{}).Where("id = ?", id).Updates(map[string]any{
-		"channel": cfg.Channel, "corp_id": cfg.CorpID, "name": cfg.Name,
-		"contact_secret": cfg.ContactSecret, "customer_secret": cfg.CustomerSecret,
-		"main_agent_id": cfg.MainAgentID, "main_agent_secret": cfg.MainAgentSecret,
-		"callback_token": cfg.CallbackToken, "callback_aes_key": cfg.CallbackAesKey,
-		"callback_url": cfg.CallbackURL, "enabled": cfg.Enabled, "remark": cfg.Remark,
-		"xhs_app_secret": cfg.XhsAppSecret,
-		"gzh_app_id":     cfg.GzhAppID, "gzh_app_secret": cfg.GzhAppSecret,
-		"douyin_app_id": cfg.DouyinAppID, "douyin_app_secret": cfg.DouyinAppSecret,
-	}).Error; err != nil {
+	if err := models.DB.Transaction(func(tx *gorm.DB) error {
+		if cfg.Channel == constants.ChannelWecom {
+			if err := models.EnsureWecomTenantLink(tx, cfg.TenantID, cfg.CorpID); err != nil {
+				return err
+			}
+			if cfg.Enabled == 1 {
+				if err := models.EnsureWecomDefaults(tx, cfg.CorpID); err != nil {
+					return err
+				}
+			}
+		}
+		return tx.Model(&models.CrmChannelConfig{}).Where("id = ? AND tenant_id = ?", id, cfg.TenantID).Updates(map[string]any{
+			"channel": cfg.Channel, "corp_id": cfg.CorpID, "name": cfg.Name,
+			"contact_secret": cfg.ContactSecret, "customer_secret": cfg.CustomerSecret,
+			"main_agent_id": cfg.MainAgentID, "main_agent_secret": cfg.MainAgentSecret,
+			"callback_token": cfg.CallbackToken, "callback_aes_key": cfg.CallbackAesKey,
+			"callback_url": cfg.CallbackURL, "enabled": cfg.Enabled, "remark": cfg.Remark,
+			"msg_arch_enabled": cfg.MsgArchEnabled, "msg_arch_secret": cfg.MsgArchSecret, "msg_arch_private_keys": cfg.MsgArchPrivateKeys,
+			"xhs_app_secret": cfg.XhsAppSecret,
+			"gzh_app_id":     cfg.GzhAppID, "gzh_app_secret": cfg.GzhAppSecret,
+			"douyin_app_id": cfg.DouyinAppID, "douyin_app_secret": cfg.DouyinAppSecret,
+		}).Error
+	}); err != nil {
 		return toChannelConfigVO(cfg), err
 	}
 	if cfg.Channel == constants.ChannelWecom {
-		registerWecomClient(cfg)
+		if err := registerWecomClient(cfg); err != nil {
+			return toChannelConfigVO(cfg), err
+		}
 	}
 	return toChannelConfigVO(cfg), nil
 }
@@ -3728,14 +4227,16 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 // ChannelConfigVO 渠道配置展示对象（secrets 转掩码）。
 type ChannelConfigVO struct {
 	models.CrmChannelConfig
-	ContactSecret   string `json:"contact_secret"`
-	CustomerSecret  string `json:"customer_secret"`
-	MainAgentSecret string `json:"main_agent_secret"`
-	CallbackToken   string `json:"callback_token"`
-	CallbackAesKey  string `json:"callback_aes_key"`
-	XhsAppSecret    string `json:"xhs_app_secret"`
-	GzhAppSecret    string `json:"gzh_app_secret"`
-	DouyinAppSecret string `json:"douyin_app_secret"`
+	ContactSecret      string `json:"contact_secret"`
+	CustomerSecret     string `json:"customer_secret"`
+	MainAgentSecret    string `json:"main_agent_secret"`
+	CallbackToken      string `json:"callback_token"`
+	CallbackAesKey     string `json:"callback_aes_key"`
+	XhsAppSecret       string `json:"xhs_app_secret"`
+	GzhAppSecret       string `json:"gzh_app_secret"`
+	DouyinAppSecret    string `json:"douyin_app_secret"`
+	MsgArchSecret      string `json:"msg_arch_secret"`
+	MsgArchPrivateKeys string `json:"msg_arch_private_keys"`
 }
 
 func (s CrmChannelConfigService) Query(ctx context.Context, pager *app.Pager) ([]ChannelConfigVO, int64, error) {
@@ -3755,24 +4256,22 @@ func (s CrmChannelConfigService) Query(ctx context.Context, pager *app.Pager) ([
 	}
 	vos := make([]ChannelConfigVO, 0, len(items))
 	for _, it := range items {
-		vos = append(vos, ChannelConfigVO{
-			CrmChannelConfig: it,
-			ContactSecret:    MaskSecret(it.ContactSecret),
-			CustomerSecret:   MaskSecret(it.CustomerSecret),
-			MainAgentSecret:  MaskSecret(it.MainAgentSecret),
-			CallbackToken:    MaskSecret(it.CallbackToken),
-			CallbackAesKey:   MaskSecret(it.CallbackAesKey),
-			XhsAppSecret:     MaskSecret(it.XhsAppSecret),
-		})
+		vos = append(vos, toChannelConfigVO(it))
 	}
+
 	return vos, total, nil
 }
 
 func (s CrmChannelConfigService) Delete(ctx context.Context, ids []string) (int64, error) {
 
 	var cfgs []models.CrmChannelConfig
-	models.MustFor(ctx).Where("id IN ?", ids).Find(&cfgs)
+	if err := models.MustFor(ctx).Where("id IN ?", ids).Find(&cfgs).Error; err != nil {
+		return 0, err
+	}
 	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmChannelConfig{})
+	if res.Error != nil {
+		return 0, res.Error
+	}
 	for _, c := range cfgs {
 		if we_work.Clients != nil {
 			we_work.Clients.Remove(c.CorpID)
@@ -3784,27 +4283,49 @@ func (s CrmChannelConfigService) Delete(ctx context.Context, ids []string) (int6
 // GetByCorpID 按 corp_id 取回调所需解密凭据 + 归属租户（供企微回调入口用）。
 func (s CrmChannelConfigService) GetByCorpID(corpID string) (*WecomCallbackCred, error) {
 	var cfg models.CrmChannelConfig
-	if err := models.DB.Where("corp_id = ?", corpID).First(&cfg).Error; err != nil {
+	// 回调入口由 corp_id 反查归属租户：显式跨租户。
+	if err := models.CrossTenant().Where("channel = ? AND corp_id = ?", constants.ChannelWecom, corpID).First(&cfg).Error; err != nil {
 		return nil, errors.New("未配置该 corp_id 的渠道")
 	}
 	if cfg.Enabled != 1 {
 		return nil, errors.New("该渠道已停用")
 	}
-	token, _ := util.AESDecode(cfg.CallbackToken)
-	aesKey, _ := util.AESDecode(cfg.CallbackAesKey)
+	if cfg.AuthMode == "provider" {
+		p := conf.Settings.WecomProvider
+		if cfg.SuiteID != p.SuiteID || cfg.AuthStatus == "revoked" || p.CallbackToken == "" || p.CallbackAESKey == "" {
+			return nil, errors.New("服务商回调未配置或授权失效")
+		}
+		receiver := p.ReceiveID
+		if receiver == "" {
+			receiver = p.SuiteID
+		}
+		return &WecomCallbackCred{TenantID: cfg.TenantID, CorpID: cfg.CorpID, CallbackToken: p.CallbackToken, CallbackAesKey: p.CallbackAESKey, ReceiverID: receiver, AuthMode: "provider"}, nil
+	}
+	token, err := decodeWecomSecret(cfg.CallbackToken)
+	if err != nil || token == "" {
+		return nil, errors.New("企微回调 Token 无效")
+	}
+	aesKey, err := decodeWecomSecret(cfg.CallbackAesKey)
+	if err != nil || aesKey == "" {
+		return nil, errors.New("企微回调 AES Key 无效")
+	}
 	return &WecomCallbackCred{
 		TenantID:       cfg.TenantID,
 		CorpID:         cfg.CorpID,
 		CallbackToken:  token,
 		CallbackAesKey: aesKey,
+		ReceiverID:     cfg.CorpID, AuthMode: cfg.AuthMode,
 	}, nil
 }
 
 // GetTenantByChannelApp 按渠道 app_id（CorpID 字段）查归属租户（供小红书回调入口用）。
 func (s CrmChannelConfigService) GetTenantByChannelApp(appID string) (string, error) {
 	var cfg models.CrmChannelConfig
-	if err := models.DB.Where("corp_id = ? AND enabled = ?", appID, 1).First(&cfg).Error; err != nil {
+	if err := models.CrossTenant().Where("corp_id = ? AND enabled = ?", appID, 1).First(&cfg).Error; err != nil {
 		return "", errors.New("未配置该 app_id 的渠道或已停用")
+	}
+	if err := requireChannelEntitlement(identity.WithIdentity(context.Background(), identity.Identity{TenantID: cfg.TenantID}), cfg.Channel, false); err != nil {
+		return "", err
 	}
 	return cfg.TenantID, nil
 }
@@ -3813,7 +4334,7 @@ func (s CrmChannelConfigService) GetTenantByChannelApp(appID string) (string, er
 // 未配置 CallbackToken 则校验失败（fail closed）。
 func (s CrmChannelConfigService) VerifyXhsSignature(appID string, body []byte, sig string) bool {
 	var cfg models.CrmChannelConfig
-	if err := models.DB.Where("corp_id = ?", appID).First(&cfg).Error; err != nil {
+	if err := models.CrossTenant().Where("corp_id = ?", appID).First(&cfg).Error; err != nil {
 		return false
 	}
 	token, err := util.AESDecode(cfg.CallbackToken)
@@ -3832,10 +4353,13 @@ type WecomCallbackCred struct {
 	CorpID         string
 	CallbackToken  string
 	CallbackAesKey string
+	ReceiverID     string
+	AuthMode       string
 }
 
 // validateChannelConfig 基础校验（纯函数，可单测）。
 func validateChannelConfig(cfg *models.CrmChannelConfig) error {
+	cfg.CorpID = strings.TrimSpace(cfg.CorpID)
 	if cfg.CorpID == "" {
 		return errors.New("corp_id 不能为空")
 	}
@@ -3894,15 +4418,38 @@ func encryptChannelSecrets(cfg *models.CrmChannelConfig, req ChannelConfigReq) e
 
 // registerWecomClient 按配置启用态注册/移除企微 API 客户端（供回调补名等 API 拉取用）。
 // 客户端 map 懒初始化；秘钥解密后入 per-corp 缓存，首次 API 调用才拉 token，注册本身不碰网络。
-func registerWecomClient(cfg models.CrmChannelConfig) {
+func registerWecomClient(cfg models.CrmChannelConfig) error {
 	we_work.EnsureClients()
 	if cfg.Enabled != 1 {
 		we_work.Clients.Remove(cfg.CorpID)
-		return
+		return nil
 	}
-	contact, _ := util.AESDecode(cfg.ContactSecret)
-	customer, _ := util.AESDecode(cfg.CustomerSecret)
-	main, _ := util.AESDecode(cfg.MainAgentSecret)
+	if cfg.AuthMode != "" && cfg.AuthMode != "self_build" && cfg.AuthMode != "provider" {
+		we_work.Clients.Remove(cfg.CorpID)
+		return errors.New("企微接入方式无效")
+	}
+	if cfg.AuthMode == "provider" {
+		if (cfg.AuthStatus != "authorized" && cfg.AuthStatus != "refresh_pending") || cfg.SuiteID != conf.Settings.WecomProvider.SuiteID || cfg.PermanentCode == "" {
+			we_work.Clients.Remove(cfg.CorpID)
+			return errors.New("服务商企业授权无效")
+		}
+		return we_work.Clients.AddAuthorized(we_work.CorpConf{ExtCorpID: cfg.CorpID, MainAgentID: cfg.MainAgentID, AuthKey: cfg.SuiteID + ":" + cfg.PermanentCode + ":" + cfg.UpdatedAt.String()}, func() (string, int64, error) { return providerCorpToken(cfg.CorpID) })
+	}
+	contact, err := decodeWecomSecret(cfg.ContactSecret)
+	if err != nil {
+		we_work.Clients.Remove(cfg.CorpID)
+		return err
+	}
+	customer, err := decodeWecomSecret(cfg.CustomerSecret)
+	if err != nil {
+		we_work.Clients.Remove(cfg.CorpID)
+		return err
+	}
+	main, err := decodeWecomSecret(cfg.MainAgentSecret)
+	if err != nil {
+		we_work.Clients.Remove(cfg.CorpID)
+		return err
+	}
 	if err := we_work.Clients.Add(we_work.CorpConf{
 		ExtCorpID:       cfg.CorpID,
 		ContactSecret:   contact,
@@ -3911,5 +4458,34 @@ func registerWecomClient(cfg models.CrmChannelConfig) {
 		MainAgentSecret: main,
 	}); err != nil {
 		log.Sugar.Errorw("register wecom client failed", "corp_id", cfg.CorpID, "err", err)
+		return err
 	}
+	return nil
+}
+
+// RestoreChannelClients restores persisted WeCom configs after a process restart.
+func RestoreChannelClients() error {
+	we_work.EnsureClients()
+	var configs []models.CrmChannelConfig
+	// 启动时恢复所有租户的企微客户端：显式跨租户。
+	if err := models.CrossTenant().Where("channel = ? AND enabled = ?", constants.ChannelWecom, 1).Find(&configs).Error; err != nil {
+		return err
+	}
+	for _, cfg := range configs {
+		if err := models.EnsureWecomDefaults(models.DB, cfg.CorpID); err != nil {
+			log.Sugar.Errorw("restore WeCom defaults failed", "corp_id", cfg.CorpID, "err", err)
+			continue
+		}
+		if err := registerWecomClient(cfg); err != nil {
+			log.Sugar.Errorw("restore WeCom client failed", "corp_id", cfg.CorpID, "err", err)
+		}
+	}
+	return nil
+}
+
+func decodeWecomSecret(encrypted string) (string, error) {
+	if encrypted == "" {
+		return "", nil
+	}
+	return util.AESDecode(encrypted)
 }

@@ -8,7 +8,6 @@ import (
 	"core/common/id_generator"
 	"core/common/log"
 	"core/common/we_work"
-	"core/conf"
 	"core/pkg/easywework"
 	gowx "core/pkg/easywework"
 	"time"
@@ -67,7 +66,7 @@ func EventUpdateExternalChatHandler(msg *workwx.RxMessage) error {
 	}
 
 	// 增删成员
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := msg.ToUserID
 	extChatID := chat.ChatID
 	updateDetail := eventCreateChat.GetUpdateDetail()
 	switch updateDetail {

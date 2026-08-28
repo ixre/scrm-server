@@ -125,7 +125,7 @@ func (s CrmSeckillService) Grab(ctx context.Context, seckillID, customerID strin
 	}
 	// 每人限购校验
 	var userCnt int64
-	models.DB.Model(&models.CrmSeckillRecord{}).
+	models.MustFor(ctx).Model(&models.CrmSeckillRecord{}).
 		Where("seckill_id = ? AND customer_id = ? AND status <> ?", seckillID, customerID, "cancelled").Count(&userCnt)
 	if int(userCnt) >= sk.LimitPerUser {
 		return rec, fmt.Errorf("超过每人限购%d次", sk.LimitPerUser)
@@ -144,7 +144,7 @@ func (s CrmSeckillService) Grab(ctx context.Context, seckillID, customerID strin
 	err := models.DB.Transaction(func(tx *gorm.DB) error {
 		// 乐观锁扣库存：UPDATE ... WHERE sold_count < total_stock
 		res := tx.Model(&models.CrmSeckill{}).
-			Where("id = ? AND sold_count < total_stock", seckillID).
+			Where("tenant_id = ? AND id = ? AND sold_count < total_stock", tenantID, seckillID).
 			UpdateColumn("sold_count", gorm.Expr("sold_count + 1"))
 		if res.Error != nil {
 			return res.Error

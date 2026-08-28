@@ -1,96 +1,78 @@
 package services
 
 import (
-	"core/common/identity"
-	
 	"context"
-	
-	"errors"
-	"fmt"
-	"time"
-
 	"core/app/models"
-	"core/common/log"
-
+	"core/common/identity"
+	"errors"
 	"gorm.io/gorm"
+	"strings"
 )
 
-// CrmQuoteExtService 报价扩展服务（单号生成 / 作废 / 转移）。
 type CrmQuoteExtService struct{}
 
 func NewCrmQuoteExt() *CrmQuoteExtService { return &CrmQuoteExtService{} }
 
-// GenerateNo 生成报价单号：Q + yyyyMMdd + 4位当日序号（租户内当日递增）。
-func (s CrmQuoteExtService) GenerateNo(ctx context.Context) (string, error) {
-	tenantID := identity.TenantID(ctx)
-
-
-	day := time.Now().Format("20060102")
-	prefix := "Q" + day
-	var cnt int64
-	if err := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("quote_no LIKE ?",  prefix+"%").Count(&cnt).Error; err != nil {
+// GenerateNo also persists a missing number when an existing quote ID is supplied.
+func (s CrmQuoteExtService) GenerateNo(ctx context.Context, ids ...string) (string, error) {
+	if _, _, err := customerActor(ctx, models.DB); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s%04d", prefix, cnt+1), nil
+	if len(ids) == 0 || ids[0] == "" {
+		return genQuoteNo(identity.TenantID(ctx)), nil
+	}
+	var no string
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q, err := lockSalesRecord[models.CrmQuote](ctx, tx, ids[0], false)
+		if err != nil {
+			return err
+		}
+		no = q.QuoteNo
+		if no != "" {
+			return nil
+		}
+		if q.Status != "draft" {
+			return errors.New("仅草稿报价可生成单号")
+		}
+		no = genQuoteNo(q.TenantID)
+		return tx.Model(&q).Update("quote_no", no).Error
+	})
+	return no, err
 }
-
-// Void 报价作废：Status=void, VoidReason, VoidAt=now。
 func (s CrmQuoteExtService) Void(ctx context.Context, id, reason string) error {
-	tenantID := identity.TenantID(ctx)
-
-
-	if id == "" {
-		return errors.New("id 不能为空")
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return errors.New("请填写作废原因")
 	}
-	now := time.Now()
-	res := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND status <> ?", id,  "void").
-		Updates(map[string]any{"status": "void", "void_reason": reason, "void_at": now})
-	if res.Error != nil {
-		log.Sugar.Errorw("quote void failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("报价单不存在或已作废")
-	}
-	return nil
+	return NewCrmQuote().changeStatus(ctx, id, "void", reason)
 }
-
-// Transfer 报价转移：改 OwnerUserID。
 func (s CrmQuoteExtService) Transfer(ctx context.Context, id, toUserID string) error {
-	tenantID := identity.TenantID(ctx)
-
-
-	if id == "" {
-		return errors.New("id 不能为空")
-	}
-	if toUserID == "" {
-		return errors.New("to_user_id 不能为空")
-	}
-	res := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).Update("owner_user_id", toUserID)
-	if res.Error != nil {
-		log.Sugar.Errorw("quote transfer failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return s.BatchTransfer(ctx, []string{id}, toUserID)
 }
-
-// BatchTransfer 批量转移报价。
 func (s CrmQuoteExtService) BatchTransfer(ctx context.Context, ids []string, toUserID string) error {
-	tenantID := identity.TenantID(ctx)
-
-
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return err
 	}
 	if toUserID == "" {
-		return errors.New("to_user_id 不能为空")
+		return errors.New("请选择接收销售")
 	}
-	res := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).Update("owner_user_id", toUserID)
-	if res.Error != nil {
-		log.Sugar.Errorw("quote batch transfer failed", "err", res.Error)
-	}
-	return res.Error
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateCustomerOwner(ctx, tx, toUserID); err != nil {
+			return err
+		}
+		for _, id := range ids {
+			q, err := lockSalesRecord[models.CrmQuote](ctx, tx, id, false)
+			if err != nil {
+				return err
+			}
+			if q.OrderID != "" {
+				return errors.New("已转合同的报价不支持单独转移")
+			}
+			if err = tx.Model(&q).Update("owner_user_id", toUserID).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

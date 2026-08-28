@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,28 +67,34 @@ func (s PlatformAdminService) ListAdmins(req PlatformAdminListReq) (PlatformAdmi
 
 // PlatformAdminCreateReq 创建参数。
 type PlatformAdminCreateReq struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
-	Avatar   string `json:"avatar"`
-	Mobile   string `json:"mobile"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
+	Perms    *[]string `json:"perms"`
+	Username string    `json:"username"`
+	Password string    `json:"password"`
+	Name     string    `json:"name"`
+	Avatar   string    `json:"avatar"`
+	Mobile   string    `json:"mobile"`
+	Email    string    `json:"email"`
+	Role     string    `json:"role"`
 }
 
 // CreateAdmin 创建平台超管账号。
-func (s PlatformAdminService) CreateAdmin(req PlatformAdminCreateReq) (models.PlatformAdmin, error) {
+func (s PlatformAdminService) CreateAdmin(ctx context.Context, req PlatformAdminCreateReq) (models.PlatformAdmin, error) {
+	if _, err := RequirePlatformPermission(ctx, "platform:admin:create"); err != nil {
+		return models.PlatformAdmin{}, err
+	}
+
 	if req.Username == "" {
 		return models.PlatformAdmin{}, errors.New("用户名不能为空")
 	}
-	if len(req.Password) < 6 {
-		return models.PlatformAdmin{}, errors.New("密码长度至少6位")
+	if err := validatePassword(req.Password); err != nil {
+		return models.PlatformAdmin{}, err
 	}
 	if req.Role == "" {
 		req.Role = "operator"
 	}
-	if req.Role != "super_admin" && req.Role != "operator" && req.Role != "finance" && req.Role != "support" {
-		return models.PlatformAdmin{}, errors.New("无效的角色")
+	grants, err := grantablePlatformPermissions(ctx, req.Role, req.Perms)
+	if err != nil {
+		return models.PlatformAdmin{}, err
 	}
 	// 唯一性检查
 	var cnt int64
@@ -108,6 +115,7 @@ func (s PlatformAdminService) CreateAdmin(req PlatformAdminCreateReq) (models.Pl
 		Mobile:   req.Mobile,
 		Email:    req.Email,
 		Role:     req.Role,
+		Perms:    grants,
 		Status:   1,
 	}
 	if err := models.DB.Create(&admin).Error; err != nil {
@@ -118,49 +126,57 @@ func (s PlatformAdminService) CreateAdmin(req PlatformAdminCreateReq) (models.Pl
 
 // PlatformAdminUpdateReq 更新参数。
 type PlatformAdminUpdateReq struct {
-	Name   string `json:"name"`
-	Avatar string `json:"avatar"`
-	Mobile string `json:"mobile"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-	Status int    `json:"status"`
+	Perms  *[]string `json:"perms"`
+	Name   string    `json:"name"`
+	Avatar string    `json:"avatar"`
+	Mobile string    `json:"mobile"`
+	Email  string    `json:"email"`
+	Role   string    `json:"role"`
+	Status int       `json:"status"`
 }
 
 // UpdateAdmin 更新平台超管（不含密码）。
-func (s PlatformAdminService) UpdateAdmin(id string, req PlatformAdminUpdateReq) error {
-	if id == "" {
-		return errors.New("id 不能为空")
+func (s PlatformAdminService) UpdateAdmin(ctx context.Context, id string, req PlatformAdminUpdateReq) error {
+	if _, err := RequirePlatformPermission(ctx, "platform:admin:update"); err != nil {
+		return err
 	}
-	var admin models.PlatformAdmin
-	if err := models.DB.Where("id = ?", id).First(&admin).Error; err != nil {
-		return errors.New("账号不存在")
+
+	admin, err := manageablePlatformAdmin(ctx, id)
+	if err != nil {
+		return err
 	}
-	// 不允许修改自己的角色（防止超管降权自己）
-	updates := map[string]any{
-		"name":   req.Name,
-		"avatar": req.Avatar,
-		"mobile": req.Mobile,
-		"email":  req.Email,
-	}
-	if req.Role != "" {
-		if req.Role != "super_admin" && req.Role != "operator" && req.Role != "finance" && req.Role != "support" {
-			return errors.New("无效的角色")
+	changes := map[string]any{"name": req.Name, "avatar": req.Avatar, "mobile": req.Mobile, "email": req.Email}
+	if req.Role != "" && req.Role != admin.Role || req.Perms != nil {
+		role := req.Role
+		if role == "" {
+			role = admin.Role
 		}
-		updates["role"] = req.Role
+		grants, err := grantablePlatformPermissions(ctx, role, req.Perms)
+		if err != nil {
+			return err
+		}
+		changes["role"], changes["perms"] = role, grants
 	}
 	if req.Status == 1 || req.Status == 2 {
-		updates["status"] = req.Status
+		changes["status"] = req.Status
 	}
-	return models.DB.Model(&admin).Updates(updates).Error
+	return mutatePlatformAdmin(ctx, id, changes, false)
 }
 
 // ResetAdminPassword 重置平台超管密码。
-func (s PlatformAdminService) ResetAdminPassword(id string, newPassword string) error {
+func (s PlatformAdminService) ResetAdminPassword(ctx context.Context, id string, newPassword string) error {
+	if _, err := RequirePlatformPermission(ctx, "platform:admin:reset_password"); err != nil {
+		return err
+	}
+
 	if id == "" {
 		return errors.New("id 不能为空")
 	}
-	if len(newPassword) < 6 {
-		return errors.New("密码长度至少6位")
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+	if _, err := manageablePlatformAdmin(ctx, id); err != nil {
+		return err
 	}
 	var admin models.PlatformAdmin
 	if err := models.DB.Where("id = ?", id).First(&admin).Error; err != nil {
@@ -174,43 +190,29 @@ func (s PlatformAdminService) ResetAdminPassword(id string, newPassword string) 
 }
 
 // SetAdminStatus 启用/停用平台超管。
-func (s PlatformAdminService) SetAdminStatus(id string, status int) error {
+func (s PlatformAdminService) SetAdminStatus(ctx context.Context, id string, status int) error {
+	if _, err := RequirePlatformPermission(ctx, "platform:admin:set_status"); err != nil {
+		return err
+	}
+
 	if status != 1 && status != 2 {
-		return errors.New("status 只能是 1(启用) 或 2(停用)")
+		return errors.New("账号状态无效")
 	}
-	var admin models.PlatformAdmin
-	if err := models.DB.Where("id = ?", id).First(&admin).Error; err != nil {
-		return errors.New("账号不存在")
+	if _, err := manageablePlatformAdmin(ctx, id); err != nil {
+		return err
 	}
-	// 不允许停用最后一个 super_admin
-	if status == 2 && admin.Role == "super_admin" {
-		var cnt int64
-		models.DB.Model(&models.PlatformAdmin{}).Where("role = ? AND status = 1", "super_admin").Count(&cnt)
-		if cnt <= 1 {
-			return errors.New("不允许停用最后一个超级管理员")
-		}
-	}
-	return models.DB.Model(&admin).Update("status", status).Error
+	return mutatePlatformAdmin(ctx, id, map[string]any{"status": status}, false)
 }
 
-// DeleteAdmin 删除平台超管。
-func (s PlatformAdminService) DeleteAdmin(id string) error {
-	if id == "" {
-		return errors.New("id 不能为空")
+func (s PlatformAdminService) DeleteAdmin(ctx context.Context, id string) error {
+	if _, err := RequirePlatformPermission(ctx, "platform:admin:delete"); err != nil {
+		return err
 	}
-	var admin models.PlatformAdmin
-	if err := models.DB.Where("id = ?", id).First(&admin).Error; err != nil {
-		return errors.New("账号不存在")
+
+	if _, err := manageablePlatformAdmin(ctx, id); err != nil {
+		return err
 	}
-	// 不允许删除最后一个 super_admin
-	if admin.Role == "super_admin" {
-		var cnt int64
-		models.DB.Model(&models.PlatformAdmin{}).Where("role = ? AND deleted_at IS NULL", "super_admin").Count(&cnt)
-		if cnt <= 1 {
-			return errors.New("不允许删除最后一个超级管理员")
-		}
-	}
-	return models.DB.Delete(&admin).Error
+	return mutatePlatformAdmin(ctx, id, nil, true)
 }
 
 // ---------- 平台操作日志 ----------
@@ -340,15 +342,15 @@ func (s PlatformStatsService) Stats() (PlatformStatsResult, error) {
 	sevenDaysLater := now.AddDate(0, 0, 7)
 	models.DB.Model(&models.Tenant{}).Where("deleted_at IS NULL AND expire_at IS NOT NULL AND expire_at >= ? AND expire_at <= ?", now, sevenDaysLater).Count(&result.ExpiringTenants)
 	// 用户统计
-	models.DB.Model(&models.User{}).Where("deleted_at IS NULL").Count(&result.TotalUsers)
+	models.CrossTenant().Model(&models.User{}).Where("deleted_at IS NULL").Count(&result.TotalUsers)
 	// 订单统计
-	models.DB.Model(&models.TenantOrder{}).Where("deleted_at IS NULL").Count(&result.TotalOrders)
-	models.DB.Model(&models.TenantOrder{}).Where("deleted_at IS NULL AND pay_status = 2").Count(&result.PaidOrders)
-	models.DB.Model(&models.TenantOrder{}).Where("deleted_at IS NULL AND pay_status = 1").Count(&result.PendingOrders)
+	models.CrossTenant().Model(&models.TenantOrder{}).Where("deleted_at IS NULL").Count(&result.TotalOrders)
+	models.CrossTenant().Model(&models.TenantOrder{}).Where("deleted_at IS NULL AND pay_status = 2").Count(&result.PaidOrders)
+	models.CrossTenant().Model(&models.TenantOrder{}).Where("deleted_at IS NULL AND pay_status = 1").Count(&result.PendingOrders)
 	// 已支付总金额
 	type revResult struct{ Total int64 }
 	var rev revResult
-	models.DB.Model(&models.TenantOrder{}).Where("deleted_at IS NULL AND pay_status = 2").Select("COALESCE(SUM(amount),0) as total").Scan(&rev)
+	models.CrossTenant().Model(&models.TenantOrder{}).Where("deleted_at IS NULL AND pay_status = 2").Select("COALESCE(SUM(amount),0) as total").Scan(&rev)
 	result.TotalRevenue = rev.Total
 	// 套餐分布
 	var planDist []PlanDistItem

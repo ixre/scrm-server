@@ -9,8 +9,8 @@ import (
 // CustomerInfo 对客户编辑的用户画像，不同于企业微信员工对客户的备注和描述，后者记录在staff_customer中
 type CustomerInfo struct {
 	ExtCorpModel
-	ExtCustomerID string                        `gorm:"type:char(64);uniqueIndex:idx_ext_staff_id_ext_customer_id;comment:微信客户ID" json:"ext_customer_id"`
-	ExtStaffID    string                        `gorm:"type:char(64);uniqueIndex:idx_ext_staff_id_ext_customer_id;comment:微信员工ID" json:"ext_staff_id"`
+	ExtCustomerID string                        `gorm:"type:char(64);comment:微信客户ID" json:"ext_customer_id"`
+	ExtStaffID    string                        `gorm:"type:char(64);comment:微信员工ID" json:"ext_staff_id"`
 	Age           int                           `gorm:"type:smallint;comment:年龄" json:"age"`
 	Description   string                        `gorm:"type:text;comment:描述" json:"description"`
 	Email         string                        `gorm:"type:varchar(64);comment:邮箱" json:"email"`
@@ -25,14 +25,15 @@ type CustomerInfo struct {
 
 func (ci CustomerInfo) Upsert(info CustomerInfo) error {
 	return DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_customer_id"}, {Name: "ext_staff_id"}},
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_customer_id"}, {Name: "ext_staff_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"ext_customer_id", "ext_staff_id"}),
 	}).Create(&info).Error
 }
 
 func (ci CustomerInfo) Update(info CustomerInfo) error {
 	return DB.Model(&CustomerInfo{}).Omit("id", "ext_customer_id", "ext_staff_id").
-		Where("ext_customer_id = ?", info.ExtCustomerID).
+		Where("ext_corp_id = ?", info.ExtCorpID).
+ Where("ext_customer_id = ?", info.ExtCustomerID).
 		Where("ext_staff_id = ?", info.ExtStaffID).
 		Updates(&info).Error
 }

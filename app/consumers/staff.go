@@ -29,16 +29,18 @@ func SyncCustomerData(job delay_queue.Job) (err error) {
 			return
 		}
 
-		extStaffID := customerStaffRelation.ExtStaffID
+		extCorpID := customerStaffRelation.ExtCorpID
+ if extCorpID == "" { return errors.New("customer sync job is missing ext_corp_id") }
+ extStaffID := customerStaffRelation.ExtStaffID
 		extCustomerID := customerStaffRelation.ExtCustomerID
-		err = customerService.SyncSingleCustomerData(context.Background(), extStaffID, extCustomerID)
+		err = customerService.SyncSingleCustomerData(services.SyncTenantCtx(context.Background(), extCorpID), extStaffID, extCustomerID)
 		if err != nil {
 			log.Sugar.Error(err)
 			return
 		}
 
 		// 更新员工的客户数
-		err = models.CustomerStatistic{}.Upsert(extStaffID, 1)
+		err = models.CustomerStatistic{ExtCorpModel: models.ExtCorpModel{ExtCorpID: extCorpID}}.Upsert(extStaffID, 1)
 		if err != nil {
 			log.Sugar.Errorw("update customer statistics failed",
 				"extStaffID", extStaffID, "extCustomerID", extCustomerID)

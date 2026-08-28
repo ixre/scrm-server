@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"core/app/services"
 	"core/common/log"
 
 	"github.com/gogf/gf/os/gcron"
@@ -35,6 +36,10 @@ func Start() {
 		log.Sugar.Errorw("AddSingleton failed", "err", err)
 	}
 
+	_, err = gcron.AddSingleton("*/10 * * * * *", services.ProcessWecomAuthorizations, "WecomAuthorizations")
+	if err != nil {
+		log.Sugar.Errorw("register WeCom authorization worker failed", "err", err)
+	}
 	// Phase 1：公海自动回收（每日凌晨执行）
 	_, err = gcron.AddSingleton("0 0 2 * * *", (CrmPool{}).AutoRecycle, "CrmPoolAutoRecycle")
 	if err != nil {

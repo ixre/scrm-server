@@ -1,13 +1,6 @@
 package models
 
 import (
-	"fmt"
-	"github.com/gogf/gf/crypto/gmd5"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"github.com/thoas/go-funk"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/app/requests"
 	"core/common/delay_queue"
@@ -17,12 +10,20 @@ import (
 	"core/common/util"
 	"core/common/we_work"
 	"core/pkg/easywework"
+	"fmt"
+	"github.com/gogf/gf/crypto/gmd5"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"time"
 )
 
 // ContactWay 渠道码
 type ContactWay struct {
 	ExtCorpModel
+	LegacyTenant
 	Name string `gorm:"type:varchar(255);index;comment:'渠道码名称'" json:"name"`
 	// ConfigID 渠道码配置ID
 	ConfigID string `json:"config_id" gorm:"index;comment:渠道码配置ID" validate:"alpha"`
@@ -59,11 +60,11 @@ type ContactWay struct {
 	// StaffControlEnable 是否开启员工自行上下线
 	StaffControlEnable constants.Boolean `json:"staff_control_enable" gorm:"comment:是否开启员工自行上下线" validate:"oneof=1 2"`
 	// Staffs 绑定员工
-	Staffs []ContactWayStaff `json:"staffs" gorm:"foreignKey:ContactWayID;"`
+	Staffs []ContactWayStaff `json:"staffs" gorm:"-"`
 	// BackupStaffs 绑定备份员工
-	BackupStaffs []ContactWayBackupStaff `json:"backup_staffs" gorm:"foreignKey:ContactWayID;"`
+	BackupStaffs []ContactWayBackupStaff `json:"backup_staffs" gorm:"-"`
 	// Schedules
-	Schedules []ContactWaySchedule `json:"schedules" gorm:"foreignKey:ContactWayID;"`
+	Schedules []ContactWaySchedule `json:"schedules" gorm:"-"`
 	// AutoTagEnable 是否自动打标签
 	AutoTagEnable constants.Boolean `json:"auto_tag_enable" gorm:"comment:'是否自动打标签'" validate:"oneof=1 2"`
 	// CustomerTagExtIDs 自动打标签绑定的标签ExtID数组
@@ -85,18 +86,10 @@ type ContactWay struct {
 
 func (o ContactWay) Query(param requests.QueryContactWayReq, extCorpID string) (items []ContactWay, total int64, err error) {
 	items = make([]ContactWay, 0)
-	db := DB.Model(&ContactWay{}).Preload(clause.Associations).Preload("Schedules.Staffs").Where("ext_corp_id = ?", extCorpID)
+	db := DB.Model(&ContactWay{}).Where("ext_corp_id = ?", extCorpID)
 
 	if len(param.ExtStaffIDs) > 0 {
-		ids := make([]string, 0)
-		tmpIDs := make([]string, 0)
-		DB.Model(&ContactWayStaff{}).Where("contact_way_id is not null ").Where("ext_staff_id in (?)", param.ExtStaffIDs).Pluck("contact_way_id", &tmpIDs)
-		ids = append(ids, tmpIDs...)
-		DB.Model(&ContactWayBackupStaff{}).Where("contact_way_id is not null ").Where("ext_staff_id in (?)", param.ExtStaffIDs).Pluck("contact_way_id", &tmpIDs)
-		ids = append(ids, tmpIDs...)
-		DB.Model(&ContactWayScheduleStaff{}).Where("contact_way_id is not null ").Where("contact_way_schedule_id is not null ").Where("ext_staff_id in (?)", param.ExtStaffIDs).Pluck("contact_way_id", &tmpIDs)
-		ids = append(ids, tmpIDs...)
-		db = db.Where("id in (?)", ids)
+		db = filterContactWayStaffs(db, param.ExtStaffIDs)
 		param.ExtStaffIDs = nil
 	}
 
@@ -135,11 +128,16 @@ func (o ContactWay) Query(param requests.QueryContactWayReq, extCorpID string) (
 		return
 	}
 
+	parents := make([]*ContactWay, len(items))
+	for i := range items {
+		parents[i] = &items[i]
+	}
+	err = loadContactWays(DB, parents)
 	return
 }
 
 func (o ContactWay) Get(id string, extCorpID string) (item ContactWay, err error) {
-	err = DB.Model(&ContactWay{}).Preload(clause.Associations).Preload("Schedules.Staffs").Where("ext_corp_id = ?", extCorpID).Where("id = ?", id).First(&item).Error
+	err = DB.Model(&ContactWay{}).Where("ext_corp_id = ?", extCorpID).Where("id = ?", id).First(&item).Error
 	if err == gorm.ErrRecordNotFound {
 		err = errors.WithStack(ecode.ItemNotFoundError)
 		return
@@ -149,6 +147,7 @@ func (o ContactWay) Get(id string, extCorpID string) (item ContactWay, err error
 		return
 	}
 
+	err = loadContactWays(DB, []*ContactWay{&item})
 	return
 }
 
@@ -339,7 +338,7 @@ func (o ContactWay) Create(param ContactWay, extCorpID string) (item ContactWay,
 
 	item.QrCode = wxContactWay.QrCode
 
-	err = DB.Create(&item).Error
+	err = createContactWay(DB, &item)
 	if err != nil {
 		err = errors.Wrap(err, "Create ContactWay failed")
 		return
@@ -350,41 +349,31 @@ func (o ContactWay) Create(param ContactWay, extCorpID string) (item ContactWay,
 
 func (o ContactWay) Update(id string, param ContactWay, extCorpID string) (item ContactWay, err error) {
 	tx := DB.Begin()
+	if tx.Error != nil {
+		return item, tx.Error
+	}
 	defer tx.Rollback()
-	//origin := &ContactWay{}
-	err = tx.Preload(clause.Associations).Preload("Schedules.Staffs").Where("id = ?", id).Where("ext_corp_id = ?", extCorpID).First(&item).Error
+	err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Where("ext_corp_id = ?", extCorpID).First(&item).Error
 	if err != nil {
 		err = errors.Wrap(err, "get ContactWay failed")
 		return
 	}
 
-	// 对于关联数据的处理行为是，带主键ID的进行修改，没有带主键ID进行添加，数据库里存在但请求没有带的记录进行删除
-	//err = DeleteRefRecord(tx, &ContactWayStaff{}, item.Staffs, param.Staffs, "ID")
-	//if err != nil {
-	//	err = errors.Wrap(err, "delete ContactWayStaff failed")
-	//	return
-	//}
-	//
-	//err = DeleteRefRecord(tx, &ContactWayBackupStaff{}, item.BackupStaffs, param.BackupStaffs, "ID")
-	//if err != nil {
-	//	err = errors.Wrap(err, "delete ContactWayBackupStaff failed")
-	//	return
-	//}
-	//
-	//err = DeleteRefRecord(tx, &ContactWaySchedule{}, item.Schedules, param.Schedules, "ID")
-	//if err != nil {
-	//	err = errors.Wrap(err, "delete ContactWaySchedule failed")
-	//	return
-	//}
-
+	parentID := item.ID
 	err = copier.CopyWithOption(&item, param, copier.Option{IgnoreEmpty: true})
 	if err != nil {
 		err = errors.Wrap(err, "copy param failed")
 		return
 	}
 
-	item.Staffs = param.Staffs
-	item.BackupStaffs = param.BackupStaffs
+	item.ID, item.ExtCorpID = parentID, extCorpID
+	item.Staffs, item.BackupStaffs, item.Schedules = param.Staffs, param.BackupStaffs, param.Schedules
+	if err = replaceContactWayChildren(tx, &item); err != nil {
+		return
+	}
+	if err = loadContactWays(tx, []*ContactWay{&item}); err != nil {
+		return
+	}
 
 	err = o.CalLatestStatus(&item)
 	if err != nil {
@@ -410,42 +399,9 @@ func (o ContactWay) Update(id string, param ContactWay, extCorpID string) (item 
 		return
 	}
 
-	//err = tx.Save(&item).Error
-	//if err != nil {
-	//	err = errors.Wrap(err, "save ContactWay failed")
-	//	return
-	//}
-
-	err = tx.Omit(clause.Associations).Updates(&item).Error
+	err = tx.Updates(&item).Error
 	if err != nil {
-		err = errors.Wrap(err, "Update ContactWay failed")
-		return
-	}
-
-	err = tx.Model(&item).Association("Staffs").Replace(&item.Staffs)
-	if err != nil {
-		err = errors.Wrap(err, "Update Staffs failed")
-		return
-	}
-
-	err = tx.Model(&item).Association("BackupStaffs").Replace(&item.BackupStaffs)
-	if err != nil {
-		err = errors.Wrap(err, "Update BackupStaffs failed")
-		return
-	}
-
-	for i := range item.Schedules {
-		err = tx.Model(&item.Schedules[i]).Association("Staffs").Replace(&item.Schedules[i].Staffs)
-		if err != nil {
-			err = errors.Wrap(err, "Update Schedules.Staffs failed")
-			return
-		}
-	}
-
-	err = tx.Model(&item).Association("Schedules").Replace(&item.Schedules)
-	if err != nil {
-		err = errors.Wrap(err, "Update Schedules failed")
-		return
+		return item, errors.Wrap(err, "Update ContactWay failed")
 	}
 
 	err = tx.Commit().Error
@@ -467,6 +423,10 @@ func (o ContactWay) Refresh(tx *gorm.DB, id string) (item ContactWay, err error)
 	}
 	if err != nil {
 		err = errors.Wrap(err, "First ContactWay failed")
+		return
+	}
+
+	if err = loadContactWays(tx, []*ContactWay{&item}); err != nil {
 		return
 	}
 
@@ -494,7 +454,7 @@ func (o ContactWay) Refresh(tx *gorm.DB, id string) (item ContactWay, err error)
 		return
 	}
 
-	err = tx.Omit(clause.Associations).Save(&item).Error
+	err = tx.Save(&item).Error
 	if err != nil {
 		err = errors.Wrap(err, "Save ContactWay failed")
 		return

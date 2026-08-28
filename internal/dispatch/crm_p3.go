@@ -48,8 +48,12 @@ func crmProjectCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	return ok, services.NewCrmProject().Create(ctx, &p)
 }
 
-func crmProjectUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmProjectUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +84,12 @@ func crmProjectDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	}
 }
 
-func crmProjectChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmProjectChangeStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +130,12 @@ func crmProjectTaskCreate(ctx context.Context, _, _ string, params json.RawMessa
 	return ok, services.NewCrmProjectTask().Create(ctx, &task)
 }
 
-func crmProjectTaskUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmProjectTaskUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +166,12 @@ func crmProjectTaskDelete(ctx context.Context, _, _ string, params json.RawMessa
 	}
 }
 
-func crmProjectTaskUpdateStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmProjectTaskUpdateStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -204,8 +220,12 @@ func crmAccountCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	return ok, services.NewCrmAccount().Create(ctx, &a)
 }
 
-func crmAccountUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmAccountUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -272,8 +292,12 @@ func crmFinanceRecordCreate(ctx context.Context, _, _ string, params json.RawMes
 	return ok, services.NewCrmFinanceRecord().Create(ctx, &r)
 }
 
-func crmFinanceRecordUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmFinanceRecordUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +328,12 @@ func crmFinanceRecordDelete(ctx context.Context, _, _ string, params json.RawMes
 	}
 }
 
-func crmFinanceRecordVoid(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmFinanceRecordVoid(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -348,8 +376,12 @@ func crmInvoiceCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	return ok, services.NewCrmInvoice().Create(ctx, &i)
 }
 
-func crmInvoiceUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmInvoiceUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -380,8 +412,12 @@ func crmInvoiceDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	}
 }
 
-func crmInvoiceVoid(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmInvoiceVoid(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -424,8 +460,12 @@ func crmProductCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	return ok, services.NewCrmProduct().Create(ctx, &p)
 }
 
-func crmProductUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmProductUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -491,8 +531,12 @@ func crmWarehouseCreate(ctx context.Context, _, _ string, params json.RawMessage
 	return ok, services.NewCrmWarehouse().Create(ctx, &w)
 }
 
-func crmWarehouseUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmWarehouseUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -649,8 +693,12 @@ func crmWorkorderCreate(ctx context.Context, _, _ string, params json.RawMessage
 	return ok, services.NewCrmWorkorder().Create(ctx, &w)
 }
 
-func crmWorkorderUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmWorkorderUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -681,8 +729,12 @@ func crmWorkorderDelete(ctx context.Context, _, _ string, params json.RawMessage
 	}
 }
 
-func crmWorkorderChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmWorkorderChangeStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -695,8 +747,12 @@ func crmWorkorderChangeStatus(ctx context.Context, _, id string, params json.Raw
 	return ok, services.NewCrmWorkorder().ChangeStatus(ctx, id, req.Status)
 }
 
-func crmWorkorderTransfer(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmWorkorderTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -746,8 +802,12 @@ func crmCallRecordCreate(ctx context.Context, _, _ string, params json.RawMessag
 	return ok, services.NewCrmCallRecord().Create(ctx, &r)
 }
 
-func crmCallRecordUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmCallRecordUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -822,8 +882,12 @@ func crmKnowledgeCreate(ctx context.Context, _, _ string, params json.RawMessage
 	return ok, services.NewCrmKnowledge().Create(ctx, &k)
 }
 
-func crmKnowledgeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmKnowledgeUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -890,8 +954,12 @@ func crmNoticeCreate(ctx context.Context, _, _ string, params json.RawMessage) (
 	return ok, services.NewCrmNotice().Create(ctx, &n)
 }
 
-func crmNoticeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmNoticeUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -958,8 +1026,12 @@ func crmWorkReportCreate(ctx context.Context, _, _ string, params json.RawMessag
 	return ok, services.NewCrmWorkReport().Create(ctx, &r)
 }
 
-func crmWorkReportUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmWorkReportUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -990,8 +1062,12 @@ func crmWorkReportDelete(ctx context.Context, _, _ string, params json.RawMessag
 	}
 }
 
-func crmWorkReportReview(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmWorkReportReview(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -1128,8 +1204,12 @@ func crmAftersalesCreate(ctx context.Context, _, _ string, params json.RawMessag
 	return ok, services.NewCrmAftersales().Create(ctx, &a)
 }
 
-func crmAftersalesUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmAftersalesUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,8 +1240,12 @@ func crmAftersalesDelete(ctx context.Context, _, _ string, params json.RawMessag
 	}
 }
 
-func crmAftersalesChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmAftersalesChangeStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}

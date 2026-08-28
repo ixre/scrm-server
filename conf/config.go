@@ -10,13 +10,24 @@ import (
 var Settings *config
 
 type config struct {
-	App        AppConfig
-	Server     serverConfig
-	Redis      redisConfig
-	DB         DBConfig
-	DelayQueue delayQueueConfig
-	Storage    StorageConfig
-	WeWork     weWorkConfig
+	App           AppConfig
+	Server        serverConfig
+	Redis         redisConfig
+	DB            DBConfig
+	DelayQueue    delayQueueConfig
+	Storage       StorageConfig
+	WeWork        weWorkConfig
+	WecomProvider WecomProviderConfig
+}
+
+// WecomProviderConfig is configured by the service operator, never by tenants.
+type WecomProviderConfig struct {
+	SuiteID        string
+	SuiteSecret    string
+	CallbackToken  string
+	CallbackAESKey string
+	ReceiveID      string
+	RedirectURL    string
 }
 
 // delayQueueConfig  基于redis延迟队列的配置
@@ -40,6 +51,14 @@ type AppConfig struct {
 	// SuperAdmin 此处userID对应员工的赋予超级管理员权限
 	SuperAdmin      []string `validate:"required,dive,gt=1"`
 	InnerSrvAppCode string   // 内部服务调用key
+	// JWTSecret 网关签发/校验登录态 JWT 的密钥（≥32字节）；环境变量 CRM_JWT_SECRET 优先
+	JWTSecret string
+	// InternalSecret 网关→core 内部 gRPC 调用签名密钥（≥32字节）；环境变量 SCRM_INTERNAL_SECRET 优先
+	InternalSecret string
+	// TenantGuard CRM 租户表隔离守卫模式：enforce（默认，拒绝缺少租户条件的语句）/ log（仅记录）
+	TenantGuard string `validate:"omitempty,oneof=enforce log"`
+	// LegacyTenantGuard 老企微表（customer/staff 等）守卫模式：log（默认）/ enforce
+	LegacyTenantGuard string `validate:"omitempty,oneof=enforce log"`
 }
 
 type serverConfig struct {
@@ -59,19 +78,19 @@ type serverConfig struct {
 // weWorkConfig 企业微信配置
 type weWorkConfig struct {
 	// ExtCorpID 外部企业ID
-	ExtCorpID string `json:"ext_corp_id" validate:"required,corp_id"`
+	ExtCorpID string `json:"ext_corp_id" validate:"omitempty,corp_id"`
 	// ContactSecret 通讯录secret
-	ContactSecret string `json:"contact_secret" validate:"required"`
+	ContactSecret string `json:"contact_secret" validate:"omitempty"`
 	// CustomerSecret 客户联系secret
-	CustomerSecret string `json:"customer_secret" validate:"required"`
+	CustomerSecret string `json:"customer_secret" validate:"omitempty"`
 	// MainAgentID 企业主应用AgentID
-	MainAgentID int64 `json:"main_agent_id" validate:"number,gt=0"`
+	MainAgentID int64 `json:"main_agent_id" validate:"omitempty,number,gt=0"`
 	// MainAgentSecret 企业主应用secret
-	MainAgentSecret string `json:"main_agent_secret" validate:"required"`
+	MainAgentSecret string `json:"main_agent_secret" validate:"omitempty"`
 	// CallbackToken 企业微信事件回调Token
-	CallbackToken string `json:"callback_token" validate:"required"`
+	CallbackToken string `json:"callback_token" validate:"omitempty"`
 	// CallbackAesKey 企业微信事件回调AesKey
-	CallbackAesKey string `json:"callback_aes_key" validate:"required"`
+	CallbackAesKey string `json:"callback_aes_key" validate:"omitempty"`
 	// PriKeyPath 会话存档解密私钥
 	PriKeyPath string `json:"pri_key_path"`
 	// MsgArchBatchSize 会话存档拉取，每次拉取的条数
@@ -85,13 +104,17 @@ type weWorkConfig struct {
 }
 
 type DBConfig struct {
-	User     string `validate:"required"`
-	Password string `validate:"required"`
-	Host     string `validate:"required"`
-	Port     string `validate:"required"`
-	Name     string `validate:"required"`
-	SSLMode  string // PostgreSQL sslmode: disable/require/verify-ca/verify-full，默认 disable
-	TimeZone string // PostgreSQL 会话时区，默认 Asia/Shanghai
+	User                   string `validate:"required"`
+	Password               string `validate:"required"`
+	Host                   string `validate:"required"`
+	Port                   string `validate:"required"`
+	Name                   string `validate:"required"`
+	SSLMode                string // PostgreSQL sslmode: disable/require/verify-ca/verify-full，默认 disable
+	TimeZone               string // PostgreSQL 会话时区，默认 Asia/Shanghai
+	MaxOpenConns           int    // 每个进程的连接上限，默认 25
+	MaxIdleConns           int    // 空闲连接上限，默认 10，且不超过 MaxOpenConns
+	ConnMaxLifetimeSeconds int    // 连接最长使用时间，默认 1800 秒
+	ConnMaxIdleTimeSeconds int    // 空闲连接回收时间，默认 300 秒
 }
 
 // redisConfig redis config

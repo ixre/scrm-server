@@ -21,7 +21,9 @@ import (
 )
 
 type Staff struct {
+	AuthVersion int64 `gorm:"not null;default:1" json:"session_version"`
 	Model
+	LegacyTenant
 	// ExtCorpID 外部企业ID
 	ExtCorpID string `json:"ext_corp_id" gorm:"index;uniqueIndex:idx_ext_corp_id_ext_staff_id;type:char(18);comment:外部企业ID"`
 	//企业内必须唯一。不区分大小写，长度为1~64个字节
@@ -405,10 +407,10 @@ type IDExtIDs struct {
 
 // GetIDsByExtIDs
 // Description: ext_id->id
-func (s *Staff) GetIDsByExtIDs(extIDs []string) (res map[string]string, err error) {
+func (s *Staff) GetIDsByExtIDs(extIDs []string, extCorpID string) (res map[string]string, err error) {
 	ids := make([]IDExtIDs, 0)
 	res = make(map[string]string, 0)
-	err = DB.Model(&Staff{}).Select("id, ext_id").Where("ext_id in (?)", extIDs).Find(&ids).Error
+	err = DB.Model(&Staff{}).Select("id, ext_id").Where("ext_id in (?)", extIDs).Where("ext_corp_id = ?", extCorpID).Find(&ids).Error
 	if err != nil {
 		return
 	}
@@ -507,11 +509,14 @@ func (s *Staff) GetCustomerSummary(extStaffID string, extCorpID string) (cs Cust
 }
 
 func SetupStaffRole() {
+	if conf.Settings.WeWork.ExtCorpID == "" {
+		return
+	}
 	tx := DB.Begin()
 	defer tx.Rollback()
 
 	// 清空超级管理员权限
-	err := tx.Model(&Staff{}).Where("role_type = ?", constants.RoleTypeSuperAdmin).Updates(&Staff{
+	err := tx.Model(&Staff{}).Where("ext_corp_id = ? AND role_type = ?", conf.Settings.WeWork.ExtCorpID, constants.RoleTypeSuperAdmin).Updates(&Staff{
 		RoleType: string(constants.RoleTypeStaff),
 		RoleID:   string(constants.DefaultCorpStaffRoleID),
 	}).Error
@@ -521,7 +526,7 @@ func SetupStaffRole() {
 	}
 
 	// 根据conf里的SuperAdminPhone配置设置超级管理员员工
-	err = tx.Model(&Staff{}).Where("ext_id in (?)", conf.Settings.App.SuperAdmin).Updates(&Staff{
+	err = tx.Model(&Staff{}).Where("ext_corp_id = ? AND ext_id in (?)", conf.Settings.WeWork.ExtCorpID, conf.Settings.App.SuperAdmin).Updates(&Staff{
 		RoleType: string(constants.RoleTypeSuperAdmin),
 		RoleID:   string(constants.DefaultCorpSuperAdminRoleID),
 	}).Error

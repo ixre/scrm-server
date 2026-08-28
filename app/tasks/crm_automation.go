@@ -30,6 +30,9 @@ func (CrmAutomation) RecalculateScores() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "customer") != nil {
+			continue
+		}
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		services.NewCrmScore().RecalculateAll(ctx)
 	}
@@ -40,6 +43,9 @@ func (CrmAutomation) ApplyAutoTags() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "customer") != nil {
+			continue
+		}
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		services.NewCrmAutoTag().ApplyAll(ctx)
 	}
@@ -47,6 +53,9 @@ func (CrmAutomation) ApplyAutoTags() {
 
 // RegisterCrmAutomationTasks 注册 Phase 4 + Phase 7 自动化定时任务。
 func RegisterCrmAutomationTasks() {
+	if _, err := gcron.AddSingleton("@every 5m", (CrmAutomation{}).GenerateReminders, "CrmGenerateReminders"); err != nil {
+		log.Sugar.Errorw("RegisterCrmGenerateReminders failed", "err", err)
+	}
 	_, err := gcron.AddSingleton("@hourly", (CrmAutomation{}).ExecuteSopTasks, "CrmExecuteSopTasks")
 	if err != nil {
 		log.Sugar.Errorw("RegisterCrmExecuteSopTasks failed", "err", err)
@@ -111,6 +120,9 @@ func (CrmAutomation) CheckReplyTimeout() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "risk_control") != nil {
+			continue
+		}
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		// 查最近60分钟内的客户消息（action_type 含 customer/dm），检查是否有跟进回复
 		var interactions []models.CrmChannelInteraction
@@ -137,6 +149,9 @@ func (CrmAutomation) CheckFollowupOverdue() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "followup") != nil {
+			continue
+		}
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		// 查非公海、有归属人、3天未跟进的客户
 		var customers []models.CrmCustomer
@@ -160,6 +175,9 @@ func (CrmAutomation) GenerateGroupSopTasks() {
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	now := time.Now()
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "marketing_groupsop") != nil {
+			continue
+		}
 		var rules []models.CrmGroupSop
 		models.DB.Scopes(models.TenantScope(tid)).Where("status = ?", "active").Find(&rules)
 		for _, rule := range rules {
@@ -206,6 +224,9 @@ func (CrmAutomation) CheckUnfollowedLoss() {
 	var tenantIDs []string
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "customer") != nil {
+			continue
+		}
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: tid})
 		// 查超过30天未跟进的客户
 		var customers []models.CrmCustomer
@@ -226,18 +247,17 @@ func (CrmAutomation) CheckUnfollowedLoss() {
 
 // ScanChannelTasks 扫描渠道引流任务，标记超时未处理的任务。
 func (CrmAutomation) ScanChannelTasks() {
-	var tasks []models.CrmChannelTask
-	models.DB.Where("status = ? AND created_at < NOW() - INTERVAL '48 hours'", "pending").Find(&tasks)
-	for _, t := range tasks {
-		models.DB.Model(&t).Update("status", "timeout")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := services.NewCrmChannelTask().Expire(ctx); err != nil {
+		log.Sugar.Errorw("channel task scan failed", "err", err)
 	}
-	log.Sugar.Infow("channel tasks scanned", "timeout_count", len(tasks))
 }
 
 // ExpireGroupBuyRecords 扫描超时未成团的拼团记录，标记为失败。
 func (CrmAutomation) ExpireGroupBuyRecords() {
 	now := time.Now()
-	res := models.DB.Model(&models.CrmGroupBuyRecord{}).
+	res := models.CrossTenant().Model(&models.CrmGroupBuyRecord{}).
 		Where("status = ? AND expire_at < ?", "open", now).
 		Update("status", "failed")
 	log.Sugar.Infow("group buy records expired", "count", res.RowsAffected)
@@ -246,7 +266,7 @@ func (CrmAutomation) ExpireGroupBuyRecords() {
 // ExpireBargainRecords 扫描超时未砍到底价的砍价记录，标记为过期。
 func (CrmAutomation) ExpireBargainRecords() {
 	now := time.Now()
-	res := models.DB.Model(&models.CrmBargainRecord{}).
+	res := models.CrossTenant().Model(&models.CrmBargainRecord{}).
 		Where("status = ? AND expire_at < ?", "active", now).
 		Update("status", "expired")
 	log.Sugar.Infow("bargain records expired", "count", res.RowsAffected)
@@ -254,7 +274,7 @@ func (CrmAutomation) ExpireBargainRecords() {
 
 // EscalateReplyTimeout 超时未回复自动升级（超过2小时未回复的 pending 升级为 escalated）。
 func (CrmAutomation) EscalateReplyTimeout() {
-	res := models.DB.Model(&models.CrmReplyTimeout{}).
+	res := models.CrossTenant().Model(&models.CrmReplyTimeout{}).
 		Where("status = ? AND created_at < NOW() - INTERVAL '2 hours'", "pending").
 		Update("status", "escalated")
 	log.Sugar.Infow("reply timeout escalated", "count", res.RowsAffected)
@@ -263,4 +283,45 @@ func (CrmAutomation) EscalateReplyTimeout() {
 // GenerateBirthdayCare 生日关怀待办生成（每日）。
 func (CrmAutomation) GenerateBirthdayCare() {
 	services.NewCrmCare().GenerateBirthdayCareTodos()
+}
+
+// GenerateReminders pages tenants and sources instead of loading all tenant IDs.
+func (CrmAutomation) GenerateReminders() {
+	ctx := context.Background()
+	lastID := "0"
+	for {
+		var tenants []models.Tenant
+		if err := models.DB.WithContext(ctx).Select("id").Where("id > ? AND status = 1 AND (expire_at IS NULL OR expire_at > ?)", lastID, time.Now()).Order("id").Limit(100).Find(&tenants).Error; err != nil {
+			log.Sugar.Errorw("reminder tenant scan failed", "err", err)
+			return
+		}
+		if len(tenants) == 0 {
+			return
+		}
+		for _, tenant := range tenants {
+			if models.RequirePlanModules(models.DB, tenant.ID, "workbench") != nil {
+				continue
+			}
+			bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
+			tenantCtx := identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
+			if err := services.NewCrmTodo().GenerateFollowupTodos(tenantCtx); err != nil {
+				log.Sugar.Errorw("followup reminders failed", "tenant", tenant.ID, "err", err)
+			}
+			cancel()
+			bounded, cancel = context.WithTimeout(ctx, 30*time.Second)
+			tenantCtx = identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
+			if err := services.NewCrmTodo().GenerateLeadTodos(tenantCtx); err != nil {
+				log.Sugar.Errorw("lead followup reminders failed", "tenant", tenant.ID, "err", err)
+			}
+			cancel()
+
+			bounded, cancel = context.WithTimeout(ctx, 30*time.Second)
+			tenantCtx = identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
+			if err := services.NewCrmTodo().GenerateExpireTodos(tenantCtx); err != nil {
+				log.Sugar.Errorw("receivables reminders failed", "tenant", tenant.ID, "err", err)
+			}
+			cancel()
+		}
+		lastID = tenants[len(tenants)-1].ID
+	}
 }

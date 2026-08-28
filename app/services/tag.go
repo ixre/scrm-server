@@ -10,7 +10,6 @@ import (
 	"core/common/id_generator"
 	"core/common/log"
 	"core/common/we_work"
-	"core/conf"
 	"core/pkg/easywework"
 	"sort"
 )
@@ -45,7 +44,7 @@ func (t TagService) Sync(extCorpID string) error {
 	log.Sugar.Debugw("get all tagGroups", "tagGroups", tagGroups)
 
 	// 拼接models.tagGroup,upsert
-	err = t.UpsertTagGroups(tagGroups)
+	err = t.UpsertTagGroups(tagGroups, extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
@@ -55,9 +54,8 @@ func (t TagService) Sync(extCorpID string) error {
 
 // UpsertTagGroups
 // Description: 用微信的tag数据upsert DB中的标签
-func (t TagService) UpsertTagGroups(tagGroups []workwx.ExternalContactCorpTagGroup) (err error) {
+func (t TagService) UpsertTagGroups(tagGroups []workwx.ExternalContactCorpTagGroup, extCorpID string) (err error) {
 
-	extCorpID := conf.Settings.WeWork.ExtCorpID
 	for _, group := range tagGroups {
 		tagGroup := models.TagGroup{
 			ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID},
@@ -94,6 +92,7 @@ func (t TagService) UpsertTagGroups(tagGroups []workwx.ExternalContactCorpTagGro
 
 // Create tag 已有标签组中添加标签，需判重
 func (t TagService) Create(req *requests.CreateTagReq, extCorpID string) (tagModels []models.Tag, err error) {
+ t.TagGroupsRepo.ExtCorpID, t.TagsRepo.ExtCorpID = extCorpID, extCorpID
 	if len(req.Names) > 1 {
 		sort.SliceStable(req.Names, func(i, j int) bool {
 			return true
@@ -155,10 +154,11 @@ func (t TagService) Create(req *requests.CreateTagReq, extCorpID string) (tagMod
 	return
 }
 
-func (t TagService) DeleteTagGroups(req requests.DeleteTagGroupsReq) (int64, error) {
+func (t TagService) DeleteTagGroups(req requests.DeleteTagGroupsReq, extCorpID string) (int64, error) {
 	err := we_work.App.DelExternalContactCorpTag(nil, req.ExtIDs)
 	if err != nil {
 		return 0, err
 	}
-	return t.TagGroupsRepo.Delete(req.ExtIDs)
+	t.TagGroupsRepo.ExtCorpID = extCorpID
+ return t.TagGroupsRepo.Delete(req.ExtIDs)
 }

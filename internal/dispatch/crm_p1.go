@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"core/app/models"
 	"core/app/services"
@@ -26,7 +27,7 @@ func crmContactList(ctx context.Context, _, _ string, params json.RawMessage) (a
 		CustomerID string `json:"customer_id"`
 		Keyword    string `json:"keyword"`
 		FilterMode string `json:"filter_mode"`
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -51,8 +52,12 @@ func crmContactCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	return ok, services.NewCrmContact().Create(ctx, &c)
 }
 
-func crmContactUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmContactUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +99,7 @@ func crmReceivablesPlanList(ctx context.Context, _, _ string, params json.RawMes
 		OrderID    string `json:"order_id"`
 		CustomerID string `json:"customer_id"`
 		Status     string `json:"status"`
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -119,8 +124,12 @@ func crmReceivablesPlanCreate(ctx context.Context, _, _ string, params json.RawM
 	return ok, services.NewCrmReceivablesPlan().Create(ctx, &p)
 }
 
-func crmReceivablesPlanUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmReceivablesPlanUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -173,16 +182,18 @@ func crmReceivablesList(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, err
 	}
 	var req struct {
-		OrderID    string `json:"order_id"`
-		CustomerID string `json:"customer_id"`
-		PlanID     string `json:"plan_id"`
-		Status     string `json:"status"`
-		*app.Pager
+		Keyword       string `json:"keyword"`
+		OrderID       string `json:"order_id"`
+		CustomerID    string `json:"customer_id"`
+		PlanID        string `json:"plan_id"`
+		Status        string `json:"status"`
+		ApproveStatus string `json:"approve_status"`
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.RecvQueryReq{Page: req.Page, PageSize: req.PageSize, OrderID: req.OrderID, CustomerID: req.CustomerID, PlanID: req.PlanID, Status: req.Status}
+	q := services.RecvQueryReq{Keyword: req.Keyword, Page: req.Page, PageSize: req.PageSize, OrderID: req.OrderID, CustomerID: req.CustomerID, PlanID: req.PlanID, Status: req.Status, ApproveStatus: req.ApproveStatus}
 	items, total, err := services.NewCrmReceivables().Query(ctx, q)
 	if err != nil {
 		return nil, err
@@ -202,8 +213,12 @@ func crmReceivablesCreate(ctx context.Context, _, _ string, params json.RawMessa
 	return ok, services.NewCrmReceivables().Create(ctx, &r)
 }
 
-func crmReceivablesUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmReceivablesUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -234,8 +249,12 @@ func crmReceivablesDelete(ctx context.Context, _, _ string, params json.RawMessa
 	}
 }
 
-func crmReceivablesVoid(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmReceivablesVoid(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +273,7 @@ func crmQuoteList(ctx context.Context, _, _ string, params json.RawMessage) (any
 		OpportunityID string `json:"opportunity_id"`
 		Status        string `json:"status"`
 		Keyword       string `json:"keyword"`
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -279,8 +298,12 @@ func crmQuoteCreate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	return ok, services.NewCrmQuote().Create(ctx, &q)
 }
 
-func crmQuoteUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmQuoteUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -311,8 +334,12 @@ func crmQuoteDelete(ctx context.Context, _, _ string, params json.RawMessage) (a
 	}
 }
 
-func crmQuoteChangeStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmQuoteChangeStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -325,8 +352,12 @@ func crmQuoteChangeStatus(ctx context.Context, _, id string, params json.RawMess
 	return ok, services.NewCrmQuote().ChangeStatus(ctx, id, req.Status)
 }
 
-func crmQuoteTransfer(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmQuoteTransfer(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +381,7 @@ func crmTodoList(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	var req struct {
 		Type   string `json:"type"`
 		Status string `json:"status"`
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -411,7 +442,7 @@ func crmOrderProductCreate(ctx context.Context, _, _ string, params json.RawMess
 	if err != nil {
 		return nil, err
 	}
-	var p models.CrmOrderProduct
+	p := models.CrmOrderProduct{Discount: 100}
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -514,8 +545,12 @@ func crmOrderProgressCreate(ctx context.Context, _, _ string, params json.RawMes
 	return ok, services.NewCrmOrderProgress().Create(ctx, &p)
 }
 
-func crmOrderProgressUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmOrderProgressUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -546,8 +581,12 @@ func crmOrderProgressDelete(ctx context.Context, _, _ string, params json.RawMes
 	}
 }
 
-func crmOrderProgressUpdateStatus(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmOrderProgressUpdateStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +654,7 @@ func crmSigninList(ctx context.Context, _, _ string, params json.RawMessage) (an
 	u := identity.UserID(ctx)
 	var req struct {
 		CustomerID string `json:"customer_id"`
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -660,4 +699,42 @@ func crmSigninDelete(ctx context.Context, _, _ string, params json.RawMessage) (
 		_, e := services.NewCrmSigninService().Delete(ctx, u, req.IDs)
 		return ok, e
 	}
+}
+
+func crmQuoteConvertToOrder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmQuote().ConvertToOrder(ctx, id)
+}
+
+func crmOrderGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmOrder().Get(ctx, id)
+}
+func crmOrderSign(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
+	if err != nil {
+		return nil, err
+	}
+	var req struct {
+		SignedAt *time.Time `json:"signed_at"`
+	}
+	if err = Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmOrder().Sign(ctx, id, req.SignedAt)
 }

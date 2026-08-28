@@ -35,7 +35,7 @@ func (s CrmCustomerService) SyncFromWeCom(ctx context.Context, corpID, staffExtI
 	case err == nil:
 		// 已存在：更新名称并复位流失态
 		if name != "" || c.Name == "" {
-			if uerr := models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
+			if uerr := models.MustFor(ctx).Model(&models.CrmCustomer{}).Where("id = ?", c.ID).
 				Updates(map[string]any{"name": name, "out_flow_status": 0}).Error; uerr != nil {
 				log.Sugar.Errorw("wecom customer update failed", "err", uerr)
 			}
@@ -60,7 +60,7 @@ func (s CrmCustomerService) SyncFromWeCom(ctx context.Context, corpID, staffExtI
 
 	// 归属：企微 staff → 本地 User（若已建映射）
 	if ownerID, ok := resolveWecomStaffUserID(ctx, staffExtID); ok {
-		if oerr := models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Update("owner_user_id", ownerID).Error; oerr != nil {
+		if oerr := models.MustFor(ctx).Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Update("owner_user_id", ownerID).Error; oerr != nil {
 			log.Sugar.Errorw("wecom customer owner assign failed", "err", oerr)
 		}
 	}
@@ -146,7 +146,7 @@ func resolveWecomStaffUserID(ctx context.Context, staffExtID string) (string, bo
 		return "", false
 	}
 	var link models.ChannelLink
-	if err := models.MustFor(ctx).Where("channel = ? AND entity_type = ? AND ext_id = ?", constants.ChannelWecom,  "user",  staffExtID).First(&link).Error; err != nil {
+	if err := models.MustFor(ctx).Where("channel = ? AND entity_type = ? AND ext_id = ? AND ext_corp_id = ?", constants.ChannelWecom, "user", staffExtID, we_work.CorpID(ctx)).First(&link).Error; err != nil {
 		return "", false
 	}
 	return link.EntityID, true
@@ -166,9 +166,9 @@ func (s UserService) EnsureWecomLink(ctx context.Context, corpID, staffExtID str
 		return nil
 	}
 	var link models.ChannelLink
-	err := models.DB.Where("channel = ? AND entity_type = ? AND entity_id = ?", constants.ChannelWecom, "user", u.ID).First(&link).Error
+	err := models.MustFor(ctx).Where("channel = ? AND entity_type = ? AND entity_id = ? AND ext_corp_id = ?", constants.ChannelWecom, "user", u.ID, corpID).First(&link).Error
 	if err == nil {
-		return models.DB.Model(&models.ChannelLink{}).Where("id = ?", link.ID).
+		return models.MustFor(ctx).Model(&models.ChannelLink{}).Where("id = ?", link.ID).
 			Updates(map[string]any{"ext_id": staffExtID, "ext_corp_id": corpID}).Error
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {

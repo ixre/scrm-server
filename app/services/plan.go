@@ -131,6 +131,9 @@ func fillParsed(p *models.Plan) {
 
 // Create 创建套餐
 func (s PlanService) Create(req PlanCreateReq) (models.Plan, error) {
+	if req.MaxUsers < 0 || req.MaxCustomers < 0 {
+		return models.Plan{}, errors.New("套餐配额不能为负数")
+	}
 	var p models.Plan
 	code := strings.TrimSpace(req.Code)
 	name := strings.TrimSpace(req.Name)
@@ -215,6 +218,9 @@ func (s PlanService) Get(id string) (models.Plan, error) {
 
 // Update 更新套餐
 func (s PlanService) Update(id string, req PlanUpdateReq) error {
+	if req.MaxUsers < 0 || req.MaxCustomers < 0 {
+		return errors.New("套餐配额不能为负数")
+	}
 	if err := validateModules(req.Modules); err != nil {
 		return err
 	}

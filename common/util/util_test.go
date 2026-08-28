@@ -17,7 +17,7 @@ func TestGenSortedColumn(t *testing.T) {
 	}
 	bytes, err := GenBytesOrderByColumn(t1)
 	if err != nil {
-		t.Failed()
+		t.Fatal(err)
 	}
-	assert.Equal(t, string(bytes), "Age=121;Name=asdf;")
+	assert.Equal(t, "Age=121&Name=asdf", string(bytes))
 }

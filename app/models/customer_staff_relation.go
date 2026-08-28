@@ -20,6 +20,7 @@ type CustomerTag struct {
 	TagId string                      `json:"tag_id"`
 }
 type CustomerStaffRelation struct {
+	ExtCorpID     string `json:"ext_corp_id"`
 	ExtStaffID    string `json:"ext_staff_id"`
 	ExtCustomerID string `json:"ext_customer_id"`
 }
@@ -30,9 +31,9 @@ type CustomerStaffRelation struct {
 type CustomerStaff struct {
 	ExtCorpModel
 	// 企微员工ID
-	ExtStaffID string `gorm:"type:char(64);index;uniqueIndex:idx_ext_staff_id_ext_customer_id;comment:员工ID" json:"ext_staff_id"`
+	ExtStaffID string `gorm:"type:char(64);index;comment:员工ID" json:"ext_staff_id"`
 	// 企微客户ID
-	ExtCustomerID string `gorm:"type:char(64);index;uniqueIndex:idx_ext_staff_id_ext_customer_id;comment:客户ID" json:"ext_customer_id"`
+	ExtCustomerID string `gorm:"type:char(64);index;comment:客户ID" json:"ext_customer_id"`
 	// 员工对客户的备注
 	Remark string `gorm:"type:varchar(255);comment:员工对客户的备注" json:"remark"`
 	// 员工对客户的描述
@@ -65,7 +66,7 @@ type CustomerStaff struct {
 func (o CustomerStaff) GetAllCustomerDeleteStaff(req requests.QueryCustomerLossesReq, extCorpID string, sorter *app.Sorter) ([]CustomerLossInfo, int64, error) {
 
 	db := DB.Table("customer_staff").
-		Joins("join customer on customer.ext_id = customer_staff.ext_customer_id").
+		Joins("join customer on customer.ext_id = customer_staff.ext_customer_id AND customer.ext_corp_id = customer_staff.ext_corp_id").
 		Joins("join staff s on customer_staff.ext_staff_id = s.ext_id").
 		Select("customer_staff.id as id, customer.ext_id as ext_customer_id, " +
 			" customer.avatar as customer_avatar, " +
@@ -234,7 +235,7 @@ func (o CustomerStaff) GetStaffDeleteCustomerHistory(extStaffID, extCorpID strin
 func (o CustomerStaff) Upsert(relation CustomerStaff) error {
 
 	return DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "ext_customer_id"}, {Name: "ext_staff_id"}},
+		Columns: []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_customer_id"}, {Name: "ext_staff_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"ext_customer_id", "deleted_at", "ext_staff_id", "remark", "description",
 			"createtime", "remark_corp_name", "remark_mobiles", "add_way", "oper_user_id", "state"}),
@@ -242,11 +243,12 @@ func (o CustomerStaff) Upsert(relation CustomerStaff) error {
 
 }
 
-func (o CustomerStaff) Update(staff *CustomerStaff, extStaffID string, extCustomerID string) error {
+func (o CustomerStaff) Update(staff *CustomerStaff, extStaffID string, extCustomerID string, extCorpID string) error {
 	if extStaffID == "" || extCustomerID == "" {
 		return errors.New(" extCustomerID,extStaffID 不能为空")
 	}
 	return DB.Model(CustomerStaff{}).
+		Where("ext_corp_id = ?", extCorpID).
 		Where("ext_staff_id = ?", extStaffID).
 		Where("ext_customer_id = ?", extCustomerID).
 		Omit("ext_staff_id", "ext_customer_id").
@@ -257,7 +259,7 @@ func (o CustomerStaff) GetAllStaffDeleteCustomer(
 	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string, sorter *app.Sorter) ([]StaffDeleteCustomer, int64, error) {
 
 	db := DB.Table("customer").
-		Joins("join customer_staff cs on customer.ext_id = cs.ext_customer_id").
+		Joins("join customer_staff cs on customer.ext_id = cs.ext_customer_id AND customer.ext_corp_id = cs.ext_corp_id").
 		Joins("join staff s on cs.ext_staff_id = s.ext_id").
 		Select("cs.id as id," +
 			" customer.ext_id as ext_customer_id, " +
@@ -313,6 +315,7 @@ func (o CustomerStaff) GetAllStaffDeleteCustomer(
 // GetCurrentCustomerStaffRelation 员工和客户当前是否是好友
 func (o CustomerStaff) GetCurrentCustomerStaffRelation(extCustomerID, extStaffID string) (cs CustomerStaff, err error) {
 	err = DB.Model(&CustomerStaff{}).
+		Where("ext_corp_id = ?", o.ExtCorpID).
 		Where("ext_customer_id = ? ", extCustomerID).
 		Where("ext_staff_id = ?", extStaffID).
 		//Where("customer_delete_staff_at is not null and staff_delete_customer_at is not null").
@@ -333,7 +336,7 @@ func (o CustomerStaff) Create(relation *CustomerStaff) error {
 // return:
 func (o CustomerStaff) BatchUpsert(csRelationModels []CustomerStaff) (ids []string, err error) {
 	err = DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_customer_id"}, {Name: "ext_staff_id"}},
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_customer_id"}, {Name: "ext_staff_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"remark", "description", "createtime", "remark_corp_name", "remark_mobiles", "state", "oper_user_id", "add_way", "deleted_at"}),
 	}).Omit("CustomerStaffTags").Unscoped().CreateInBatches(&csRelationModels, 100).Error
 	if err != nil {

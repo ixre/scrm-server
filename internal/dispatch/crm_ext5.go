@@ -46,8 +46,12 @@ func crmKnowledgeTypeCreate(ctx context.Context, _, _ string, params json.RawMes
 	return ok, services.NewCrmKnowledgeType().Create(ctx, &c)
 }
 
-func crmKnowledgeTypeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmKnowledgeTypeUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +114,12 @@ func crmWorkReportCommentCreate(ctx context.Context, _, _ string, params json.Ra
 	return ok, services.NewCrmWorkReportComment().Create(ctx, req.ReportID, u, req.Content)
 }
 
-func crmWorkReportCommentDelete(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmWorkReportCommentDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +177,12 @@ func crmAftersalesTypeCreate(ctx context.Context, _, _ string, params json.RawMe
 	return ok, services.NewCrmAftersalesType().Create(ctx, &c)
 }
 
-func crmAftersalesTypeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmAftersalesTypeUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -233,8 +245,12 @@ func crmAftersalesCommentCreate(ctx context.Context, _, _ string, params json.Ra
 	return ok, services.NewCrmAftersalesComment().Create(ctx, req.AftersalesID, u, req.Content)
 }
 
-func crmAftersalesCommentDelete(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmAftersalesCommentDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}

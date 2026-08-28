@@ -1,10 +1,6 @@
 package services
 
 import (
-	"encoding/json"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
@@ -15,8 +11,11 @@ import (
 	"core/common/id_generator"
 	"core/common/log"
 	"core/common/we_work"
-	"core/conf"
 	gowx "core/pkg/easywework"
+	"encoding/json"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -84,9 +83,8 @@ func (o GroupChatMassMsg) SendMassMsgAsync(req requests.SendGroupChatMassMsgReq,
 
 // UpdateGroupMsgSentStatus
 // 发送状态：0-未发送 1-已发送 2-因客户不是好友导致发送失败 3-因客户已经收到其他群发消息导致发送失败
-func (o GroupChatMassMsg) UpdateGroupMsgSentStatus() (err error) {
+func (o GroupChatMassMsg) UpdateGroupMsgSentStatus(extCorpID string) (err error) {
 	// 找出还没发送的员工和对应extMsgID
-	extCorpID := conf.Settings.WeWork.ExtCorpID
 	massMsgStaff := models.MassMsgStaff{ExtCorpModel: models.ExtCorpModel{ExtCorpID: extCorpID}, IsSent: 0}
 	msgs, err := o.massMsgStaffRepo.QueryNotSentMsg(massMsgStaff)
 	if err != nil {
@@ -179,7 +177,11 @@ func (o GroupChatMassMsg) DoSendGroupChatMassMsg(jobBody, JobID string) (extMsgI
 		return
 	}
 
-	client, err := we_work.Clients.Get(conf.Settings.WeWork.ExtCorpID)
+	stored, err := o.groupChatMassMsgRepo.Get(JobID)
+	if err != nil {
+		return "", err
+	}
+	client, err := we_work.Clients.Get(stored.ExtCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return

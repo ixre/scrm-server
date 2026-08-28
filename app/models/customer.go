@@ -1,16 +1,16 @@
 package models
 
 import (
+	"core/app/requests"
+	app "core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/requests"
-	app "core/common/app"
 	"time"
 )
 
 type CustomerExportItem struct {
-	ExtID            string          `gorm:"type:char(64);uniqueIndex:idx_ext_customer_id;comment:微信定义的userID" json:"ext_customer_id"`
+	ExtID            string          `gorm:"type:char(64);comment:微信定义的userID" json:"ext_customer_id"`
 	CustomerName     string          `json:"customer_name"`
 	CustomerCorpName string          `json:"customer_corp_name"`
 	StaffName        string          `json:"staff_name"`
@@ -23,13 +23,14 @@ type CustomerExportItem struct {
 	Gender           int64           `json:"gender"`
 	Birthday         string          `json:"birthday"`
 	PhoneNumber      string          `json:"phone_number"`
-	Staffs           []CustomerStaff `gorm:"foreignKey:ExtCustomerID;references:ExtID" json:"staff_relations"`
+	Staffs           []CustomerStaff `gorm:"foreignKey:ExtCorpID,ExtCustomerID;references:ExtCorpID,ExtID" json:"staff_relations"`
 }
 
 type Customer struct {
 	ExtCorpModel
+	LegacyTenant
 	// 微信定义的客户ID
-	ExtID string `gorm:"type:char(64);uniqueIndex:idx_ext_customer_id;comment:微信定义的userID" json:"ext_customer_id"`
+	ExtID string `gorm:"type:char(64);comment:微信定义的userID" json:"ext_customer_id"`
 	// 微信用户对应微信昵称；企业微信用户，则为联系人或管理员设置的昵称、认证的实名和账号名称
 	Name string `gorm:"type:varchar(255);comment:名称，微信用户对应微信昵称；企业微信用户，则为联系人或管理员设置的昵称、认证的实名和账号名称" json:"name"`
 	// 职位,客户为企业微信时使用
@@ -46,7 +47,7 @@ type Customer struct {
 	// 仅当联系人类型是企业微信用户时有此字段
 	ExternalProfile ExternalProfile `gorm:"type:jsonb;comment:仅当联系人类型是企业微信用户时有此字段" json:"external_profile"`
 	// 所属员工
-	Staffs []CustomerStaff `gorm:"foreignKey:ExtCustomerID;references:ExtID" json:"staff_relations"`
+	Staffs []CustomerStaff `gorm:"foreignKey:ExtCorpID,ExtCustomerID;references:ExtCorpID,ExtID" json:"staff_relations"`
 	// 所属员工
 	Timestamp
 }
@@ -65,15 +66,23 @@ func (o *Customer) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 func (o Customer) BatchUpsert(customers []Customer) (err error) {
-	err = DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"position", "name", "corp_name", "avatar", "type", "gender", "unionid", "external_profile"}),
-	}).Omit("Staffs").CreateInBatches(&customers, 100).Error
-	if err != nil {
-		err = errors.WithStack(err)
-		return
+	if len(customers) == 0 {
+		return nil
 	}
-	return
+	return DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"position", "name", "corp_name", "avatar", "type", "gender", "unionid", "external_profile"}),
+			Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "customer.ext_corp_id = excluded.ext_corp_id"}}},
+		}).Omit("Staffs").CreateInBatches(&customers, 100)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != int64(len(customers)) {
+			return errors.New("客户外部 ID 已属于其他企业")
+		}
+		return nil
+	})
 }
 
 func (o Customer) Upsert(customer Customer) error {
@@ -87,10 +96,18 @@ func (o Customer) Upsert(customer Customer) error {
 		"unionid":          customer.Unionid,
 		"external_profile": customer.ExternalProfile,
 	}
-	return DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_id"}},
+	result := DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_id"}},
 		DoUpdates: clause.Assignments(updateFields),
-	}).Omit("Staffs").Create(&customer).Error
+		Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "customer.ext_corp_id = excluded.ext_corp_id"}}},
+	}).Omit("Staffs").Create(&customer)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("客户外部 ID 已属于其他企业")
+	}
+	return nil
 }
 
 func (o Customer) Get(ID string, extCorpID string, withStaffRelation bool) (*Customer, error) {
@@ -126,8 +143,8 @@ func (o Customer) Get(ID string, extCorpID string, withStaffRelation bool) (*Cus
 func (o Customer) QueryExport(req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]CustomerExportItem, int64, error) {
 
 	db := DB.Table("customer_staff").
-		Joins("join customer c on c.ext_id = customer_staff.ext_customer_id").
-		Joins("join staff s on s.ext_id = customer_staff.ext_staff_id").
+		Joins("join customer c on c.ext_id = customer_staff.ext_customer_id AND c.ext_corp_id = customer_staff.ext_corp_id").
+		Joins("join staff s on s.ext_id = customer_staff.ext_staff_id AND s.ext_corp_id = customer_staff.ext_corp_id").
 		Joins("left join customer_info ci on c.id = ci.ext_customer_id")
 
 	if req.Name != "" {
@@ -167,10 +184,10 @@ func (o Customer) ExportQuery(
 	var customers []*CustomerExportItem
 
 	db := DB.Table("customer").
-		Joins("left join customer_staff cs on customer.ext_id = cs.ext_customer_id").
+		Joins("left join customer_staff cs on customer.ext_id = cs.ext_customer_id AND customer.ext_corp_id = cs.ext_corp_id").
 		Joins("left join customer_staff_tag cst on cst.customer_staff_id = cs.id").
-		Joins("join staff s on s.ext_id = cs.ext_staff_id").
-		Joins("left join customer_info ci on customer.ext_id = ci.ext_customer_id").
+		Joins("join staff s on s.ext_id = cs.ext_staff_id AND s.ext_corp_id = cs.ext_corp_id").
+		Joins("left join customer_info ci on customer.ext_id = ci.ext_customer_id AND customer.ext_corp_id = ci.ext_corp_id").
 		Where("cs.ext_corp_id = ?", extCorpID)
 
 	if req.Name != "" {
@@ -224,7 +241,7 @@ func (o Customer) Query(
 	var customers []*Customer
 
 	db := DB.Table("customer").
-		Joins("left join customer_staff cs on customer.ext_id = cs.ext_customer_id").
+		Joins("left join customer_staff cs on customer.ext_id = cs.ext_customer_id AND customer.ext_corp_id = cs.ext_corp_id").
 		Joins("left join customer_staff_tag cst on cst.customer_staff_id = cs.id").
 		Where("cs.ext_corp_id = ?", extCorpID)
 
@@ -286,9 +303,9 @@ func (o Customer) GetMassMsg(missionID string) (*MassMsg, error) {
 }
 
 func (o Customer) GetByExtID(
-	ExtCustomerID string, extStaffIDs []string, withStaffRelation bool) (customer Customer, err error) {
+	ExtCustomerID string, extCorpID string, extStaffIDs []string, withStaffRelation bool) (customer Customer, err error) {
 
-	db := DB.Model(&Customer{})
+	db := DB.Model(&Customer{}).Where("customer.ext_corp_id = ?", extCorpID)
 	if withStaffRelation {
 		if extStaffIDs != nil {
 			db = db.Preload("Staffs", "ext_staff_id IN (?)", extStaffIDs).Preload("Staffs.CustomerStaffTags")

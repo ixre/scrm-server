@@ -1,12 +1,13 @@
 package consumers
 
 import (
-	"github.com/pkg/errors"
-	"github.com/redis/go-redis/v9"
-	"math"
 	"core/app/constants"
 	"core/common/delay_queue"
 	"core/common/log"
+	"fmt"
+	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
+	"math"
 	"runtime"
 	"sync"
 	"time"
@@ -49,6 +50,7 @@ func Consume(topic constants.Topic, handler func(delay_queue.Job) error) {
 		select {
 		case <-_stopSignal:
 			log.Sugar.Info("stop consume")
+			return
 		default:
 			job, err := delay_queue.Listen(topic)
 			if err == redis.Nil {
@@ -63,7 +65,7 @@ func Consume(topic constants.Topic, handler func(delay_queue.Job) error) {
 				continue
 			}
 
-			err = handler(job)
+			err = handleJob(handler, job)
 			if err != nil {
 				log.TracedError("handle job failed", errors.WithStack(err))
 				job.FailedCount++
@@ -102,4 +104,13 @@ func ProtectedRun(topic constants.Topic, handler func(delay_queue.Job) error, fn
 		}
 	}()
 	fn(topic, handler)
+}
+
+func handleJob(handler func(delay_queue.Job) error, job delay_queue.Job) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("job %s panicked: %v", job.ID, recovered)
+		}
+	}()
+	return handler(job)
 }

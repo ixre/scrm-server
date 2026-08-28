@@ -24,5 +24,5 @@ func EventEditExternalContactHandler(msg *gowx.RxMessage) error {
 
 	log.Sugar.Debugw("sync customer data")
 
-	return SyncExternalContact(extStaffID, extCustomerID)
+	return SyncExternalContact(msg.ToUserID, extStaffID, extCustomerID)
 }

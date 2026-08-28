@@ -1,10 +1,6 @@
 package services
 
 import (
-	"github.com/go-resty/resty/v2"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	url2 "net/url"
 	"core/app/constants"
 	"core/app/entities"
 	"core/app/models"
@@ -13,6 +9,9 @@ import (
 	"core/common/ecode"
 	"core/common/id_generator"
 	"core/common/storage"
+	"github.com/go-resty/resty/v2"
+	"github.com/pkg/errors"
+	url2 "net/url"
 )
 
 type QuickReply struct {
@@ -90,74 +89,30 @@ func (r QuickReply) Delete(ids []string, extCorpID string) (int64, error) {
 }
 
 func (r QuickReply) Update(req entities.UpdateQuickReplyReq, staff models.Staff) (*models.QuickReply, error) {
-	if len(req.DeletedIDs) > 0 {
-		err := r.QuickReplyDetail.Delete(req.DeletedIDs)
-		if err != nil {
-			err = errors.WithStack(err)
-			return nil, err
-		}
-	}
-
-	replyDetails := make([]models.QuickReplyDetail, 0)
-	err := r.QuickReplyDetail.Upsert(replyDetails)
-	if err != nil {
-		err = errors.WithStack(err)
-		return nil, err
-	}
-
 	reply := models.QuickReply{
-		ExtCorpModel: models.ExtCorpModel{ID: req.ID},
-		Name:         req.Name,
-		GroupID:      req.GroupID,
+		ExtCorpModel: models.ExtCorpModel{ID: req.ID, ExtCorpID: staff.ExtCorpID, ExtCreatorID: staff.ExtID},
+		Name:         req.Name, GroupID: req.GroupID,
 	}
-	err = r.QuickReply.Update(reply)
-	if err != nil {
-		err = errors.WithStack(err)
-		return nil, err
-	}
-
-	if len(req.QuickReplyDetails) > 0 {
-		reply.QuickReplyType = constants.QuickReplyTypeCollection
-		details := make([]models.QuickReplyDetail, 0)
-		for _, item := range req.QuickReplyDetails {
-			var detail models.QuickReplyDetail
-			err = copier.CopyWithOption(&detail, item, copier.Option{
-				IgnoreEmpty: true,
-				DeepCopy:    true,
-			})
-			if err != nil {
-				err = errors.WithStack(err)
-				return nil, err
-			}
-			if detail.ID == "" {
-				contentType, err := r.GenDetailType(item.ContentType)
-				if err != nil {
-					err = errors.WithStack(err)
-					return nil, err
-				}
-				detail.QuickReplyContent.MsgType = contentType
-				detail.ID = id_generator.StringID()
-			}
-			if detail.QuickReplyID == "" {
-				detail.QuickReplyID = req.ID
-			}
-			details = append(details, detail)
-		}
-
-		err = r.QuickReplyDetail.Upsert(details)
+	for _, item := range req.QuickReplyDetails {
+		contentType, err := r.GenDetailType(item.ContentType)
 		if err != nil {
-			err = errors.WithStack(err)
 			return nil, err
 		}
+		detail := models.QuickReplyDetail{
+			ExtCorpModel: models.ExtCorpModel{ID: item.ID, ExtCorpID: staff.ExtCorpID, ExtCreatorID: staff.ExtID},
+			ContentType:  item.ContentType, QuickReplyContent: item.QuickReplyContent,
+		}
+		if detail.ID == "" {
+			detail.ID = id_generator.StringID()
+		}
+		detail.QuickReplyContent.MsgType = contentType
+		reply.ReplyDetails = append(reply.ReplyDetails, detail)
 	}
-
-	quickReply, err := r.QuickReply.Get(req.ID)
-	if err != nil {
-		err = errors.WithStack(err)
-		return nil, err
+	if len(reply.ReplyDetails) > 0 {
+		reply.QuickReplyType = constants.QuickReplyTypeCollection
 	}
-
-	return &quickReply, nil
+	result, err := r.QuickReply.UpdateWithDetails(reply, req.DeletedIDs)
+	return &result, err
 }
 
 // IsFileExists 根据传地址生成文件地址，确定文件是否存在

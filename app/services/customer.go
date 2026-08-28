@@ -18,8 +18,8 @@ import (
 	"core/common/log"
 	"core/common/util"
 	"core/common/we_work"
-	"core/conf"
-	workwx "core/pkg/easywework"
+ "core/conf"
+		workwx "core/pkg/easywework"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -72,6 +72,7 @@ func NewCustomer() *CustomerService {
 // Param: extCorpID 外部企业ID
 // return: err
 func (o CustomerService) Sync(ctx context.Context, extCorpID string) error {
+ ctx = SyncTenantCtx(ctx, extCorpID)
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -108,7 +109,7 @@ func (o CustomerService) Sync(ctx context.Context, extCorpID string) error {
 	// 批量upsert客户
 	customerModels := make([]models.Customer, 0)
 	for _, contactInfo := range contactInfoArr {
-		customerModel, err := NewCustomerModel(contactInfo)
+		customerModel, err := NewCustomerModel(contactInfo, extCorpID)
 		if err == ecode.EmptyExternalContactInfoErr {
 			continue
 		}
@@ -127,7 +128,7 @@ func (o CustomerService) Sync(ctx context.Context, extCorpID string) error {
 	csRelationModels := make([]models.CustomerStaff, 0)
 	tags := make([]models.CustomerStaffTag, 0)
 	for _, contactInfo := range contactInfoArr {
-		csRelationModel, err := NewCustomerStaffModel(contactInfo)
+		csRelationModel, err := NewCustomerStaffModel(contactInfo, extCorpID)
 		if err != nil {
 			err = errors.WithStack(err)
 			return err
@@ -189,8 +190,7 @@ func Deduplicate(extCustomerIDs []string) (uniqueExtCustomerIDs []string, err er
 
 // NewCustomerStaffModel
 // Description: wx返回的客户数据构造DB记录
-func NewCustomerStaffModel(contactInfo *workwx.ExternalContactInfo) (csRelations []models.CustomerStaff, err error) {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+func NewCustomerStaffModel(contactInfo *workwx.ExternalContactInfo, extCorpID string) (csRelations []models.CustomerStaff, err error) {
 	for _, staff := range contactInfo.FollowUser {
 		csRelation := models.CustomerStaff{
 			ExtCustomerID:  contactInfo.ExternalContact.ExternalUserid,
@@ -207,7 +207,7 @@ func NewCustomerStaffModel(contactInfo *workwx.ExternalContactInfo) (csRelations
 		}
 
 		var encrypt string
-		encrypt, err = gmd5.Encrypt(csRelation.ExtCustomerID + csRelation.ExtStaffID)
+		encrypt, err = gmd5.Encrypt(extCorpID + ":" + csRelation.ExtCustomerID + ":" + csRelation.ExtStaffID)
 		if err != nil {
 			return
 		}
@@ -236,7 +236,7 @@ func NewCustomerStaffModel(contactInfo *workwx.ExternalContactInfo) (csRelations
 // Description: 同步单个客户数据
 // Detail: 用客户-员工外部ID 同步客户数据
 func (o CustomerService) SyncSingleCustomerData(ctx context.Context, extStaffID, extCustomerID string) error {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := we_work.CorpID(ctx)
 	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -262,7 +262,7 @@ func (o CustomerService) SyncSingleCustomerData(ctx context.Context, extStaffID,
 	log.Sugar.Info(util.JsonEncode(contactInfo))
 
 	// 新建外部联系人DB记录
-	customer, err := NewCustomerModel(contactInfo)
+	customer, err := NewCustomerModel(contactInfo, extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return err
@@ -344,7 +344,7 @@ func (o CustomerService) Query(ctx context.Context,
 // Description: 客户详情
 // Detail: 用外部客户id查详情
 func (o CustomerService) Get(ctx context.Context, extID string, extCorpID string, withStaff bool) (models.Customer, error) {
-	return o.customerRepo.GetByExtID(extID, nil, true)
+	return o.customerRepo.GetByExtID(extID, extCorpID, nil, true)
 }
 
 // UpdateCustomerStaffRelation
@@ -366,7 +366,7 @@ func (o CustomerService) UpdateCustomerStaffRelation(ctx context.Context, staff 
 	}
 
 	relation = updateFields
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := we_work.CorpID(ctx)
 	relation.ExtCorpModel = models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID, ExtCreatorID: staff.UserID}
 	relation.DeletedAt = gorm.DeletedAt{}
 
@@ -385,7 +385,7 @@ func (o CustomerService) UpdateCustomerStaffRelation(ctx context.Context, staff 
 
 // NewCustomerModel
 // Description: 根据微信客户数据生成models.Customer
-func NewCustomerModel(externalContactInfo *workwx.ExternalContactInfo) (customer models.Customer, err error) {
+func NewCustomerModel(externalContactInfo *workwx.ExternalContactInfo, extCorpID string) (customer models.Customer, err error) {
 	if externalContactInfo == nil {
 		err = ecode.EmptyExternalContactInfoErr
 		return
@@ -398,7 +398,6 @@ func NewCustomerModel(externalContactInfo *workwx.ExternalContactInfo) (customer
 		return
 	}
 
-	extCorpID := conf.Settings.WeWork.ExtCorpID
 	customer = models.Customer{
 		ExtCorpModel: models.ExtCorpModel{
 			ID:           id_generator.StringID(),
@@ -675,7 +674,7 @@ func (o CustomerService) Export(ctx context.Context, req requests.QueryCustomerR
 // return: 客户基本信息，员工对客户的标记信息，客户与员工的时间流水
 func (o CustomerService) GetFullCustomerInfo(ctx context.Context, extCustomerID, extStaffID, extCorpID string) (responses.FullCustomerInfo, error) {
 	var res responses.FullCustomerInfo
-	customer, err := o.customerRepo.GetByExtID(extCustomerID, []string{extStaffID}, true)
+	customer, err := o.customerRepo.GetByExtID(extCustomerID, extCorpID, []string{extStaffID}, true)
 	if err != nil {
 		err = errors.WithStack(err)
 		return res, err
@@ -846,7 +845,7 @@ func (o CustomerService) CustomerStatistic(ctx context.Context,
 // Param: extTags wx返回的外部标签信息
 func (o CustomerService) UpdateCustomerTags(ctx context.Context, relationID string, extTags []workwx.FollowUserTag) (err error) {
 	tags := make([]models.CustomerStaffTag, 0)
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := we_work.CorpID(ctx)
 	for _, tag := range extTags {
 		customerStaffTag := models.CustomerStaffTag{
 			ExtCorpModel:    models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID},
@@ -885,7 +884,7 @@ func (o CustomerService) UpdateCustomerTags(ctx context.Context, relationID stri
 // Param: extCustomerID 外部客户ID
 // Param: extStaffID 外部员工ID
 func (o CustomerService) UpsertCustomerPortrait(ctx context.Context, extCustomerID string, extStaffID string) (err error) {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := we_work.CorpID(ctx)
 	customerInfo := models.CustomerInfo{
 		ExtCorpModel:  models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID},
 		ExtCustomerID: extCustomerID,
@@ -903,7 +902,7 @@ func (o CustomerService) UpsertCustomerPortrait(ctx context.Context, extCustomer
 // Description: 并发获取员工的外部客户ID
 // Detail: 不用将员工与客户id数组对应
 func (o CustomerService) BatchFetchCustomers(ctx context.Context, staffIdInfos []*workwx.UserIdInfo) (totalExtCustomerIDs []string, err error) {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := we_work.CorpID(ctx)
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -967,7 +966,7 @@ func (o CustomerService) BatchFetchCustomers(ctx context.Context, staffIdInfos [
 // BatchFetchContactInfo
 // Description: 批量请求员工-客户关系
 func (o CustomerService) BatchFetchContactInfo(ctx context.Context, extCustomerIDs []string) (cs []*workwx.ExternalContactInfo, err error) {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := we_work.CorpID(ctx)
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)

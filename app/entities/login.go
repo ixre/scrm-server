@@ -122,6 +122,7 @@ type CustomerLoginResp struct {
 
 // CustomerLoginCallbackReq 客户H5登录回调请求
 type CustomerLoginCallbackReq struct {
+ AppID string `form:"appid" json:"appid" validate:"required,corp_id"`
 	// Code
 	Code string `form:"code" json:"Code" validate:"required"`
 	// SourceURL 登录来源页面URL，登录成功自动跳转过去

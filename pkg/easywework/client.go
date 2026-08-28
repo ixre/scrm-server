@@ -1,12 +1,13 @@
 package workwx
 
 import (
+	"core/pkg/easywework/errcodes"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"net/url"
-	"core/pkg/easywework/errcodes"
 	"sync"
+	"time"
 )
 
 // WorkWX 企业微信客户端
@@ -14,6 +15,15 @@ type WorkWX struct {
 	opts options
 	// CorpID 企业 ID，必填
 	CorpID string
+}
+
+// UseAccessTokenProvider supports service-provider-authorized enterprise tokens.
+func (c *App) UseAccessTokenProvider(fetch func() (string, int64, error)) *App {
+	c.accessToken.setGetTokenFunc(func() (tokenInfo, error) {
+		value, seconds, err := fetch()
+		return tokenInfo{token: value, expiresIn: time.Duration(seconds)}, err
+	})
+	return c
 }
 
 // App 企业微信客户端（分应用）
@@ -55,7 +65,6 @@ func (c *WorkWX) WithApp(corpSecret string, agentID int64) *App {
 	app.accessToken.setGetTokenFunc(app.getAccessToken)
 	app.jsapiTicket.setGetTokenFunc(app.getJSAPITicket)
 	app.jsapiTicketAgentConfig.setGetTokenFunc(app.getJSAPITicketAgentConfig)
-	app.SpawnAccessTokenRefresher()
 	return &app
 }
 

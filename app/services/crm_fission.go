@@ -110,7 +110,7 @@ func (s CrmFissionService) RecordInvite(ctx context.Context, fissionID, inviterC
 	}
 	// 幂等检查
 	var cnt int64
-	models.DB.Model(&models.CrmFissionInvite{}).
+	models.MustFor(ctx).Model(&models.CrmFissionInvite{}).
 		Where("fission_id = ? AND inviter_customer_id = ? AND invitee_customer_id = ?", fissionID, inviterCustomerID, inviteeCustomerID).Count(&cnt)
 	if cnt > 0 {
 		return rec, errors.New("邀请关系已存在")
@@ -132,15 +132,15 @@ func (s CrmFissionService) RecordInvite(ctx context.Context, fissionID, inviterC
 		// 检查邀请人是否达到奖励阈值
 		var inviteCnt int64
 		tx.Model(&models.CrmFissionInvite{}).
-			Where("fission_id = ? AND inviter_customer_id = ?", fissionID, inviterCustomerID).Count(&inviteCnt)
+			Where("tenant_id = ? AND fission_id = ? AND inviter_customer_id = ?", tenantID, fissionID, inviterCustomerID).Count(&inviteCnt)
 		// 检查已触发奖励次数
 		var rewardedCnt int64
 		tx.Model(&models.CrmFissionInvite{}).
-			Where("fission_id = ? AND inviter_customer_id = ? AND reward_triggered = true", fissionID, inviterCustomerID).Count(&rewardedCnt)
+			Where("tenant_id = ? AND fission_id = ? AND inviter_customer_id = ? AND reward_triggered = true", tenantID, fissionID, inviterCustomerID).Count(&rewardedCnt)
 		// 达到阈值且未超过最大奖励次数
 		if int(inviteCnt) >= f.RewardThreshold && int(rewardedCnt) < f.MaxRewardPerUser {
 			// 标记本次邀请触发奖励
-			tx.Model(&models.CrmFissionInvite{}).Where("id = ?", rec.ID).Update("reward_triggered", true)
+			tx.Model(&models.CrmFissionInvite{}).Where("tenant_id = ? AND id = ?", tenantID, rec.ID).Update("reward_triggered", true)
 			rec.RewardTriggered = true
 		}
 		return nil

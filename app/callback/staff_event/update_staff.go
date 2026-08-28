@@ -5,7 +5,6 @@ import (
 	"github.com/thoas/go-funk"
 	"core/app/models"
 	"core/common/log"
-	"core/conf"
 	gowx "core/pkg/easywework"
 )
 
@@ -33,7 +32,7 @@ func EventUpdateStaffHandler(msg *gowx.RxMessage) error {
 		return err
 	}
 	extStaffID := extras.GetUserID()
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := msg.ToUserID
 	staff, err := (&models.Staff{}).Get(extStaffID, extCorpID, false)
 	if err != nil {
 		return err

@@ -1,88 +1,96 @@
 package services
 
 import (
-	"core/common/identity"
-	
 	"context"
-	
 	"errors"
 	"strings"
+	"time"
 
 	"core/app/models"
 	"core/common/id_generator"
-	"core/common/log"
+	"core/common/identity"
+	"gorm.io/gorm"
 )
 
-// CrmContactExtService 联系人扩展服务（转客户 / 联系人池）。
 type CrmContactExtService struct{}
 
 func NewCrmContactExt() *CrmContactExtService { return &CrmContactExtService{} }
 
-// ConvertToCustomer 联系人转客户：创建 CrmCustomer（姓名/电话/邮箱），回写联系人 CustomerID。
-// 幂等：联系人已关联客户则直接返回已有客户。
 func (s CrmContactExtService) ConvertToCustomer(ctx context.Context, userID, contactID string) (*models.CrmCustomer, error) {
-	tenantID := identity.TenantID(ctx)
-
-
-	if contactID == "" {
-		return nil, errors.New("contact_id 不能为空")
+	if userID == "" || userID != identity.UserID(ctx) {
+		return nil, ErrCustomerAccess
 	}
-	var c models.CrmContact
-	if err := models.MustFor(ctx).Where("id = ?", contactID).First(&c).Error; err != nil {
-		return nil, errors.New("联系人不存在")
-	}
-	// 已关联客户则直接返回。
-	if c.CustomerID != "" {
-		var exist models.CrmCustomer
-		if err := models.MustFor(ctx).Where("id = ?", c.CustomerID).First(&exist).Error; err == nil {
-			return &exist, nil
+	var customer models.CrmCustomer
+	created := false
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := contactWriteLock(ctx, tx); err != nil {
+			return err
 		}
-	}
-	// 去重：同手机号已有客户则直接关联。
-	if c.Phone != "" {
-		var exist models.CrmCustomer
-		if err := models.MustFor(ctx).Where("mobile = ?",  c.Phone).First(&exist).Error; err == nil {
-			models.DB.Model(&models.CrmContact{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", contactID).Update("customer_id", exist.ID)
-			return &exist, nil
+		c, err := lockContact(ctx, tx, contactID)
+		if err != nil {
+			return err
 		}
-	}
-	cust := models.CrmCustomer{
-		Model:    models.Model{ID: id_generator.StringID()},
-		TenantID: tenantID,
-		Name:     strings.TrimSpace(c.Name),
-		Mobile:   c.Phone,
-		Email:    c.Email,
-		Company:  c.Department,
-		Position: c.Title,
-		Source:   "manual",
-		Level:    1,
-	}
-	if cust.Name == "" {
-		cust.Name = c.Phone
-	}
-	if err := createCRM(models.DB, &cust, "OwnerUserID", "ReassignFrom"); err != nil {
-		log.Sugar.Errorw("contact convert: create customer failed", "err", err)
+		if c.CustomerID != "" && c.CustomerID != "0" {
+			db, err := customerAccessDB(ctx, tx, false)
+			if err != nil {
+				return err
+			}
+			return db.Where("id = ?", c.CustomerID).First(&customer).Error
+		}
+		phone := strings.TrimSpace(c.Phone)
+		if phone != "" {
+			// Share the same logical key with lead conversion.
+			if err = lockSalesKey(ctx, tx, "lead-conversion-mobile", phone); err != nil {
+				return err
+			}
+			var matches []models.CrmCustomer
+			if err = tx.Where("tenant_id = ? AND mobile = ?", c.TenantID, phone).Limit(2).Find(&matches).Error; err != nil {
+				return err
+			}
+			if len(matches) > 1 {
+				return errors.New("手机号存在重复客户，请先合并")
+			}
+			if len(matches) == 1 {
+				customer, err = activeSalesCustomer(ctx, tx, matches[0].ID)
+				if err != nil {
+					return errors.New("该手机号已有客户，请联系负责人或先领取公海客户")
+				}
+			}
+		}
+		if customer.ID == "" {
+			now := time.Now()
+			customer = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: c.TenantID, Name: strings.TrimSpace(c.Name), Mobile: phone, Email: c.Email, Position: c.Title, Address: c.Address, Province: c.Province, City: c.City, District: c.District, Source: "manual", OwnerUserID: userID, ClaimedAt: &now, Level: 1}
+			if customer.Name == "" {
+				customer.Name = phone
+			}
+			if customer.Name == "" {
+				return errors.New("请先完善联系人姓名或手机号")
+			}
+			if err = createCRM(tx, &customer); err != nil {
+				return err
+			}
+			created = true
+		}
+		var primaries int64
+		if err = tx.Model(&models.CrmContact{}).Where("tenant_id = ? AND customer_id = ? AND is_primary = true", c.TenantID, customer.ID).Count(&primaries).Error; err != nil {
+			return err
+		}
+		return tx.Model(&c).Updates(map[string]any{"customer_id": customer.ID, "is_primary": primaries == 0}).Error
+	})
+	if err != nil {
 		return nil, err
 	}
-	if err := models.DB.Model(&models.CrmContact{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", contactID).Update("customer_id", cust.ID).Error; err != nil {
-		log.Sugar.Errorw("contact convert: write back customer_id failed", "err", err)
-		return &cust, err
+	if created {
+		NewCrmSop().Trigger(ctx, "new_customer", map[string]string{"customer_id": customer.ID, "source": customer.Source})
 	}
-	return &cust, nil
+	return &customer, nil
 }
-
-// ListPool 联系人池：CustomerID 为空的联系人。
 func (s CrmContactExtService) ListPool(ctx context.Context, req PageReq) ([]models.CrmContact, int64, error) {
-
-
 	p := req.pager()
-	db := models.MustFor(ctx).Where("(customer_id IS NULL OR customer_id = '0')", )
-	var total int64
-	if err := db.Model(&models.CrmContact{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+	rows, total, err := NewCrmContact().Query(ctx, QueryReq{Page: p.Page, PageSize: p.PageSize, FilterMode: "pool"})
+	items := make([]models.CrmContact, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, row.CrmContact)
 	}
-	var items []models.CrmContact
-	err := db.Offset(p.GetOffset()).Limit(p.GetLimit()).
-		Order("created_at desc, id desc").Find(&items).Error
 	return items, total, err
 }

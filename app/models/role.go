@@ -6,7 +6,6 @@ import (
 	"core/common/ecode"
 	"core/common/log"
 	"core/common/redis"
-	"core/conf"
 	"fmt"
 	"os"
 	"strings"
@@ -40,7 +39,7 @@ type Role struct {
 
 func (o Role) Query(param Role, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []Role, total int64, err error) {
 	items = make([]Role, 0)
-	db := DB.Model(&Role{}).Where("ext_corp_id = ?", extCorpID)
+	db := DB.Model(&Role{}).Where("(ext_corp_id = ? OR (ext_corp_id = '' AND is_default = ?))", extCorpID, constants.True)
 	db = db.Where(param)
 	err = db.Count(&total).Error
 	if err != nil || total == 0 {
@@ -106,10 +105,10 @@ func (o Role) Create(param Role, extCorpID string) (item Role, err error) {
 	return
 }
 
-func (o Role) Update(id string, param Role) (item Role, err error) {
+func (o Role) Update(id string, param Role, extCorpID string) (item Role, err error) {
 	tx := DB.Begin()
 	defer tx.Rollback()
-	err = tx.Where("id = ?", id).First(&item).Error
+	err = tx.Where("id = ? AND ext_corp_id = ?", id, extCorpID).First(&item).Error
 	if err == gorm.ErrRecordNotFound {
 		err = errors.WithStack(ecode.ItemNotFoundError)
 		return
@@ -146,14 +145,17 @@ func (o Role) Update(id string, param Role) (item Role, err error) {
 	return
 }
 
-func (o Role) AssignToStaffs(extStaffIDs []string, roleID string) (total int64, err error) {
+func (o Role) AssignToStaffs(extStaffIDs []string, roleID string, extCorpID string) (total int64, err error) {
 	role, err := o.Get(roleID)
 	if err != nil {
 		err = errors.Wrap(err, "Get role failed")
 		return
 	}
 
-	result := DB.Model(&Staff{}).Where("ext_corp_id = ?", role.ExtCorpID).Where("ext_id in (?)", extStaffIDs).
+	if strings.TrimSpace(role.ExtCorpID) != extCorpID && !(strings.TrimSpace(role.ExtCorpID) == "" && role.IsDefault == constants.True) {
+		return 0, errors.New("角色不属于当前企业")
+	}
+	result := DB.Model(&Staff{}).Where("ext_corp_id = ?", extCorpID).Where("ext_id in (?)", extStaffIDs).
 		Updates(&Staff{RoleID: roleID, RoleType: role.Type})
 	if result.Error != nil {
 		err = errors.Wrap(err, "update staffs failed")
@@ -243,7 +245,7 @@ func SetupRoles() {
 		{
 			ExtCorpModel: ExtCorpModel{
 				ID:        string(constants.DefaultCorpStaffRoleID),
-				ExtCorpID: conf.Settings.WeWork.ExtCorpID,
+				ExtCorpID: "",
 			},
 			Name:          "员工",
 			Description:   "员工",
@@ -255,7 +257,7 @@ func SetupRoles() {
 		{
 			ExtCorpModel: ExtCorpModel{
 				ID:        string(constants.DefaultCorpDepartmentAdminRoleID),
-				ExtCorpID: conf.Settings.WeWork.ExtCorpID,
+				ExtCorpID: "",
 			},
 			Name:          "部门管理员",
 			Description:   "部门管理员",
@@ -267,7 +269,7 @@ func SetupRoles() {
 		{
 			ExtCorpModel: ExtCorpModel{
 				ID:        string(constants.DefaultCorpAdminRoleID),
-				ExtCorpID: conf.Settings.WeWork.ExtCorpID,
+				ExtCorpID: "",
 			},
 			Name:          "管理员",
 			Description:   "管理员",
@@ -279,7 +281,7 @@ func SetupRoles() {
 		{
 			ExtCorpModel: ExtCorpModel{
 				ID:        string(constants.DefaultCorpSuperAdminRoleID),
-				ExtCorpID: conf.Settings.WeWork.ExtCorpID,
+				ExtCorpID: "",
 			},
 			Name:          "超级管理员",
 			Description:   "超级管理员",
@@ -292,7 +294,7 @@ func SetupRoles() {
 
 	err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{`name`, `sort_weight`, `description`, `type`, `is_default`, `permission_ids`, `updated_at`}),
+		DoUpdates: clause.AssignmentColumns([]string{`ext_corp_id`, `name`, `sort_weight`, `description`, `type`, `is_default`, `permission_ids`, `updated_at`}),
 	}).Create(&roles).Error
 	if err != nil {
 		log.TracedError("SetupRoles failed", errors.WithStack(err))

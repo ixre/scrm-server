@@ -27,15 +27,15 @@ func roleCreate(_ context.Context, corpID, _ string, params json.RawMessage) (an
 	return services.NewRole().Create(req, corpID)
 }
 
-func roleUpdate(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func roleUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                `json:"id"`
+		ID  string                 `json:"id"`
 		Req requests.UpdateRoleReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewRole().Update(req.ID, req.Req)
+	return services.NewRole().Update(req.ID, req.Req, corpID)
 }
 
 func roleQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
@@ -62,17 +62,17 @@ func roleQueryStaffs(_ context.Context, corpID, _ string, params json.RawMessage
 	return Result(items, total), nil
 }
 
-func roleGet(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func roleGet(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewRole().Get(req.ID)
+	return services.NewRole().Get(req.ID, corpID)
 }
 
-func roleAssignToStaffs(_ context.Context, _, _ string, params json.RawMessage) (any, error) {
+func roleAssignToStaffs(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
 		ExtStaffIDs []string `json:"ext_staff_ids"`
 		RoleID      string   `json:"role_id"`
@@ -80,5 +80,5 @@ func roleAssignToStaffs(_ context.Context, _, _ string, params json.RawMessage) 
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewRole().AssignToStaffs(req.ExtStaffIDs, req.RoleID)
+	return services.NewRole().AssignToStaffs(req.ExtStaffIDs, req.RoleID, corpID)
 }

@@ -35,6 +35,22 @@ func crmPoolList(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	return Result(items, total), nil
 }
 
+func crmPoolGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return services.NewCrmPool().Get(ctx, req.ID)
+}
+
 func crmPoolClaim(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
@@ -52,9 +68,6 @@ func crmPoolClaim(ctx context.Context, _, _ string, params json.RawMessage) (any
 func crmPoolRecycle(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
-		return nil, err
-	}
-	if err := requireRole(ctx, "admin"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -79,7 +92,7 @@ func crmPoolSetRule(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err != nil {
 		return nil, err
 	}
-	if err := requireRole(ctx, "admin"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:pool:manage"); err != nil {
 		return nil, err
 	}
 	var req models.CrmPoolRule
@@ -94,7 +107,7 @@ func crmPoolAssign(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err != nil {
 		return nil, err
 	}
-	if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:pool:assign"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -147,7 +160,7 @@ func crmCustomerTransfer(ctx context.Context, _, _ string, params json.RawMessag
 	if err != nil {
 		return nil, err
 	}
-	if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:customer:transfer"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -213,7 +226,7 @@ func crmSalesRuleSet(ctx context.Context, _, _ string, params json.RawMessage) (
 	if err != nil {
 		return nil, err
 	}
-	if err := requireRole(ctx, "admin"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:sales_rule:manage"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -233,7 +246,7 @@ func crmQuotaSet(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	if err != nil {
 		return nil, err
 	}
-	if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:quota:manage"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -347,7 +360,7 @@ func crmDedupMerge(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if err != nil {
 		return nil, err
 	}
-	if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:dedup:manage"); err != nil {
 		return nil, err
 	}
 	var req struct {

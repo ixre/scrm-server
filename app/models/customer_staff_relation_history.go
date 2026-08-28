@@ -5,7 +5,6 @@ import (
 	"core/app/requests"
 	"core/common/app"
 	"core/common/id_generator"
-	"core/conf"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,15 +36,16 @@ type CustomerStaffRelationHistory struct {
 // Description: 员工删除客户
 // Detail: 删除关系记录,新增关系流水
 func (o CustomerStaffRelationHistory) CustomerDeleteStaff(extStaffID string, extCustomerID string) (err error) {
-	return DB.Transaction(func(tx *gorm.DB) error {
+	if o.ExtCorpID == "" { return errors.New("missing enterprise for customer history") }
+ return DB.Transaction(func(tx *gorm.DB) error {
 		// 删除客户员工关系
 		var cs CustomerStaff
-		err = tx.Where("ext_staff_id = ? and ext_customer_id = ?", extStaffID, extCustomerID).First(&cs).Error
+		err = tx.Where("ext_corp_id = ? AND ext_staff_id = ? and ext_customer_id = ?", o.ExtCorpID, extStaffID, extCustomerID).First(&cs).Error
 		if err != nil {
 			err = errors.WithStack(err)
 			return err
 		}
-		err = tx.Where("ext_staff_id = ? and ext_customer_id = ?", extStaffID, extCustomerID).
+		err = tx.Where("ext_corp_id = ? AND ext_staff_id = ? and ext_customer_id = ?", o.ExtCorpID, extStaffID, extCustomerID).
 			Delete(&CustomerStaff{}).Error
 		if err != nil {
 			err = errors.WithStack(err)
@@ -53,7 +53,7 @@ func (o CustomerStaffRelationHistory) CustomerDeleteStaff(extStaffID string, ext
 		}
 
 		// 新增客户删除员工的记录
-		extCorpID := conf.Settings.WeWork.ExtCorpID
+		extCorpID := o.ExtCorpID
 		customerStaffRelationHistory := CustomerStaffRelationHistory{
 			ExtCorpModel:          ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID, ExtCreatorID: extCustomerID},
 			ExtStaffID:            extStaffID,
@@ -74,15 +74,16 @@ func (o CustomerStaffRelationHistory) CustomerDeleteStaff(extStaffID string, ext
 // Description: 员工删除客户
 // Detail: 删除关系记录,新增关系流水
 func (o CustomerStaffRelationHistory) StaffDeleteCustomer(extStaffID string, extCustomerID string) (err error) {
-	return DB.Transaction(func(tx *gorm.DB) error {
+	if o.ExtCorpID == "" { return errors.New("missing enterprise for customer history") }
+ return DB.Transaction(func(tx *gorm.DB) error {
 		var cs CustomerStaff
-		err = tx.Where("ext_staff_id = ? and ext_customer_id = ?", extStaffID, extCustomerID).First(&cs).Error
+		err = tx.Where("ext_corp_id = ? AND ext_staff_id = ? and ext_customer_id = ?", o.ExtCorpID, extStaffID, extCustomerID).First(&cs).Error
 		if err != nil {
 			err = errors.WithStack(err)
 			return err
 		}
 		// 删除客户员工关系
-		err = tx.Where("ext_staff_id = ? and ext_customer_id = ?", extStaffID, extCustomerID).
+		err = tx.Where("ext_corp_id = ? AND ext_staff_id = ? and ext_customer_id = ?", o.ExtCorpID, extStaffID, extCustomerID).
 			Delete(&CustomerStaff{}).Error
 		if err != nil {
 			err = errors.WithStack(err)
@@ -90,7 +91,7 @@ func (o CustomerStaffRelationHistory) StaffDeleteCustomer(extStaffID string, ext
 		}
 
 		// 新增客户删除员工的记录
-		extCorpID := conf.Settings.WeWork.ExtCorpID
+		extCorpID := o.ExtCorpID
 		customerStaffRelationHistory := CustomerStaffRelationHistory{
 			ExtCorpModel:          ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID, ExtCreatorID: extCustomerID},
 			ExtStaffID:            extStaffID,
@@ -110,9 +111,9 @@ func (o CustomerStaffRelationHistory) StaffDeleteCustomer(extStaffID string, ext
 func (o CustomerStaffRelationHistory) QueryStaffDeleteCustomer(
 	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) ([]StaffDeleteCustomer, int64, error) {
 	db := DB.Table("customer_staff_relation_history").
-		Joins("join customer_staff on customer_staff.ext_staff_id = customer_staff_relation_history.ext_staff_id and customer_staff.ext_customer_id = customer_staff_relation_history.ext_customer_id").
-		Joins("join customer  on customer.ext_id = customer_staff.ext_customer_id").
-		Joins("join staff on customer_staff.ext_staff_id = staff.ext_id").
+		Joins("join customer_staff on customer_staff.ext_staff_id = customer_staff_relation_history.ext_staff_id and customer_staff.ext_customer_id = customer_staff_relation_history.ext_customer_id AND customer_staff.ext_corp_id = customer_staff_relation_history.ext_corp_id").
+		Joins("join customer  on customer.ext_id = customer_staff.ext_customer_id AND customer.ext_corp_id = customer_staff.ext_corp_id").
+		Joins("join staff on customer_staff.ext_staff_id = staff.ext_id AND customer_staff.ext_corp_id = staff.ext_corp_id").
 		Select("customer_staff.id as id," +
 			" customer.ext_id as ext_customer_id, " +
 			" customer.avatar as ext_customer_avatar, " +
@@ -173,8 +174,8 @@ func (o CustomerStaffRelationHistory) QueryCustomerDeleteStaff(
 	req requests.QueryCustomerLossesReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]CustomerLossInfo, int64, error) {
 
 	db := DB.Table("customer_staff_relation_history").
-		Joins("join customer_staff on customer_staff.ext_staff_id = customer_staff_relation_history.ext_staff_id and customer_staff.ext_customer_id = customer_staff_relation_history.ext_customer_id ").
-		Joins("join customer on customer.ext_id = customer_staff.ext_customer_id").
+		Joins("join customer_staff on customer_staff.ext_staff_id = customer_staff_relation_history.ext_staff_id and customer_staff.ext_customer_id = customer_staff_relation_history.ext_customer_id AND customer_staff.ext_corp_id = customer_staff_relation_history.ext_corp_id ").
+		Joins("join customer on customer.ext_id = customer_staff.ext_customer_id AND customer.ext_corp_id = customer_staff.ext_corp_id").
 		Joins("join staff s on customer_staff.ext_staff_id = s.ext_id").
 		Select("customer_staff.id as id, " +
 			" customer.ext_id as ext_customer_id, " +

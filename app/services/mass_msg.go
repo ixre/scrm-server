@@ -2,11 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
@@ -18,8 +13,12 @@ import (
 	"core/common/log"
 	"core/common/util"
 	"core/common/we_work"
-	"core/conf"
 	gowx "core/pkg/easywework"
+	"encoding/json"
+	"fmt"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -123,7 +122,7 @@ func (o MassMsgService) Create(ctx context.Context, req requests.SendMassMsgReq,
 
 // UpdateMassMsg
 // 不支持删除立即发送消息
-func (o MassMsgService) UpdateMassMsg(ctx context.Context, 
+func (o MassMsgService) UpdateMassMsg(ctx context.Context,
 	req requests.UpdateMassMsgReq, id string, name string, extCorpID string) (msg models.MassMsg, err error) {
 
 	massMsg, err := o.massMsgRepo.Get(id)
@@ -271,8 +270,9 @@ func (o MassMsgService) GetSendMassMsgResult(ctx context.Context, missionID stri
 // SendMassMsgToWx
 // Description: 延迟队列发送消息到wx
 // Detail:
-//	延迟队列的消息->req->we_work request
-//  同一个企业每个自然月内仅可针对一个客户/客户群发送4条消息，超过接收上限的客户将无法再收到群发消息。
+//
+//		延迟队列的消息->req->we_work request
+//	 同一个企业每个自然月内仅可针对一个客户/客户群发送4条消息，超过接收上限的客户将无法再收到群发消息。
 func (o MassMsgService) SendMassMsgToWx(ctx context.Context, body string, msgID string) (extMsgID string, err error) {
 	log.Sugar.Debug(body)
 	req := requests.SendMassMsgReq{}
@@ -328,7 +328,11 @@ func (o MassMsgService) SendMassMsgToWx(ctx context.Context, body string, msgID 
 		staffCustomerMap[extStaffID] = append(staffCustomerMap[extStaffID], StaffCustomer.ExtCustomerID)
 	}
 
-	client, err := we_work.Clients.Get(conf.Settings.WeWork.ExtCorpID)
+	stored, err := o.massMsgRepo.Get(msgID)
+	if err != nil {
+		return "", err
+	}
+	client, err := we_work.Clients.Get(stored.ExtCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return
@@ -381,7 +385,7 @@ func (o MassMsgService) Notify(ctx context.Context, ids []string, extCorpID stri
 		return err
 	}
 	for _, MassMsg := range MassMsgs {
-		customer, err := o.CustomerRepo.GetByExtID(staffCustomerIDs[0].ExtCustomerID, extStaffIDs, false)
+		customer, err := o.CustomerRepo.GetByExtID(staffCustomerIDs[0].ExtCustomerID, extCorpID, extStaffIDs, false)
 		if err != nil {
 			err = errors.WithStack(err)
 			return err
@@ -409,7 +413,7 @@ func (o MassMsgService) Query(ctx context.Context, extCorpID string, sorter *app
 
 // GetStaffsCustomers
 // 员工-客户对应, 一个客户对应多个员工会随机去重
-func (o MassMsgService) GetStaffsCustomers(ctx context.Context, 
+func (o MassMsgService) GetStaffsCustomers(ctx context.Context,
 	extStaffIDs constants.StringArrayField,
 	filterEnable constants.Boolean,
 	filter constants.ExtCustomerFilter) (res []models.StaffsCustomers, total int64, err error) {

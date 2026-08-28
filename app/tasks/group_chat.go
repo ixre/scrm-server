@@ -2,6 +2,8 @@ package tasks
 
 import (
 	"core/app/models"
+ "core/app/services"
+ "context"
 	"core/common/log"
 	"time"
 )
@@ -24,7 +26,7 @@ func (o GroupChat) CleanGroupChatIncrement() {
 		defer o.Unlock(taskKey)
 	}
 	// 每天删除客户群数量
-	err = (models.GroupChat{}).CleanGroupChatIncrement()
+	err = services.EachWecomCorp(context.Background(), func(ctx context.Context, corpID string) error { return (models.GroupChat{}).CleanGroupChatIncrement(corpID) })
 	if err != nil {
 		log.Sugar.Errorw("UpdateMassMsgStatus failed", "err", err)
 		return

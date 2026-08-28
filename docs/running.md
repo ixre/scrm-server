@@ -46,6 +46,13 @@ cd scrm-server
 cp conf/config.example.yaml conf/config.yaml
 ```
 
+`conf/config.yaml` 还需配置两个密钥（core 与 gateway 共享此文件，直接 `go run .` 即可，无需再手动 export）：
+```yaml
+App:
+  JWTSecret: "<openssl rand -hex 32>"       # 等价于环境变量 CRM_JWT_SECRET（env 优先）
+  InternalSecret: "<openssl rand -hex 32>"  # 等价于环境变量 SCRM_INTERNAL_SECRET（env 优先）
+```
+
 `conf/config.yaml` 关键项（已与 docker-compose 对齐）：
 ```yaml
 DB:
@@ -119,7 +126,7 @@ Redis:
 
 **安全机制**：所有 `crm_tenant/*` API 均要求 `requirePlatformAdmin`（JWT 中 `is_platform=true`），租户用户和匿名请求一律拒绝。
 
-**数据隔离**：租户内所有 CRM 数据通过 `tenant_id` 分区，GORM `TenantScope` 自动追加 `WHERE tenant_id = ?`，详见 `app/models/tenant_scope.go`。
+**数据隔离**：租户内所有 CRM 数据通过 `tenant_id` 分区，GORM `TenantScope` 追加 `WHERE tenant_id = ?`；租户守卫插件拒绝缺少租户条件的语句，跨租户访问须显式 `models.CrossTenant()`，详见 `app/models/tenant_scope.go`、`app/models/tenant_guard.go`。
 
 ### 平台管理功能一览
 

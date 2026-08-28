@@ -29,6 +29,26 @@ func init() {
 	Reg.Register(l, "StaffLogin", loginStaffLogin)
 	Reg.Register(l, "ConsoleLogin", loginConsoleLogin)
 	Reg.Register(l, "ConsoleForceLogin", loginConsoleForceLogin)
+	Reg.Register(l, "ConsoleLoginCallback", func(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+		var req struct {
+			CorpID string `json:"ext_corp_id"`
+			Code   string `json:"code"`
+		}
+		if err := Bind(params, &req); err != nil {
+			return nil, err
+		}
+		return services.NewDefaultLogin().ConsoleLoginCallback(req.CorpID, req.Code)
+	})
+	Reg.Register(l, "StaffLoginCallback", func(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+		var req struct {
+			CorpID string `json:"ext_corp_id"`
+			Code   string `json:"code"`
+		}
+		if err := Bind(params, &req); err != nil {
+			return nil, err
+		}
+		return services.NewDefaultLogin().StaffLoginCallback(req.CorpID, req.Code)
+	})
 
 	j := "js_api"
 	Reg.Register(j, "GetJSConfig", jsApiGetJSConfig)
@@ -137,22 +157,30 @@ func permissionGet(ctx context.Context, _, _ string, params json.RawMessage) (an
 
 func loginStaffLogin(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
+		ExtCorpID string `json:"ext_corp_id"`
 		State     string `json:"state"`
 		SourceURL string `json:"source_url"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
+	}
+	if corpID == "" {
+		corpID = req.ExtCorpID
 	}
 	return services.NewDefaultLogin().StaffLogin(corpID, req.State, req.SourceURL)
 }
 
 func loginConsoleLogin(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
+		ExtCorpID string `json:"ext_corp_id"`
 		State     string `json:"state"`
 		SourceURL string `json:"source_url"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
+	}
+	if corpID == "" {
+		corpID = req.ExtCorpID
 	}
 	return services.NewDefaultLogin().ConsoleLogin(corpID, req.State, req.SourceURL)
 }

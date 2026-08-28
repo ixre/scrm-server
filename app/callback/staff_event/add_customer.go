@@ -42,7 +42,7 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 		"customerID", extCustomerID, "staffID", extStaffID, "welcomeCode", welcomeCode)
 
 	customerSrv := services.NewCustomer()
-	err := customerSrv.SyncSingleCustomerData(context.Background(), extStaffID, extCustomerID)
+	err := customerSrv.SyncSingleCustomerData(services.SyncTenantCtx(context.Background(), msg.ToUserID), extStaffID, extCustomerID)
 	if err != nil {
 		log.Sugar.Errorw("customerSrv.SyncSingleCustomerData failed",
 			"extStaffID", extStaffID, "extCustomerID", extCustomerID)
@@ -50,20 +50,20 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 	}
 
 	// 更新员工的客户数
-	err = models.CustomerStatistic{}.Upsert(extStaffID, 1)
+	err = models.CustomerStatistic{ExtCorpModel: models.ExtCorpModel{ExtCorpID: msg.ToUserID}}.Upsert(extStaffID, 1)
 	if err != nil {
 		log.Sugar.Errorw("update customer statistics failed",
 			"extStaffID", extStaffID, "extCustomerID", extCustomerID)
 		return err
 	}
 
-	err = SyncExternalContact(extStaffID, extCustomerID)
+	err = SyncExternalContact(msg.ToUserID, extStaffID, extCustomerID)
 	if err != nil {
 		log.Sugar.Errorw("add sync job failed", "err", err)
 		return err
 	}
 
-	shouldSendWelcomeMsg, err := (&services.ContactWay{}).DealAddCustomerEvent(context.Background(), models.DB, eventAddExternalContact)
+	shouldSendWelcomeMsg, err := (&services.ContactWay{}).DealAddCustomerEvent(services.SyncTenantCtx(context.Background(), msg.ToUserID), models.DB, eventAddExternalContact)
 	if err != nil {
 		log.Sugar.Errorw("ContactWay.DealAddCustomerEvent failed",
 			"err", err, "eventAddExternalContact", eventAddExternalContact)
@@ -76,7 +76,7 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 		if welcomeCode != "" {
 			log.Sugar.Infow("send default welcome msg")
 			staff := &models.Staff{}
-			err := models.DB.Model(&models.Staff{}).Where("ext_id = ?", extStaffID).First(&staff).Error
+			err := models.DB.Model(&models.Staff{}).Where("ext_id = ? AND ext_corp_id = ?", extStaffID, msg.ToUserID).First(&staff).Error
 			if err != nil {
 				log.Sugar.Infow("get staff info failed", "err", err)
 				return err
@@ -96,8 +96,9 @@ func EventAddExternalContactHandler(msg *gowx.RxMessage) error {
 // Detail: 异步处理，出错后可重试
 // Param: extStaffID 员工外部ID
 // Param: extCustomerID 客户外部ID
-func SyncExternalContact(extStaffID, extCustomerID string) error {
+func SyncExternalContact(extCorpID, extStaffID, extCustomerID string) error {
 	customerStaffRelation := models.CustomerStaffRelation{
+ ExtCorpID: extCorpID,
 		ExtStaffID:    extStaffID,
 		ExtCustomerID: extCustomerID,
 	}

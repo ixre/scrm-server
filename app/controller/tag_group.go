@@ -171,7 +171,9 @@ func (t TagGroup) ExchangeOrder(c *gin.Context) {
 		return
 	}
 
-	err = t.srv.ExchangeOrder(&req)
+	consoleStaff, err := t.GetConsoleInfo(handler)
+ if err != nil { handler.ResponseError(err); return }
+	err = t.srv.ExchangeOrder(&req, consoleStaff.ExtCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "exchanger order failed")
 		handler.ResponseError(err)

@@ -4,8 +4,6 @@ import (
 	"core/app/constants"
 
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // ContactWayStaff 渠道码绑定的员工
@@ -34,20 +32,4 @@ func (o ContactWayStaff) DailyClean() (err error) {
 	}
 
 	return
-}
-
-// BeforeCreate 此表作为关联表时支持字段权限配置，没有更新权限的字段，不会被upsert更新
-func (o ContactWayStaff) BeforeCreate(tx *gorm.DB) (err error) {
-	var colsNames []string
-	// 设置冲突时需要更新的字段
-	for _, field := range tx.Statement.Schema.Fields {
-		if field.Updatable {
-			colsNames = append(colsNames, field.DBName)
-		}
-	}
-	tx.Statement.AddClause(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns(colsNames),
-	})
-	return nil
 }

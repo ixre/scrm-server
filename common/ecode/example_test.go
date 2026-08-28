@@ -1,9 +1,9 @@
 package ecode_test
 
 import (
+	ecode2 "core/common/ecode"
 	"fmt"
 	"github.com/pkg/errors"
-	ecode2 "core/common/ecode"
 )
 
 func Example_ecode_Message() {
@@ -25,7 +25,7 @@ func ExampleCause() {
 
 func ExampleInt() {
 	err := ecode2.Int(500)
-	fmt.Println(err)
+	fmt.Println(err.Code())
 	// Output:
 	// 500
 }

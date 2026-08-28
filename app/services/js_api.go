@@ -8,7 +8,6 @@ import (
 	"core/app/responses"
 	log2 "core/common/log"
 	"core/common/we_work"
-	"core/conf"
 	"strings"
 	"time"
 )
@@ -25,7 +24,7 @@ func (o JsApiService) GetJSConfig(url string, extCorpID string) (res responses.G
 	res = responses.GetJSConfigResult{
 		Timestamp: time.Now().Unix(),
 		NonceStr:  grand.Letters(20),
-		AppID:     conf.Settings.WeWork.ExtCorpID,
+		AppID:     extCorpID,
 		URL:       strings.Split(url, "#")[0],
 	}
 
@@ -51,8 +50,8 @@ func (o JsApiService) GetJSConfig(url string, extCorpID string) (res responses.G
 // GetJSAgentConfig 获取应用级别的JS SDK agentConfig参数
 func (o JsApiService) GetJSAgentConfig(url string, extCorpID string) (res responses.GetJSAgentConfigResult, err error) {
 	res = responses.GetJSAgentConfigResult{
-		CorpID:    conf.Settings.WeWork.ExtCorpID,
-		AgentID:   conf.Settings.WeWork.MainAgentID,
+		CorpID:    extCorpID,
+		
 		Timestamp: time.Now().Unix(),
 		NonceStr:  grand.Letters(20),
 		URL:       strings.Split(url, "#")[0],
@@ -63,6 +62,8 @@ func (o JsApiService) GetJSAgentConfig(url string, extCorpID string) (res respon
 		err = errors.WithStack(err)
 		return
 	}
+
+	res.AgentID = client.MainApp.AgentID
 
 	ticket, err := client.MainApp.GetJSAPIAgentTicket()
 	if err != nil {

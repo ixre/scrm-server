@@ -56,12 +56,12 @@ func tagSync(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, err
 	return nil, services.NewTag().Sync(corpID)
 }
 
-func tagDeleteTagGroups(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+func tagDeleteTagGroups(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.DeleteTagGroupsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewTag().DeleteTagGroups(req)
+	return services.NewTag().DeleteTagGroups(req, corpID)
 }
 
 // -------- tag_group（标签组） --------
@@ -103,12 +103,12 @@ func tagGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessag
 	return services.NewTagGroupService().Delete(req, corpID)
 }
 
-func tagGroupExchangeOrder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+func tagGroupExchangeOrder(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req requests.ExchangeOrderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return nil, services.NewTagGroupService().ExchangeOrder(&req)
+	return nil, services.NewTagGroupService().ExchangeOrder(&req, corpID)
 }
 
 // -------- material_lib（素材库） --------

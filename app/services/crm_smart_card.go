@@ -13,6 +13,7 @@ import (
 	"core/common/id_generator"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type CrmSmartCardService struct{}
@@ -25,7 +26,14 @@ func (s CrmSmartCardService) Query(ctx context.Context, userID string, p *app.Pa
 		p = &app.Pager{}
 	}
 	p.SetDefault()
+	actor, manager, err := customerActor(ctx, models.DB)
+	if err != nil {
+		return nil, 0, err
+	}
 	db := models.MustFor(ctx)
+	if !manager {
+		db = db.Where("user_id = ?", actor.ID)
+	}
 	if userID != "" {
 		db = db.Where("user_id = ?", userID)
 	}
@@ -34,40 +42,69 @@ func (s CrmSmartCardService) Query(ctx context.Context, userID string, p *app.Pa
 		return nil, 0, err
 	}
 	var items []models.CrmSmartCard
-	err := db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
+	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
 	return items, total, err
 }
 
 func (s CrmSmartCardService) Get(ctx context.Context, id string) (models.CrmSmartCard, error) {
-	tenantID := identity.TenantID(ctx)
-
 	var item models.CrmSmartCard
-	db := models.DB.Where("id = ?", id)
-	if tenantID != "" {
-		db = db.Scopes(models.TenantScope(tenantID))
+	actor, manager, err := customerActor(ctx, models.DB)
+	if err != nil {
+		return item, err
 	}
-	err := db.First(&item).Error
+	db := models.MustFor(ctx).Where("id = ?", id)
+	if !manager {
+		db = db.Where("user_id = ?", actor.ID)
+	}
+	err = db.First(&item).Error
 	return item, err
 }
 
 // GetByShareCode 通过分享码查看名片（公开访问）。
 func (s CrmSmartCardService) GetByShareCode(shareCode string) (models.CrmSmartCard, error) {
+	var rows []models.CrmSmartCard
 	if shareCode == "" {
-		return models.CrmSmartCard{}, errors.New("share_code 不能为空")
+		return models.CrmSmartCard{}, errors.New("名片标识不能为空")
 	}
-	var item models.CrmSmartCard
-	err := models.DB.Where("share_code = ? AND status = ?", shareCode, "active").First(&item).Error
-	return item, err
+	// 公开入口按分享码反查名片及其租户：显式跨租户，后续查询均带 item.TenantID。
+	if err := models.CrossTenant().Where("share_code = ? AND status = ?", shareCode, "active").Limit(2).Find(&rows).Error; err != nil {
+		return models.CrmSmartCard{}, err
+	}
+	if len(rows) != 1 {
+		return models.CrmSmartCard{}, errors.New("名片不存在或分享标识冲突，请联系商家更新分享链接")
+	}
+	item := rows[0]
+	if err := validatePublicTenant(models.DB, item.TenantID, "workbench"); err != nil {
+		return models.CrmSmartCard{}, err
+	}
+	var user models.User
+	if err := models.DB.Where("tenant_id = ? AND id = ? AND status = 1", item.TenantID, item.UserID).First(&user).Error; err != nil {
+		return models.CrmSmartCard{}, errors.New("名片暂不可用")
+	}
+	return item, nil
 }
 
 // GetByID 按 ID 公开访问名片（无租户过滤，用于分享短链外的直接 ID 访问）。
 func (s CrmSmartCardService) GetByID(id string) (models.CrmSmartCard, error) {
+	var rows []models.CrmSmartCard
 	if id == "" {
-		return models.CrmSmartCard{}, errors.New("id 不能为空")
+		return models.CrmSmartCard{}, errors.New("名片标识不能为空")
 	}
-	var item models.CrmSmartCard
-	err := models.DB.Where("id = ? AND status = ?", id, "active").First(&item).Error
-	return item, err
+	if err := models.CrossTenant().Where("id = ? AND status = ?", id, "active").Limit(2).Find(&rows).Error; err != nil {
+		return models.CrmSmartCard{}, err
+	}
+	if len(rows) != 1 {
+		return models.CrmSmartCard{}, errors.New("名片不存在或分享标识冲突，请联系商家更新分享链接")
+	}
+	item := rows[0]
+	if err := validatePublicTenant(models.DB, item.TenantID, "workbench"); err != nil {
+		return models.CrmSmartCard{}, err
+	}
+	var user models.User
+	if err := models.DB.Where("tenant_id = ? AND id = ? AND status = 1", item.TenantID, item.UserID).First(&user).Error; err != nil {
+		return models.CrmSmartCard{}, errors.New("名片暂不可用")
+	}
+	return item, nil
 }
 
 func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard) (models.CrmSmartCard, error) {
@@ -82,10 +119,20 @@ func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	req.Name = strings.TrimSpace(req.Name)
-	// 生成分享码（8位短码）
-	req.ShareCode = id_generator.StringID()[:8]
+	// 随机分享标识不会因连续创建产生相同的时间戳前缀。
+	if err := validateCustomerOwner(ctx, models.DB, req.UserID); err != nil {
+		return req, err
+	}
+	var err error
+	req.ShareCode, err = newPublicCode()
+	if err != nil {
+		return req, err
+	}
 	if req.Status == "" {
 		req.Status = "active"
+	}
+	if req.Status != "active" && req.Status != "disabled" {
+		return req, errors.New("名片状态无效")
 	}
 	if err := createCRM(models.DB, &req); err != nil {
 		return req, err
@@ -94,6 +141,12 @@ func (s CrmSmartCardService) Create(ctx context.Context, req models.CrmSmartCard
 }
 
 func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.CrmSmartCard) (models.CrmSmartCard, error) {
+	if _, err := s.Get(ctx, id); err != nil {
+		return req, err
+	}
+	if strings.TrimSpace(req.Name) == "" || req.Status != "active" && req.Status != "disabled" {
+		return req, errors.New("请填写姓名和有效状态")
+	}
 
 	if err := models.MustFor(ctx).Model(&models.CrmSmartCard{}).Where("id = ?", id).Updates(map[string]any{
 		"name":          req.Name,
@@ -120,12 +173,32 @@ func (s CrmSmartCardService) Update(ctx context.Context, id string, req models.C
 }
 
 func (s CrmSmartCardService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	if len(ids) == 0 {
-		return 0, errors.New("ids 不能为空")
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
 	}
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmSmartCard{})
-	return res.RowsAffected, res.Error
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		actor, manager, err := customerActor(ctx, tx)
+		if err != nil {
+			return err
+		}
+		db := tx.Where("tenant_id = ? AND id IN ?", actor.TenantID, ids)
+		if !manager {
+			db = db.Where("user_id = ?", actor.ID)
+		}
+		var rows []models.CrmSmartCard
+		if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Order("id").Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) != len(ids) {
+			return ErrCustomerAccess
+		}
+		return tx.Where("tenant_id = ? AND id IN ?", actor.TenantID, ids).Delete(&models.CrmSmartCard{}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 // RecordView 记录名片浏览（访客轨迹），事务保证浏览数+1和记录写入一致。
@@ -143,7 +216,7 @@ func (s CrmSmartCardService) RecordView(ctx context.Context, cardID, visitorID, 
 	}
 	rec.ID = id_generator.StringID()
 	return models.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.CrmSmartCard{}).Where("id = ?", cardID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err != nil {
+		if err := tx.Model(&models.CrmSmartCard{}).Where("tenant_id = ? AND id = ?", tenantID, cardID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err != nil {
 			return err
 		}
 		return createCRM(tx, &rec, "VisitorID")

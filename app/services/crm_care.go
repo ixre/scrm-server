@@ -71,6 +71,9 @@ func (s CrmCareService) GenerateBirthdayCareTodos() {
 	models.DB.Model(&models.Tenant{}).Pluck("id", &tenantIDs)
 	today := time.Now().Format("01-02")
 	for _, tid := range tenantIDs {
+		if models.RequirePlanModules(models.DB, tid, "customer", "workbench") != nil {
+			continue
+		}
 		// 查启用的生日关怀模板
 		var templates []models.CrmCareTemplate
 		models.DB.Scopes(models.TenantScope(tid)).Where("type = ? AND enabled = ?", "birthday", true).Find(&templates)

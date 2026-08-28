@@ -48,7 +48,8 @@ func (o *Login) ConsoleLogin(c *gin.Context) {
 	}
 
 	if req.ExtCorpID == "" {
-		req.ExtCorpID = conf.Settings.WeWork.ExtCorpID
+		handler.ResponseError(errors.New("请指定企微企业"))
+ return
 	}
 
 	state := grand.Letters(10)
@@ -153,14 +154,15 @@ func (o *Login) ConsoleForceLogin(c *gin.Context) {
 	}
 
 	if req.ExtCorpID == "" {
-		req.ExtCorpID = conf.Settings.WeWork.ExtCorpID
+		handler.ResponseError(errors.New("请指定企微企业"))
+ return
 	}
 
 	if req.ExtStaffID == "" && len(conf.Settings.App.SuperAdmin) > 0 {
 		req.ExtStaffID = conf.Settings.App.SuperAdmin[0]
 	}
 
-	item, err := (&models.Staff{}).Get(req.ExtStaffID, "", false)
+	item, err := (&models.Staff{}).Get(req.ExtStaffID, req.ExtCorpID, false)
 	if err != nil {
 		err = errors.Wrap(err, "GetStaffByUserID failed")
 		if req.ExtStaffID == conf.Settings.App.SuperAdmin[0] {
@@ -220,7 +222,8 @@ func (o *Login) StaffLogin(c *gin.Context) {
 	}
 
 	if req.ExtCorpID == "" {
-		req.ExtCorpID = conf.Settings.WeWork.ExtCorpID
+		handler.ResponseError(errors.New("请指定企微企业"))
+ return
 	}
 
 	state := grand.Letters(10)
@@ -328,10 +331,11 @@ func (o *Login) StaffForceLogin(c *gin.Context) {
 	}
 
 	if req.ExtCorpID == "" {
-		req.ExtCorpID = conf.Settings.WeWork.ExtCorpID
+		handler.ResponseError(errors.New("请指定企微企业"))
+ return
 	}
 
-	item, err := (&models.Staff{}).Get(req.ExtStaffID, "", false)
+	item, err := (&models.Staff{}).Get(req.ExtStaffID, req.ExtCorpID, false)
 	if err != nil {
 		err = errors.Wrap(err, "GetStaffByUserID failed")
 		handler.ResponseError(err)
@@ -420,7 +424,7 @@ func (o *Login) CustomerLoginCallback(c *gin.Context) {
 	//	return
 	//}
 
-	item, err := o.srv.CustomerLoginCallback(conf.Settings.WeWork.ExtCorpID, req.Code)
+	item, err := o.srv.CustomerLoginCallback(req.AppID, req.Code)
 	if err != nil {
 		err = errors.Wrap(err, "CustomerLoginCallback failed")
 		handler.ResponseError(err)

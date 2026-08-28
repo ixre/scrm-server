@@ -2,13 +2,13 @@ package util
 
 import (
 	"bytes"
+	"core/conf"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"io"
-	"core/conf"
 	"strings"
 )
 
@@ -33,9 +33,12 @@ func Pad(src []byte) []byte {
 
 func Unpad(src []byte) ([]byte, error) {
 	length := len(src)
+	if length == 0 {
+		return nil, errors.New("invalid encrypted payload")
+	}
 	unpadding := int(src[length-1])
 
-	if unpadding > length {
+	if unpadding == 0 || unpadding > aes.BlockSize || unpadding > length {
 		return nil, errors.New("unpad error. This could happen when incorrect encryption key is used")
 	}
 
@@ -72,7 +75,7 @@ func Decrypt(key []byte, text string) (string, error) {
 		return "", err
 	}
 
-	if (len(decodedMsg) % aes.BlockSize) != 0 {
+	if len(decodedMsg) < 2*aes.BlockSize || (len(decodedMsg)%aes.BlockSize) != 0 {
 		return "", errors.New("blocksize must be multipe of decoded message length")
 	}
 

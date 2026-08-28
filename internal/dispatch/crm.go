@@ -60,6 +60,7 @@ func init() {
 	Reg.Register("crm_tenant_order", "ListPaymentMethods", crmTenantOrderListPaymentMethods)
 	Reg.Register("crm_user", "Create", crmUserCreate)
 	Reg.Register("crm_user", "Query", crmUserQuery)
+	Reg.Register("crm_user", "Options", crmUserOptions)
 	Reg.Register("crm_user", "SetPassword", crmUserSetPassword)
 	Reg.Register("crm_user", "Update", crmUserUpdate)
 	Reg.Register("crm_user", "BindWecom", crmUserBindWecom)
@@ -67,7 +68,11 @@ func init() {
 
 	// auth（本地账号登录，SaaS 多租户）
 	Reg.Register("crm_auth", "Login", crmAuthLogin)
+	Reg.Register("crm_auth", "ValidateSession", func(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) { return nil, nil })
 	Reg.Register("crm_auth", "ChangePassword", crmAuthChangePassword)
+	Reg.Register("crm_auth", "Logout", func(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+		return nil, services.Logout(ctx)
+	})
 	// platform auth（平台超管登录，独立于租户）
 	Reg.Register("crm_platform", "Login", crmPlatformLogin)
 	// 平台账号管理（super_admin 专属）
@@ -90,6 +95,10 @@ func init() {
 	Reg.Register("crm_customer", "Delete", crmCustomerDelete)
 	Reg.Register("crm_customer", "Get", crmCustomerGet)
 	Reg.Register("crm_customer", "GetDetail", crmCustomerGetDetail)
+	Reg.Register("crm_customer", "History", crmCustomerHistory)
+	Reg.Register("crm_customer", "Options", crmCustomerOptions)
+	Reg.Register("crm_customer", "BusinessSummary", crmCustomerBusinessSummary)
+	Reg.Register("crm_customer", "BusinessRecords", crmCustomerBusinessRecords)
 	Reg.Register("crm_customer", "Query", crmCustomerQuery)
 
 	// lead
@@ -97,6 +106,8 @@ func init() {
 	Reg.Register("crm_lead", "Update", crmLeadUpdate)
 	Reg.Register("crm_lead", "Delete", crmLeadDelete)
 	Reg.Register("crm_lead", "Get", crmLeadGet)
+	Reg.Register("crm_lead", "SetSchedule", crmLeadSetSchedule)
+	Reg.Register("crm_lead", "History", crmLeadHistory)
 	Reg.Register("crm_lead", "Query", crmLeadQuery)
 	Reg.Register("crm_lead", "BatchImport", crmLeadBatchImport)
 	Reg.Register("crm_lead", "Export", crmLeadExport)
@@ -114,6 +125,9 @@ func init() {
 	Reg.Register("crm_opportunity", "Delete", crmOpportunityDelete)
 	Reg.Register("crm_opportunity", "Get", crmOpportunityGet)
 	Reg.Register("crm_opportunity", "Query", crmOpportunityQuery)
+	Reg.Register("crm_opportunity", "Options", crmOpportunityOptions)
+	Reg.Register("crm_opportunity", "Board", crmOpportunityBoard)
+	Reg.Register("crm_opportunity", "BoardPage", crmOpportunityBoardPage)
 	Reg.Register("crm_opportunity", "MoveStage", crmOpportunityMoveStage)
 
 	// followup
@@ -128,6 +142,9 @@ func init() {
 	Reg.Register("crm_order", "Update", crmOrderUpdate)
 	Reg.Register("crm_order", "Delete", crmOrderDelete)
 	Reg.Register("crm_order", "Query", crmOrderQuery)
+	Reg.Register("crm_order", "Options", crmOrderOptions)
+	Reg.Register("crm_order", "Get", crmOrderGet)
+	Reg.Register("crm_order", "Sign", crmOrderSign)
 
 	// report
 	Reg.Register("crm_report", "SalesSummary", crmReportSalesSummary)
@@ -172,6 +189,7 @@ func init() {
 	// ---- Phase 1 销售域深化 ----
 	// 公海池
 	Reg.Register("crm_pool", "List", crmPoolList)
+	Reg.Register("crm_pool", "Get", crmPoolGet)
 	Reg.Register("crm_pool", "Claim", crmPoolClaim)
 	Reg.Register("crm_pool", "Recycle", crmPoolRecycle)
 	Reg.Register("crm_pool", "Assign", crmPoolAssign)
@@ -211,6 +229,10 @@ func init() {
 	Reg.Register("crm_channel_task", "MarkDone", crmChannelTaskMarkDone)
 	Reg.Register("crm_channel_task", "MarkSkipped", crmChannelTaskMarkSkipped)
 	Reg.Register("crm_channel_task", "Assign", crmChannelTaskAssign)
+	Reg.Register("crm_channel_task", "Claim", crmChannelTaskClaim)
+	Reg.Register("crm_channel_task", "Reopen", crmChannelTaskReopen)
+	Reg.Register("crm_channel_task", "Logs", crmChannelTaskLogs)
+	Reg.Register("crm_channel_task", "Assignees", crmChannelTaskAssignees)
 
 	// ---- Phase 3 营销活动落地 ----
 	// 活动效果漏斗
@@ -292,50 +314,50 @@ func init() {
 	Reg.Register("crm_customer", "BatchImport", crmCustomerBatchImport)
 
 	// Phase 7 A组：SCRM 风控（仅 admin/manager 可管理）
-	Reg.Register("crm_sensitive_word", "List", managerOnly(crmSensitiveWordList))
-	Reg.Register("crm_sensitive_word", "Create", managerOnly(crmSensitiveWordCreate))
-	Reg.Register("crm_sensitive_word", "Delete", managerOnly(crmSensitiveWordDelete))
-	Reg.Register("crm_sensitive_alert", "List", managerOnly(crmSensitiveAlertList))
-	Reg.Register("crm_sensitive_alert", "Handle", managerOnly(crmSensitiveAlertHandle))
-	Reg.Register("crm_inheritance", "Execute", managerOnly(crmInheritanceExecute))
-	Reg.Register("crm_inheritance", "List", managerOnly(crmInheritanceList))
-	Reg.Register("crm_customer_loss", "List", managerOnly(crmCustomerLossList))
-	Reg.Register("crm_customer_loss", "Handle", managerOnly(crmCustomerLossHandle))
-	Reg.Register("crm_reply_timeout", "List", managerOnly(crmReplyTimeoutList))
-	Reg.Register("crm_reply_timeout", "Handle", managerOnly(crmReplyTimeoutHandle))
-	Reg.Register("crm_group_sop", "List", managerOnly(crmGroupSopList))
-	Reg.Register("crm_group_sop", "Create", managerOnly(crmGroupSopCreate))
-	Reg.Register("crm_group_sop", "Delete", managerOnly(crmGroupSopDelete))
-	Reg.Register("crm_group_sop", "ListTasks", managerOnly(crmGroupSopListTasks))
-	Reg.Register("crm_group_sop", "DoneTask", managerOnly(crmGroupSopDoneTask))
+	Reg.Register("crm_sensitive_word", "List", crmSensitiveWordList)
+	Reg.Register("crm_sensitive_word", "Create", crmSensitiveWordCreate)
+	Reg.Register("crm_sensitive_word", "Delete", crmSensitiveWordDelete)
+	Reg.Register("crm_sensitive_alert", "List", crmSensitiveAlertList)
+	Reg.Register("crm_sensitive_alert", "Handle", crmSensitiveAlertHandle)
+	Reg.Register("crm_inheritance", "Execute", crmInheritanceExecute)
+	Reg.Register("crm_inheritance", "List", crmInheritanceList)
+	Reg.Register("crm_customer_loss", "List", crmCustomerLossList)
+	Reg.Register("crm_customer_loss", "Handle", crmCustomerLossHandle)
+	Reg.Register("crm_reply_timeout", "List", crmReplyTimeoutList)
+	Reg.Register("crm_reply_timeout", "Handle", crmReplyTimeoutHandle)
+	Reg.Register("crm_group_sop", "List", crmGroupSopList)
+	Reg.Register("crm_group_sop", "Create", crmGroupSopCreate)
+	Reg.Register("crm_group_sop", "Delete", crmGroupSopDelete)
+	Reg.Register("crm_group_sop", "ListTasks", crmGroupSopListTasks)
+	Reg.Register("crm_group_sop", "DoneTask", crmGroupSopDoneTask)
 
 	// Phase 7 B组：营销活动补充（管理操作仅 admin/manager，参与操作不限角色）
-	Reg.Register("crm_group_buy", "List", managerOnly(crmGroupBuyList))
-	Reg.Register("crm_group_buy", "Create", managerOnly(crmGroupBuyCreate))
-	Reg.Register("crm_group_buy", "Delete", managerOnly(crmGroupBuyDelete))
+	Reg.Register("crm_group_buy", "List", crmGroupBuyList)
+	Reg.Register("crm_group_buy", "Create", crmGroupBuyCreate)
+	Reg.Register("crm_group_buy", "Delete", crmGroupBuyDelete)
 	Reg.Register("crm_group_buy", "OpenGroup", crmGroupBuyOpenGroup)
 	Reg.Register("crm_group_buy", "JoinGroup", crmGroupBuyJoinGroup)
-	Reg.Register("crm_group_buy", "ListRecords", managerOnly(crmGroupBuyListRecords))
-	Reg.Register("crm_bargain", "List", managerOnly(crmBargainList))
-	Reg.Register("crm_bargain", "Create", managerOnly(crmBargainCreate))
-	Reg.Register("crm_bargain", "Delete", managerOnly(crmBargainDelete))
+	Reg.Register("crm_group_buy", "ListRecords", crmGroupBuyListRecords)
+	Reg.Register("crm_bargain", "List", crmBargainList)
+	Reg.Register("crm_bargain", "Create", crmBargainCreate)
+	Reg.Register("crm_bargain", "Delete", crmBargainDelete)
 	Reg.Register("crm_bargain", "Start", crmBargainStart)
 	Reg.Register("crm_bargain", "Help", crmBargainHelp)
-	Reg.Register("crm_bargain", "ListRecords", managerOnly(crmBargainListRecords))
-	Reg.Register("crm_full_reduction", "List", managerOnly(crmFullReductionList))
-	Reg.Register("crm_full_reduction", "Create", managerOnly(crmFullReductionCreate))
-	Reg.Register("crm_full_reduction", "Delete", managerOnly(crmFullReductionDelete))
-	Reg.Register("crm_full_reduction", "CalculateDiscount", managerOnly(crmFullReductionCalculate))
-	Reg.Register("crm_red_packet", "List", managerOnly(crmRedPacketList))
-	Reg.Register("crm_red_packet", "Create", managerOnly(crmRedPacketCreate))
-	Reg.Register("crm_red_packet", "Delete", managerOnly(crmRedPacketDelete))
+	Reg.Register("crm_bargain", "ListRecords", crmBargainListRecords)
+	Reg.Register("crm_full_reduction", "List", crmFullReductionList)
+	Reg.Register("crm_full_reduction", "Create", crmFullReductionCreate)
+	Reg.Register("crm_full_reduction", "Delete", crmFullReductionDelete)
+	Reg.Register("crm_full_reduction", "CalculateDiscount", crmFullReductionCalculate)
+	Reg.Register("crm_red_packet", "List", crmRedPacketList)
+	Reg.Register("crm_red_packet", "Create", crmRedPacketCreate)
+	Reg.Register("crm_red_packet", "Delete", crmRedPacketDelete)
 	Reg.Register("crm_red_packet", "Claim", crmRedPacketClaim)
-	Reg.Register("crm_red_packet", "ListRecords", managerOnly(crmRedPacketListRecords))
-	Reg.Register("crm_sign_in", "List", managerOnly(crmSignInList))
-	Reg.Register("crm_sign_in", "Create", managerOnly(crmSignInCreate))
-	Reg.Register("crm_sign_in", "Delete", managerOnly(crmSignInDelete))
+	Reg.Register("crm_red_packet", "ListRecords", crmRedPacketListRecords)
+	Reg.Register("crm_sign_in", "List", crmSignInList)
+	Reg.Register("crm_sign_in", "Create", crmSignInCreate)
+	Reg.Register("crm_sign_in", "Delete", crmSignInDelete)
 	Reg.Register("crm_sign_in", "CheckIn", crmSignInCheckIn)
-	Reg.Register("crm_sign_in", "ListRecords", managerOnly(crmSignInListRecords))
+	Reg.Register("crm_sign_in", "ListRecords", crmSignInListRecords)
 
 	// Phase 7 C4：智能名片
 	Reg.Register("crm_smart_card", "List", crmSmartCardList)
@@ -356,6 +378,7 @@ func init() {
 
 	// P1: 回款计划
 	Reg.Register("crm_receivables_plan", "List", crmReceivablesPlanList)
+	Reg.Register("crm_receivables_plan", "Options", crmReceivablesPlanOptions)
 	Reg.Register("crm_receivables_plan", "Create", crmReceivablesPlanCreate)
 	Reg.Register("crm_receivables_plan", "Update", crmReceivablesPlanUpdate)
 	Reg.Register("crm_receivables_plan", "Delete", crmReceivablesPlanDelete)
@@ -374,7 +397,7 @@ func init() {
 	Reg.Register("crm_quote", "Update", crmQuoteUpdate)
 	Reg.Register("crm_quote", "Delete", crmQuoteDelete)
 	Reg.Register("crm_quote", "ChangeStatus", crmQuoteChangeStatus)
-	Reg.Register("crm_quote", "Transfer", crmQuoteTransfer)
+	Reg.Register("crm_quote", "ConvertToOrder", crmQuoteConvertToOrder)
 
 	// P1: 待办
 	Reg.Register("crm_todo", "List", crmTodoList)
@@ -580,6 +603,7 @@ func init() {
 
 	// P4: 系统设置
 	Reg.Register("crm_auto_allocation", "List", crmAutoAllocationList)
+	Reg.Register("crm_auto_allocation", "Logs", crmAutoAllocationLogs)
 	Reg.Register("crm_auto_allocation", "Create", crmAutoAllocationCreate)
 	Reg.Register("crm_auto_allocation", "Update", crmAutoAllocationUpdate)
 	Reg.Register("crm_auto_allocation", "Delete", crmAutoAllocationDelete)
@@ -815,124 +839,18 @@ func requirePlatformAdmin(ctx context.Context) (string, error) {
 	return id, nil
 }
 
-// requirePlatformRole 校验当前请求来自平台超管，且其角色在白名单中。
-// super_admin 始终通过。用于按角色细分平台管理 API 的访问权限。
-func requirePlatformRole(ctx context.Context, roles ...string) (string, error) {
-	id, err := requirePlatformAdmin(ctx)
-	if err != nil {
-		return "", err
-	}
-	// super_admin 始终通过
-	for _, r := range roles {
-		if r == "super_admin" {
-			// 需要查实际角色
-		}
-	}
-	// 查平台超管的角色
-	var admin models.PlatformAdmin
-	if err := models.DB.Where("id = ?", id).First(&admin).Error; err != nil {
-		return "", errForbidden
-	}
-	if admin.Status != 1 {
-		return "", errForbidden
-	}
-	// super_admin 始终通过
-	if admin.Role == "super_admin" {
-		return id, nil
-	}
-	for _, r := range roles {
-		if admin.Role == r {
-			return id, nil
-		}
-	}
-	return "", errForbidden
-}
-
-// requireRole 校验当前用户是否拥有指定角色编码（fail closed：无角色/角色不存在一律拒绝）。
-func requireRole(ctx context.Context, code string) error {
-	return requireAnyRole(ctx, code)
-}
-
-// managerOnly 装饰器：仅允许 admin/manager 角色调用被包裹的 dispatch handler。
-func managerOnly(fn func(context.Context, string, string, json.RawMessage) (any, error)) func(context.Context, string, string, json.RawMessage) (any, error) {
-	return func(ctx context.Context, a, b string, params json.RawMessage) (any, error) {
-		if err := requireAnyRole(ctx, "admin", "manager"); err != nil {
-			return nil, err
-		}
-		return fn(ctx, a, b, params)
-	}
-}
-
-// requireAnyRole 校验当前用户是否拥有任一指定角色编码（满足其一即可）。
-func requireAnyRole(ctx context.Context, codes ...string) error {
-	t, err := requireIdentity(ctx)
-	if err != nil {
-		return err
-	}
-	u := identity.UserID(ctx)
-	if u == "" {
-		return errForbidden
-	}
-	var usr models.User
-	if err := models.DB.Scopes(models.TenantScope(t)).Where("id = ?", u).First(&usr).Error; err != nil {
-		return errForbidden
-	}
-	if usr.RoleID == "" {
-		return errForbidden
-	}
-	var r models.CrmRole
-	if err := models.DB.Scopes(models.TenantScope(t)).Where("id = ?", usr.RoleID).First(&r).Error; err != nil {
-		return errForbidden
-	}
-	for _, code := range codes {
-		if r.Code == code {
-			return nil
-		}
-	}
-	return errForbidden
-}
-
-// currentUserRoleCode 返回当前用户的角色编码（admin/manager/sales），查询失败返回空串。
-func currentUserRoleCode(ctx context.Context) string {
-	t, err := requireIdentity(ctx)
-	if err != nil {
-		return ""
-	}
-	u := identity.UserID(ctx)
-	if u == "" {
-		return ""
-	}
-	var usr models.User
-	if err := models.DB.Scopes(models.TenantScope(t)).Where("id = ?", u).First(&usr).Error; err != nil {
-		return ""
-	}
-	if usr.RoleID == "" {
-		return ""
-	}
-	var r models.CrmRole
-	if err := models.DB.Scopes(models.TenantScope(t)).Where("id = ?", usr.RoleID).First(&r).Error; err != nil {
-		return ""
-	}
-	return r.Code
-}
-
 // EffectiveOwnerFilter 数据权限分层：根据角色返回有效的 owner_user_id 过滤值。
-//   - admin/manager：返回 requestedOwner（允许查看全部，也可按指定归属人筛选）
-//   - sales：强制返回当前用户 ID（只能看自己的数据）
-//   - 角色未知：强制返回当前用户 ID（fail-closed，最小权限）
+//   - crm:data:all：允许租户范围，也可按指定归属人筛选。
+//   - 其余账号：强制当前用户 ID；角色名称不参与判断。
 func EffectiveOwnerFilter(ctx context.Context, requestedOwner string) string {
 	// __me__ 表示当前用户自己的数据
 	if requestedOwner == "__me__" {
 		return identity.UserID(ctx)
 	}
-	role := currentUserRoleCode(ctx)
-	switch role {
-	case "admin", "manager":
+	if services.HasCRMDataAccess(ctx) {
 		return requestedOwner
-	default:
-		// sales 或未知角色：只能看自己的数据
-		return identity.UserID(ctx)
 	}
+	return identity.UserID(ctx)
 }
 
 // ---------- tenant / user ----------
@@ -947,7 +865,7 @@ const (
 
 func crmTenantCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 创建租户：super_admin / operator
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:create"); err != nil {
 		return nil, err
 	}
 	var req services.TenantCreateReq
@@ -959,7 +877,7 @@ func crmTenantCreate(ctx context.Context, _, _ string, params json.RawMessage) (
 
 func crmTenantList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
 	// 列出租户：所有平台角色均可
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:list"); err != nil {
 		return nil, err
 	}
 	return services.NewTenant().List()
@@ -967,7 +885,7 @@ func crmTenantList(ctx context.Context, _, _ string, _ json.RawMessage) (any, er
 
 func crmTenantUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 编辑租户：super_admin / operator
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:update"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -988,7 +906,7 @@ func crmTenantUpdate(ctx context.Context, _, _ string, params json.RawMessage) (
 
 func crmTenantSetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 停用/启用租户：super_admin / operator
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:set_status"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1012,7 +930,7 @@ func crmTenantSetStatus(ctx context.Context, _, _ string, params json.RawMessage
 
 func crmTenantDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 删除租户：仅 super_admin
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:delete"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1031,7 +949,7 @@ func crmTenantDelete(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmTenantListPaged(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:list_paged"); err != nil {
 		return nil, err
 	}
 	var req services.TenantListReq
@@ -1042,7 +960,7 @@ func crmTenantListPaged(ctx context.Context, _, _ string, params json.RawMessage
 }
 
 func crmTenantGetDetail(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:get_detail"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1069,7 +987,7 @@ func crmTenantGetCurrentInfo(ctx context.Context, _, _ string, _ json.RawMessage
 }
 
 func crmTenantListUsers(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:list_users"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1085,7 +1003,7 @@ func crmTenantListUsers(ctx context.Context, _, _ string, params json.RawMessage
 }
 
 func crmTenantResetAdminPassword(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:reset_admin_password"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1106,7 +1024,7 @@ func crmTenantResetAdminPassword(ctx context.Context, _, _ string, params json.R
 }
 
 func crmTenantRenew(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:tenant:renew"); err != nil {
 		return nil, err
 	}
 	var req services.RenewReq
@@ -1123,7 +1041,7 @@ func crmTenantRenew(ctx context.Context, _, _ string, params json.RawMessage) (a
 
 func crmPlanCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 创建套餐：super_admin / operator / finance
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:create"); err != nil {
 		return nil, err
 	}
 	var req services.PlanCreateReq
@@ -1135,7 +1053,7 @@ func crmPlanCreate(ctx context.Context, _, _ string, params json.RawMessage) (an
 
 func crmPlanList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
 	// 列出套餐：平台角色 或 租户身份（租户端查看可购买套餐）
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:list"); err != nil {
 		// 非平台角色，检查是否有租户身份
 		if _, err2 := requireIdentity(ctx); err2 != nil {
 			return nil, err
@@ -1146,7 +1064,7 @@ func crmPlanList(ctx context.Context, _, _ string, _ json.RawMessage) (any, erro
 
 func crmPlanUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 编辑套餐：super_admin / operator / finance
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:update"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1167,7 +1085,7 @@ func crmPlanUpdate(ctx context.Context, _, _ string, params json.RawMessage) (an
 
 func crmPlanSetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 启用/停用套餐：super_admin / operator
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:set_status"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1188,7 +1106,7 @@ func crmPlanSetStatus(ctx context.Context, _, _ string, params json.RawMessage) 
 
 func crmPlanDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 删除套餐：仅 super_admin
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:delete"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1208,7 +1126,7 @@ func crmPlanDelete(ctx context.Context, _, _ string, params json.RawMessage) (an
 
 func crmPlanListModules(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
 	// 列出系统模块定义：所有平台角色
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:list_modules"); err != nil {
 		return nil, err
 	}
 	return services.NewPlanService().ListModules(), nil
@@ -1217,7 +1135,7 @@ func crmPlanListModules(ctx context.Context, _, _ string, _ json.RawMessage) (an
 func crmPlanGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	// 获取套餐详情：所有平台角色 + 租户端（租户端通过 identity 访问）
 	// 先尝试平台角色，如果不是平台角色则检查租户身份
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:plan:get"); err != nil {
 		// 非平台角色，检查是否有租户身份（租户端查看套餐详情）
 		if _, err2 := requireIdentity(ctx); err2 != nil {
 			return nil, err
@@ -1238,7 +1156,7 @@ func crmPlanGet(ctx context.Context, _, _ string, params json.RawMessage) (any, 
 // ---------- payment（支付配置管理，平台端）----------
 
 func crmPaymentCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:payment:create"); err != nil {
 		return nil, err
 	}
 	var req services.PaymentConfigCreateReq
@@ -1249,14 +1167,14 @@ func crmPaymentCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 }
 
 func crmPaymentList(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:payment:list"); err != nil {
 		return nil, err
 	}
 	return services.NewPaymentConfigService().List()
 }
 
 func crmPaymentUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:payment:update"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1276,7 +1194,7 @@ func crmPaymentUpdate(ctx context.Context, _, _ string, params json.RawMessage) 
 }
 
 func crmPaymentSetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:payment:set_status"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1296,7 +1214,7 @@ func crmPaymentSetStatus(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func crmPaymentDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:payment:delete"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1317,7 +1235,7 @@ func crmPaymentDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 // ---------- order（订单管理，平台端）----------
 
 func crmOrderListAll(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:order:list_all"); err != nil {
 		return nil, err
 	}
 	var req services.OrderListReq
@@ -1328,7 +1246,7 @@ func crmOrderListAll(ctx context.Context, _, _ string, params json.RawMessage) (
 }
 
 func crmOrderManualConfirmPay(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleFinance); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:order:manual_confirm_pay"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1456,7 +1374,7 @@ func crmPlatformLogin(_ context.Context, _, _ string, params json.RawMessage) (a
 // ---------- 平台账号管理（super_admin 专属）----------
 
 func crmPlatformAdminList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:admin:list"); err != nil {
 		return nil, err
 	}
 	var req services.PlatformAdminListReq
@@ -1467,7 +1385,7 @@ func crmPlatformAdminList(ctx context.Context, _, _ string, params json.RawMessa
 }
 
 func crmPlatformAdminCreate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	adminID, err := requirePlatformRole(ctx, platformRoleSuperAdmin)
+	adminID, err := services.RequirePlatformPermission(ctx, "platform:admin:create")
 	if err != nil {
 		return nil, err
 	}
@@ -1475,7 +1393,7 @@ func crmPlatformAdminCreate(ctx context.Context, _, _ string, params json.RawMes
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	admin, err := services.PlatformAdminService{}.CreateAdmin(req)
+	admin, err := services.PlatformAdminService{}.CreateAdmin(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1484,7 +1402,7 @@ func crmPlatformAdminCreate(ctx context.Context, _, _ string, params json.RawMes
 }
 
 func crmPlatformAdminUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	adminID, err := requirePlatformRole(ctx, platformRoleSuperAdmin)
+	adminID, err := services.RequirePlatformPermission(ctx, "platform:admin:update")
 	if err != nil {
 		return nil, err
 	}
@@ -1499,7 +1417,7 @@ func crmPlatformAdminUpdate(ctx context.Context, _, _ string, params json.RawMes
 		return nil, errors.New("id 不能为空")
 	}
 	svc := services.PlatformAdminService{}
-	if err := svc.UpdateAdmin(req.ID, req.Data); err != nil {
+	if err := svc.UpdateAdmin(ctx, req.ID, req.Data); err != nil {
 		return nil, err
 	}
 	platformLog(ctx, adminID, "admin.update", "admin", req.ID, "更新平台账号")
@@ -1507,7 +1425,7 @@ func crmPlatformAdminUpdate(ctx context.Context, _, _ string, params json.RawMes
 }
 
 func crmPlatformAdminResetPassword(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	adminID, err := requirePlatformRole(ctx, platformRoleSuperAdmin)
+	adminID, err := services.RequirePlatformPermission(ctx, "platform:admin:reset_password")
 	if err != nil {
 		return nil, err
 	}
@@ -1522,7 +1440,7 @@ func crmPlatformAdminResetPassword(ctx context.Context, _, _ string, params json
 		return nil, errors.New("id 不能为空")
 	}
 	svc2 := services.PlatformAdminService{}
-	if err := svc2.ResetAdminPassword(req.ID, req.NewPassword); err != nil {
+	if err := svc2.ResetAdminPassword(ctx, req.ID, req.NewPassword); err != nil {
 		return nil, err
 	}
 	platformLog(ctx, adminID, "admin.reset_password", "admin", req.ID, "重置平台账号密码")
@@ -1530,7 +1448,7 @@ func crmPlatformAdminResetPassword(ctx context.Context, _, _ string, params json
 }
 
 func crmPlatformAdminSetStatus(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	adminID, err := requirePlatformRole(ctx, platformRoleSuperAdmin)
+	adminID, err := services.RequirePlatformPermission(ctx, "platform:admin:set_status")
 	if err != nil {
 		return nil, err
 	}
@@ -1545,7 +1463,7 @@ func crmPlatformAdminSetStatus(ctx context.Context, _, _ string, params json.Raw
 		return nil, errors.New("id 不能为空")
 	}
 	svc3 := services.PlatformAdminService{}
-	if err := svc3.SetAdminStatus(req.ID, req.Status); err != nil {
+	if err := svc3.SetAdminStatus(ctx, req.ID, req.Status); err != nil {
 		return nil, err
 	}
 	platformLog(ctx, adminID, "admin.set_status", "admin", req.ID, fmt.Sprintf("设置账号状态 %d", req.Status))
@@ -1553,7 +1471,7 @@ func crmPlatformAdminSetStatus(ctx context.Context, _, _ string, params json.Raw
 }
 
 func crmPlatformAdminDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	adminID, err := requirePlatformRole(ctx, platformRoleSuperAdmin)
+	adminID, err := services.RequirePlatformPermission(ctx, "platform:admin:delete")
 	if err != nil {
 		return nil, err
 	}
@@ -1567,7 +1485,7 @@ func crmPlatformAdminDelete(ctx context.Context, _, _ string, params json.RawMes
 		return nil, errors.New("id 不能为空")
 	}
 	svc4 := services.PlatformAdminService{}
-	if err := svc4.DeleteAdmin(req.ID); err != nil {
+	if err := svc4.DeleteAdmin(ctx, req.ID); err != nil {
 		return nil, err
 	}
 	platformLog(ctx, adminID, "admin.delete", "admin", req.ID, "删除平台账号")
@@ -1577,14 +1495,14 @@ func crmPlatformAdminDelete(ctx context.Context, _, _ string, params json.RawMes
 // ---------- 平台统计 ----------
 
 func crmPlatformStatsOverview(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:stats:overview"); err != nil {
 		return nil, err
 	}
 	return services.PlatformStatsService{}.Stats()
 }
 
 func crmPlatformStatsTenantUsage(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:stats:tenant_usage"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1600,7 +1518,7 @@ func crmPlatformStatsTenantUsage(ctx context.Context, _, _ string, params json.R
 }
 
 func crmPlatformStatsAllTenantUsage(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:stats:all_tenant_usage"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1614,7 +1532,7 @@ func crmPlatformStatsAllTenantUsage(ctx context.Context, _, _ string, params jso
 // ---------- 平台操作日志 ----------
 
 func crmPlatformLogList(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	if _, err := requirePlatformRole(ctx, platformRoleSuperAdmin, platformRoleOperator, platformRoleFinance, platformRoleSupport); err != nil {
+	if _, err := services.RequirePlatformPermission(ctx, "platform:log:list"); err != nil {
 		return nil, err
 	}
 	var req services.PlatformLogListReq
@@ -1671,7 +1589,7 @@ func crmUserSetPassword(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, err
 	}
 	// 管理员才能重置他人密码（避免销售越权改管理员密码）。
-	if err := requireRole(ctx, "admin"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:user:set_password"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1691,7 +1609,7 @@ func crmUserUpdate(ctx context.Context, _, _ string, params json.RawMessage) (an
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err
 	}
-	if err := requireRole(ctx, "admin"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:user:update"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1711,7 +1629,7 @@ func crmUserBindWecom(ctx context.Context, _, _ string, params json.RawMessage) 
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err
 	}
-	if err := requireRole(ctx, "admin"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:user:bind_wecom"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1739,7 +1657,7 @@ func crmUserUnbindWecom(ctx context.Context, _, _ string, params json.RawMessage
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err
 	}
-	if err := requireRole(ctx, "admin"); err != nil {
+	if err := services.RequireCRMPermission(ctx, "crm:user:unbind_wecom"); err != nil {
 		return nil, err
 	}
 	var req struct {
@@ -1895,7 +1813,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 	case string:
 		poolStatus, _ = strconv.Atoi(v)
 	}
-	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Source, outFlow, poolStatus, req.Query.Category, req.Pager)
+	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, req.Query.OwnerUserID, req.Query.Source, outFlow, poolStatus, req.Query.Category, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -2094,6 +2012,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 	var req struct {
 		Query struct {
 			Status      string `json:"status"`
+			CustomerID  string `json:"customer_id"`
 			StageID     string `json:"stage_id"`
 			OwnerUserID string `json:"owner_user_id"`
 			Keyword     string `json:"keyword"`
@@ -2103,7 +2022,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Keyword, req.Pager)
+	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Keyword, req.Pager, req.Query.CustomerID)
 	if err != nil {
 		return nil, err
 	}

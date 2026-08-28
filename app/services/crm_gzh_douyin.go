@@ -66,7 +66,7 @@ func (s CrmCustomerService) SyncFromGzh(ctx context.Context, appID string, ev Gz
 			updates["mobile"] = ev.Mobile
 		}
 		if len(updates) > 0 {
-			models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Updates(updates)
+			models.MustFor(ctx).Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Updates(updates)
 		}
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		c = models.CrmCustomer{
@@ -166,7 +166,7 @@ func (s CrmCustomerService) recordGzhInteraction(ctx context.Context, customerID
 			defer func() { recover() }()
 			var cust models.CrmCustomer
 			ownerID := ""
-			if models.DB.Where("id = ?", customerID).First(&cust).Error == nil {
+			if models.MustFor(ctx).Where("id = ?", customerID).First(&cust).Error == nil {
 				ownerID = cust.OwnerUserID
 			}
 			NewCrmSensitiveWord().Check(ctx, ownerID, customerID, content)
@@ -220,7 +220,7 @@ func (s CrmCustomerService) SyncFromDouyin(ctx context.Context, appID string, ev
 			updates["mobile"] = ev.Mobile
 		}
 		if len(updates) > 0 {
-			models.DB.Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Updates(updates)
+			models.MustFor(ctx).Model(&models.CrmCustomer{}).Where("id = ?", c.ID).Updates(updates)
 		}
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		c = models.CrmCustomer{
@@ -318,7 +318,7 @@ func (s CrmCustomerService) recordDouyinInteraction(ctx context.Context, custome
 			defer func() { recover() }()
 			var cust models.CrmCustomer
 			ownerID := ""
-			if models.DB.Where("id = ?", customerID).First(&cust).Error == nil {
+			if models.MustFor(ctx).Where("id = ?", customerID).First(&cust).Error == nil {
 				ownerID = cust.OwnerUserID
 			}
 			NewCrmSensitiveWord().Check(ctx, ownerID, customerID, content)

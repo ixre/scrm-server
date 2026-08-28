@@ -1,12 +1,12 @@
 package models
 
 import (
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/app/requests"
 	"core/common/app"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // WelcomeMsg 主欢迎语-多个分时欢迎语
@@ -14,15 +14,15 @@ import (
 type WelcomeMsg struct {
 	ExtCorpModel
 	// 标题
-	Name string `json:"name" gorm:"type:char(128);comment:标题"`
+	Name string `json:"name" gorm:"type:varchar(128);comment:标题"`
 	// 欢迎语内容
 	WelcomeMsg constants.AutoReplyField `gorm:"type:jsonb" json:"welcome_msg"`
 	// 主欢迎语id
-	MainWelcomeMsgID *string `gorm:"type:bigint,comment:主欢迎语id" json:"main_welcome_msg_id"`
+	MainWelcomeMsgID *string `gorm:"type:bigint;comment:主欢迎语id" json:"main_welcome_msg_id"`
 	// 启用分时欢迎语
 	EnableTimePeriodMsg constants.Boolean `json:"enable_time_period_msg" validate:"oneof=1 2"`
 	// 分时段欢迎语
-	TimePeriodMsg []WelcomeMsg `gorm:"foreignKey:MainWelcomeMsgID;references:ID" json:"time_period_msg"`
+	TimePeriodMsg []WelcomeMsg `gorm:"-" json:"time_period_msg"`
 	// 生效时间,n-星期n
 	EffectiveAt constants.Int64ArrayField `gorm:"type:jsonb" json:"effective_at"`
 	// 分时段欢迎语-开始时间
@@ -56,20 +56,7 @@ type WelcomeMsgUser struct {
 }
 
 func (w WelcomeMsg) Update(tx *gorm.DB, msg WelcomeMsg) error {
-	if len(msg.TimePeriodMsg) > 0 {
-		err := tx.Unscoped().Where("main_welcome_msg_id = ?", msg.TimePeriodMsg[0].MainWelcomeMsgID).Delete(&WelcomeMsg{}).Error
-		if err != nil {
-			return err
-		}
-	}
-
-	err := tx.Model(&msg).Where("id = ?", msg.ID).Updates(&msg).Error
-	if err != nil {
-		return err
-
-	}
-
-	return nil
+	return updateWelcomeMsg(tx, msg)
 }
 
 func (w WelcomeMsg) Query(req requests.QueryWelcomeMsgReq, id string, sorter *app.Sorter, pager *app.Pager) (msgs []WelcomeMsg, total int64, err error) {
@@ -109,13 +96,21 @@ where id in (
 		pager.SetDefault()
 		db = db.Offset(pager.GetOffset()).Limit(pager.GetLimit())
 
-		err = db.Preload("TimePeriodMsg").Find(&msgs).Error
+		err = db.Find(&msgs).Error
 		if err != nil {
 			err = errors.Wrap(err, "Find welcome msg failed")
 			return nil, 0, err
 		}
 	}
-	return msgs, total, nil
+	if err != nil {
+		return nil, 0, err
+	}
+	ptrs := make([]*WelcomeMsg, len(msgs))
+	for i := range msgs {
+		ptrs[i] = &msgs[i]
+	}
+	err = loadWelcomePeriods(DB, ptrs)
+	return msgs, total, err
 }
 
 func (w WelcomeMsg) Delete(ids []string, extCorpModel string) error {
@@ -126,23 +121,36 @@ func (w WelcomeMsg) Delete(ids []string, extCorpModel string) error {
 }
 
 func (w WelcomeMsg) Create(db *gorm.DB, msg WelcomeMsg) error {
-	return db.Create(&msg).Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&msg).Error; err != nil {
+			return err
+		}
+		return writeWelcomePeriods(tx, &msg)
+	})
 }
 
 func (w WelcomeMsg) Get(id string, extCorpID string) (msg WelcomeMsg, err error) {
 	err = DB.Model(&WelcomeMsg{}).
-		Preload("TimePeriodMsg").
 		Where("id = ?", id).
 		Where("ext_corp_id = ?", extCorpID).
 		First(&msg).Error
+	if err == nil {
+		err = loadWelcomePeriods(DB, []*WelcomeMsg{&msg})
+	}
 	return
 }
 
 func (m WelcomeMsg) GetByIDs(ids []string, extCorpID string) (msgs []WelcomeMsg, err error) {
 	err = DB.Model(&WelcomeMsg{}).
-		Preload("TimePeriodMsg").
 		Where("id in (?)", ids).
 		Where("ext_corp_id = ?", extCorpID).
-		First(&msgs).Error
+		Find(&msgs).Error
+	if err == nil {
+		ptrs := make([]*WelcomeMsg, len(msgs))
+		for i := range msgs {
+			ptrs[i] = &msgs[i]
+		}
+		err = loadWelcomePeriods(DB, ptrs)
+	}
 	return
 }

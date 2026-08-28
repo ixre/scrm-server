@@ -9,15 +9,13 @@ import (
 	"core/common/ecode"
 	"core/common/id_generator"
 	log2 "core/common/log"
-	"core/conf"
 	"time"
 )
 
 // CustomerStatistic 按天统计客户数量
-// unique_index: ext_staff_id - date
 type CustomerStatistic struct {
 	ExtCorpModel
-	ExtStaffID string `json:"ext_staff_id" gorm:"type:char(48);unique_index:ext_staff_id_date;comment:外部员工ID"`
+	ExtStaffID string `json:"ext_staff_id" gorm:"type:char(48);comment:外部员工ID"`
 	// 总客户数
 	TotalCustomerNum int64 `json:"total_customer_num" gorm:"type:bigint;comment:客户总数"`
 	// 新增客户数
@@ -26,7 +24,7 @@ type CustomerStatistic struct {
 	DecreaseCustomerNum int64 `json:"decrease_customer_num"  gorm:"type:bigint;comment:流失客户总数"`
 	// 净增加客户数 = IncreaseCustomerNum -  DecreaseCustomerNum
 	// 日期
-	Date constants.DateField `json:"date" gorm:"unique_index:ext_staff_id_date;comment:日期"`
+	Date constants.DateField `json:"date" gorm:";comment:日期"`
 	Timestamp
 }
 
@@ -157,7 +155,8 @@ func (s CustomerStatistic) UpsertByStatistic(extStaffID string, num int64) (err 
 
 // UpsertByCount 用count员工-客户关系表的方式
 func (s CustomerStatistic) UpsertByCount(extStaffID string, num int64) (err error) {
-	extCorpID := conf.Settings.WeWork.ExtCorpID
+	extCorpID := s.ExtCorpID
+ if extCorpID == "" { return errors.New("missing enterprise for customer statistics") }
 	date := constants.DateField(time.Now().Format(constants.DateLayout))
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var total int64
@@ -191,7 +190,7 @@ func (s CustomerStatistic) UpsertByCount(extStaffID string, num int64) (err erro
 		}
 
 		err = tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "ext_staff_id"}, {Name: "date"}},
+			Columns:   []clause.Column{{Name: "ext_corp_id"}, {Name: "ext_staff_id"}, {Name: "date"}},
 			DoUpdates: clause.AssignmentColumns([]string{"total_customer_num", "increase_customer_num", "decrease_customer_num"})},
 		).Create(&data).Error
 		if err != nil {

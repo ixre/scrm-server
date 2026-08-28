@@ -5,27 +5,25 @@ import (
 	"errors"
 
 	"core/common/identity"
+
 	"gorm.io/gorm"
 )
 
 // TenantScope 强制追加 tenant_id 过滤。
 //
-// 行为约定：
+// 行为约定（fail closed）：
 //   - tenantID 非空：追加 WHERE tenant_id = ?
-//   - tenantID 空字符串：不追加（用于跨租户运维：seed / tasks / consumers / callback）
+//   - tenantID 空字符串：语句报 ErrMissingTenant，不会退化为全表访问
 //
 // 适用场景：service 层接收形参 tenantID 时，用 Scopes 替代手写 Where("tenant_id = ?", t)。
 //
 // 注意：本文件定义的 For(ctx) / MustFor(ctx) 只对"经 BusinessServer.Invoke 注入本地身份的 ctx"安全。
-// 以下场景必须保留裸 DB：
-//   - app/services/crm.go 的 Seed* 函数（启动期无 ctx）
-//   - app/tasks/*（gcron 回调无 ctx；主动 Pluck 跨租户）
-//   - app/consumers/*（handler 无 ctx）
-//   - app/callback/*（企微 gin ctx 无本地身份；tenant 靠 ChannelLink 反查）
-//   - crm_tenant.List / data_export.Get（超管视角）
+// 确需跨租户的路径（seed / tasks / consumers / callback 反查租户 / 平台超管）必须显式使用
+// CrossTenant() / CrossTenantDB(tx)，否则会被租户守卫（tenant_guard.go）拒绝。
 func TenantScope(tenantID string) func(*gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if tenantID == "" {
+			_ = db.AddError(ErrMissingTenant)
 			return db
 		}
 		return db.Where("tenant_id = ?", tenantID)

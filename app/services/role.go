@@ -1,13 +1,15 @@
 package services
 
 import (
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
+	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/id_generator"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"strings"
 )
 
 type Role struct {
@@ -60,13 +62,16 @@ func (o *Role) Query(req requests.QueryRoleReq, extCorpID string, sorter *app.So
 	return
 }
 
-func (o *Role) Get(id string) (item responses.Role, err error) {
+func (o *Role) Get(id string, extCorpID string) (item responses.Role, err error) {
 	role, err := o.model.Get(id)
 	if err != nil {
 		err = errors.Wrap(err, "get role failed")
 		return
 	}
 
+	if strings.TrimSpace(role.ExtCorpID) != extCorpID && !(strings.TrimSpace(role.ExtCorpID) == "" && role.IsDefault == constants.True) {
+		return item, errors.New("角色不属于当前企业")
+	}
 	item.Role = role
 	item.Permissions, err = (&models.Permission{}).BatchGetByIdentities(role.PermissionIDs...)
 	if err != nil {
@@ -88,18 +93,18 @@ func (o *Role) Create(param requests.CreateRoleReq, extCorpID string) (item mode
 	return o.model.Create(item, extCorpID)
 }
 
-func (o *Role) Update(id string, param requests.UpdateRoleReq) (item models.Role, err error) {
+func (o *Role) Update(id string, param requests.UpdateRoleReq, extCorpID string) (item models.Role, err error) {
 	err = copier.Copy(&item, param)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
 		return
 	}
 
-	return o.model.Update(id, item)
+	return o.model.Update(id, item, extCorpID)
 }
 
-func (o *Role) AssignToStaffs(extStaffIDs []string, roleID string) (total int64, err error) {
-	return o.model.AssignToStaffs(extStaffIDs, roleID)
+func (o *Role) AssignToStaffs(extStaffIDs []string, roleID string, extCorpID string) (total int64, err error) {
+	return o.model.AssignToStaffs(extStaffIDs, roleID, extCorpID)
 }
 
 func (o *Role) QueryStaffs(req requests.QueryRoleStaffsReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []models.Staff, total int64, err error) {

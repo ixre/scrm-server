@@ -1,9 +1,9 @@
 package tag_event
 
 import (
-	"github.com/pkg/errors"
 	"core/app/models"
 	gowx "core/pkg/easywework"
+	"github.com/pkg/errors"
 )
 
 // EventDeleteExternalTagHandler
@@ -26,13 +26,13 @@ func EventDeleteExternalTagHandler(msg *gowx.RxMessage) error {
 
 	extTagIds := make([]string, 0)
 	if tagType == "tag_group" {
-		tags, err := (models.Tag{}).GetExistTag(ID, nil)
+		tags, err := (models.Tag{ExtCorpModel: models.ExtCorpModel{ExtCorpID: msg.ToUserID}}).GetExistTag(ID, nil)
 		if err != nil {
 			return err
 		}
 
 		// 删除标签组
-		_, err = (models.TagGroup{}).Delete([]string{ID})
+		_, err = (models.TagGroup{ExtCorpModel: models.ExtCorpModel{ExtCorpID: msg.ToUserID}}).Delete([]string{ID})
 		if err != nil {
 			return err
 		}
@@ -41,7 +41,7 @@ func EventDeleteExternalTagHandler(msg *gowx.RxMessage) error {
 			extTagIds = append(extTagIds, tag.ExtID)
 		}
 	} else if tagType == "tag" {
-		err := (models.Tag{}).Delete([]string{ID})
+		err := (models.Tag{ExtCorpModel: models.ExtCorpModel{ExtCorpID: msg.ToUserID}}).Delete([]string{ID})
 		if err != nil {
 			return err
 		}
