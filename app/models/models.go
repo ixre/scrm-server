@@ -114,10 +114,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&ContactWayBackupStaff{},
 		&ContactWayStaff{},
 		&Permission{},
-		&CustomerInfoDisplayRule{},
-		&Tag{},
-		&TagGroup{},
-		&Staff{},
 		&Role{},
 		// CRM 原生模型（渠道无关，本地身份底座）
 		&Tenant{},
