@@ -252,7 +252,6 @@ func (s CrmCustomerSettingService) Save(ctx context.Context, cs *models.CrmCusto
 		"max_customers": cs.MaxCustomers,
 		"max_locked":    cs.MaxLocked,
 		"lock_days":     cs.LockDays,
-		"recycle_days":  cs.RecycleDays,
 	}
 	return models.DB.Model(&models.CrmCustomerSetting{}).Scopes(models.TenantScope(tenantID)).Updates(m).Error
 }

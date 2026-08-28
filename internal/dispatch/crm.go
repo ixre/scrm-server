@@ -2202,11 +2202,14 @@ func crmOrderCreate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err != nil {
 		return nil, err
 	}
-	var req models.CrmOrder
+	var req struct {
+		models.CrmOrder
+		CouponCode string `json:"coupon_code"`
+	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return services.NewCrmOrder().Create(ctx, identity.UserID(ctx), req)
+	return services.NewCrmOrder().Create(ctx, identity.UserID(ctx), req.CrmOrder, req.CouponCode)
 }
 
 func crmOrderUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {

@@ -97,15 +97,16 @@ type ChannelLink struct {
 type CrmCustomer struct {
 	Model
 	Timestamp
-	TenantID       string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	Name           string                     `gorm:"type:varchar(128);comment:客户名称" json:"name"`
-	Mobile         string                     `gorm:"type:varchar(32);index;comment:手机号" json:"mobile"`
-	Email          string                     `gorm:"type:varchar(128);comment:邮箱" json:"email"`
-	Company        string                     `gorm:"type:varchar(255);comment:公司名称" json:"company"`
-	Industry       string                     `gorm:"type:varchar(64);index;comment:所属行业" json:"industry"`
-	Position       string                     `gorm:"type:varchar(64);comment:职位" json:"position"`
-	Gender         int                        `gorm:"type:smallint;default:0;comment:0-未知 1-男 2-女" json:"gender"`
-	Birthday       string                     `gorm:"type:varchar(32);comment:生日" json:"birthday"`
+	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Name     string `gorm:"type:varchar(128);comment:客户名称" json:"name"`
+	Mobile   string `gorm:"type:varchar(32);index;comment:手机号" json:"mobile"`
+	Email    string `gorm:"type:varchar(128);comment:邮箱" json:"email"`
+	Company  string `gorm:"type:varchar(255);comment:公司名称" json:"company"`
+	Industry string `gorm:"type:varchar(64);index;comment:所属行业" json:"industry"`
+	Position string `gorm:"type:varchar(64);comment:职位" json:"position"`
+	Gender   int    `gorm:"type:smallint;default:0;comment:0-未知 1-男 2-女" json:"gender"`
+	// Birthday 生日。用 varchar 而非 date：支持仅存月日(MM-DD)的匿名客户场景，crm_care 用 RIGHT(birthday,5) 做月日匹配。
+	Birthday       string                     `gorm:"type:varchar(32);comment:生日(支持YYYY-MM-DD或MM-DD)" json:"birthday"`
 	Level          int                        `gorm:"type:smallint;default:0;comment:客户等级 0-未知 1-潜在 2-普通 3-重要 4-重点 5-VIP" json:"level"`
 	Address        string                     `gorm:"type:varchar(255);comment:详细地址" json:"address"`
 	Province       string                     `gorm:"type:varchar(32);comment:省" json:"province"`
@@ -116,8 +117,12 @@ type CrmCustomer struct {
 	NextFollowupAt *time.Time                 `gorm:"comment:下次跟进时间" json:"next_followup_at"`
 	Remark         string                     `gorm:"type:varchar(1024);comment:备注" json:"remark"`
 	Tags           constants.StringArrayField `gorm:"type:jsonb;comment:客户标签(内部标签ID数组)" json:"tags"`
-	// ---- 渠道维度快照（source 为渠道时回填，作为该渠道客户在 CRM 主档上的身份快照，经 ChannelLink 关联渠道原始数据）----
-	ExtCustomerID string                     `gorm:"type:varchar(128);index;comment:渠道用户ID(企微external_userid / 小红书user_id)" json:"ext_customer_id"`
+	// ---- 渠道维度快照 ----
+	// 设计说明：这些字段是渠道侧客户身份在 CRM 主档上的"快照"，用于快速检索和展示。
+	// 渠道原始数据的完整映射由 ChannelLink 表维护（entity_type=customer）。
+	// 快照字段在渠道回调/同步时回填，避免每次查询都需 JOIN ChannelLink。
+	// 若一个客户关联多个渠道，以最近活跃渠道的快照为准；历史渠道数据通过 ChannelLink 可溯。
+	ExtCustomerID string                     `gorm:"type:varchar(128);index;comment:渠道用户ID快照(企微external_userid/小红书user_id)" json:"ext_customer_id"`
 	ExtCorpID     string                     `gorm:"type:varchar(128);index;comment:渠道账号ID(企微corp_id / 小红书企业号)" json:"ext_corp_id"`
 	AddWay        int                        `gorm:"type:int;default:0;comment:渠道内添加/承接方式(wecom 0-9/201/202；xiaohongshu 0-4)" json:"add_way"`
 	AccountType   string                     `gorm:"type:varchar(32);comment:账号类型 微信/企业微信/小红书" json:"account_type"`
@@ -126,7 +131,7 @@ type CrmCustomer struct {
 	// ---- 公海池 ----
 	PoolStatus      int        `gorm:"type:smallint;default:0;index;comment:公海状态 0-非公海 1-公海待认领" json:"pool_status"`
 	PoolAt          *time.Time `gorm:"comment:进入公海时间" json:"pool_at"`
-	PrevOwnerUserID string     `gorm:"type:varchar(64);index;comment:上一个归属销售(公海前负责人)" json:"prev_owner_user_id"`
+	PrevOwnerUserID string     `gorm:"type:varchar(64);index;comment:上一个归属销售用户ID(公海前负责人)" json:"prev_owner_user_id"`
 	ClaimedAt       *time.Time `gorm:"comment:最近一次认领时间(用于保护期判断)" json:"claimed_at"`
 	// ---- Phase 4 客户评分 ----
 	Score          int        `gorm:"type:int;default:0;index;comment:客户评分(0-100,自动计算)" json:"score"`
@@ -249,8 +254,6 @@ type CrmOrder struct {
 	CouponID      string     `gorm:"type:bigint;index;comment:关联优惠券ID(可空)" json:"coupon_id"`
 	CouponAmount  float64    `gorm:"type:decimal(16,2);default:0;comment:优惠券抵扣金额" json:"coupon_amount"`
 	Remark        string     `gorm:"type:varchar(1024);comment:备注" json:"remark"`
-	// CouponCode 临时字段：创建订单时传入优惠券码，不入库（gorm:"-"）。
-	CouponCode string `gorm:"-" json:"coupon_code"`
 	// ---- 合同扩展字段（对照青东CRM） ----
 	ContractType   string     `gorm:"type:varchar(32);comment:合同类型" json:"contract_type"`
 	DiscountAmount float64    `gorm:"type:decimal(16,2);default:0;comment:折扣金额" json:"discount_amount"`
@@ -282,12 +285,14 @@ type CrmRole struct {
 type CrmActivity struct {
 	Model
 	Timestamp
-	TenantID         string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	OwnerUserID      string                     `gorm:"type:bigint;index;comment:创建人用户ID" json:"owner_user_id"`
-	Name             string                     `gorm:"type:varchar(128);comment:活动名称" json:"name"`
-	ActivityType     string                     `gorm:"type:varchar(32);index;comment:活动类型 coupon/lottery/seckill/h5/group_buy/bargain/full_reduction/red_packet/sign_in/other" json:"activity_type"`
-	Status           string                     `gorm:"type:varchar(32);index;comment:draft/active/ended/off" json:"status"`
-	Channel          string                     `gorm:"type:varchar(32);comment:主渠道 wecom/xiaohongshu/general" json:"channel"`
+	TenantID     string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	OwnerUserID  string `gorm:"type:bigint;index;comment:创建人用户ID" json:"owner_user_id"`
+	Name         string `gorm:"type:varchar(128);comment:活动名称" json:"name"`
+	ActivityType string `gorm:"type:varchar(32);index;comment:活动类型 coupon/lottery/seckill/h5/group_buy/bargain/full_reduction/red_packet/sign_in/other" json:"activity_type"`
+	Status       string `gorm:"type:varchar(32);index;comment:draft/active/ended/off" json:"status"`
+	// Channel 主渠道（派生字段）：由 Channels[0] 自动填充，normalizeActivityChannels 维护一致性。
+	// 保留用于快速筛选和列表展示；新增/编辑时以 Channels 多选为准。
+	Channel          string                     `gorm:"type:varchar(32);comment:主渠道(派生自Channels[0]) wecom/xiaohongshu/general" json:"channel"`
 	Channels         constants.StringArrayField `gorm:"type:jsonb;comment:投放渠道多选(wecom/xiaohongshu/general)" json:"channels"`
 	StartAt          *time.Time                 `gorm:"comment:开始时间" json:"start_at"`
 	EndAt            *time.Time                 `gorm:"comment:结束时间" json:"end_at"`
@@ -408,7 +413,7 @@ type CrmPoolLog struct {
 	CustomerID   string `gorm:"type:bigint;index;comment:客户ID" json:"customer_id"`
 	CustomerName string `gorm:"type:varchar(128);comment:客户名称(快照)" json:"customer_name"`
 	Action       string `gorm:"type:varchar(16);index;comment:claim/recycle/assign" json:"action"`
-	OperatorID   string `gorm:"type:varchar(64);index;comment:操作人ID" json:"operator_id"`
+	OperatorID   string `gorm:"type:varchar(64);index;comment:操作人用户ID" json:"operator_id"`
 	OperatorName string `gorm:"type:varchar(64);comment:操作人姓名(快照)" json:"operator_name"`
 	TargetUserID string `gorm:"type:varchar(64);comment:分配目标用户ID(assign时)" json:"target_user_id"`
 	Remark       string `gorm:"type:varchar(512);comment:备注" json:"remark"`
@@ -968,8 +973,9 @@ type CrmContact struct {
 	Province        string `gorm:"type:varchar(32);comment:省" json:"province"`
 	City            string `gorm:"type:varchar(32);comment:市" json:"city"`
 	District        string `gorm:"type:varchar(32);comment:区/县" json:"district"`
-	Birthday        string `gorm:"type:varchar(32);comment:生日" json:"birthday"`
-	Gender          int    `gorm:"type:smallint;default:0;comment:0-未知 1-男 2-女" json:"gender"`
+	// Birthday 生日。用 varchar 支持 MM-DD 匿名场景，详见 CrmCustomer.Birthday 注释。
+	Birthday string `gorm:"type:varchar(32);comment:生日(支持YYYY-MM-DD或MM-DD)" json:"birthday"`
+	Gender   int    `gorm:"type:smallint;default:0;comment:0-未知 1-男 2-女" json:"gender"`
 }
 
 // CrmReceivablesPlan 回款计划（合同拆分多期收款计划）。
@@ -1296,13 +1302,25 @@ type CrmInvoice struct {
 	Status     string     `gorm:"type:varchar(16);default:pending;comment:pending(待开)/issued(已开)/void(已作废)" json:"status"`
 }
 
+// CrmProductCategory 产品分类。
+type CrmProductCategory struct {
+	Model
+	Timestamp
+	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	Name     string `gorm:"type:varchar(128);comment:分类名称" json:"name"`
+	Sort     int    `gorm:"type:int;default:0;comment:排序" json:"sort"`
+	Status   bool   `gorm:"type:bool;default:true;comment:是否启用" json:"status"`
+	Remark   string `gorm:"type:varchar(512);comment:备注" json:"remark"`
+}
+
 // CrmProduct 产品档案。
 type CrmProduct struct {
 	Model
 	Timestamp
 	TenantID   string  `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
 	Name       string  `gorm:"type:varchar(255);comment:产品名称" json:"name"`
-	Category   string  `gorm:"type:varchar(64);comment:分类" json:"category"`
+	Category   string  `gorm:"type:varchar(64);comment:分类(冗余便于展示)" json:"category"`
+	CategoryID string  `gorm:"type:bigint;index;comment:产品分类ID(关联CrmProductCategory)" json:"category_id"`
 	Spec       string  `gorm:"type:varchar(255);comment:规格" json:"spec"`
 	Unit       string  `gorm:"type:varchar(32);comment:单位" json:"unit"`
 	Price      float64 `gorm:"type:decimal(16,2);comment:售价" json:"price"`
@@ -1311,7 +1329,6 @@ type CrmProduct struct {
 	Status     string  `gorm:"type:varchar(16);default:active;comment:active/disabled" json:"status"`
 	Remark     string  `gorm:"type:varchar(512);comment:备注" json:"remark"`
 	ProductNo  string  `gorm:"type:varchar(32);index;comment:产品编号" json:"product_no"`
-	CategoryID string  `gorm:"type:bigint;index;comment:产品分类ID" json:"category_id"`
 	StockQty   int     `gorm:"type:int;default:0;comment:库存数量" json:"stock_qty"`
 	MinStock   int     `gorm:"type:int;default:0;comment:最小库存(预警下限)" json:"min_stock"`
 }
@@ -1348,15 +1365,13 @@ type CrmKnowledge struct {
 	Model
 	Timestamp
 	TenantID        string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	CategoryID      string                     `gorm:"type:bigint;index;comment:分类ID" json:"category_id"`
+	KnowledgeTypeID string                     `gorm:"type:bigint;index;comment:知识库分类ID(关联CrmKnowledgeType)" json:"knowledge_type_id"`
 	Title           string                     `gorm:"type:varchar(255);comment:标题" json:"title"`
 	Content         string                     `gorm:"type:text;comment:内容(富文本)" json:"content"`
 	Attachments     constants.StringArrayField `gorm:"type:jsonb;comment:附件列表" json:"attachments"`
-	Visibility      string                     `gorm:"type:varchar(16);default:company;comment:company(全公司)/department(部门)/role(角色)/person(指定人)" json:"visibility"`
+	Visibility      string                     `gorm:"type:varchar(16);default:company;comment:可见范围 company(全公司)/department(部门)/role(角色)/person(指定人)" json:"visibility"`
 	AuthorID        string                     `gorm:"type:bigint;comment:作者" json:"author_id"`
 	Status          string                     `gorm:"type:varchar(16);default:published;comment:draft/published/archived" json:"status"`
-	KnowledgeTypeID string                     `gorm:"type:bigint;index;comment:知识库分类ID" json:"knowledge_type_id"`
-	PublicType      string                     `gorm:"type:varchar(16);default:company;comment:公开类型 company/department/role/person" json:"public_type"`
 }
 
 // CrmNotice 公告。
@@ -1400,7 +1415,6 @@ type CrmWorkorder struct {
 	AssigneeID      string     `gorm:"type:bigint;index;comment:处理人" json:"assignee_id"`
 	Description     string     `gorm:"type:text;comment:问题描述" json:"description"`
 	Status          string     `gorm:"type:varchar(16);index;default:open;comment:open(待处理)/processing(处理中)/done(已完成)/cancelled(已取消)" json:"status"`
-	CreatedAt2      *time.Time `gorm:"comment:创建时间" json:"created_at2"`
 	DoneAt          *time.Time `gorm:"comment:完成时间" json:"done_at"`
 	WorkorderTypeID string     `gorm:"type:bigint;index;comment:工单类型ID" json:"workorder_type_id"`
 	ProcessID       string     `gorm:"type:bigint;comment:流程ID" json:"process_id"`
@@ -1664,7 +1678,9 @@ type CrmIndustryDict struct {
 	Enabled bool   `gorm:"type:bool;default:true;comment:是否启用" json:"enabled"`
 }
 
-// CrmSeasType 公海类型。
+// CrmSeasType 公海类型（多公海池配置）。
+// 与 CrmPoolRule 的区别：CrmPoolRule 是租户级单条自动回收规则（全局策略），
+// CrmSeasType 支持多个公海池，每个池有独立的可见部门/员工和回收规则。
 type CrmSeasType struct {
 	Model
 	Timestamp
@@ -1678,6 +1694,7 @@ type CrmSeasType struct {
 }
 
 // CrmCustomerSetting 客户设置（拥有客户数限制等）。
+// 注意：公海回收天数由 CrmPoolRule.RecycleDays 统一管理，不在本表重复。
 type CrmCustomerSetting struct {
 	Model
 	Timestamp
@@ -1685,7 +1702,6 @@ type CrmCustomerSetting struct {
 	MaxCustomers int    `gorm:"type:int;default:0;comment:每人客户上限(0=不限)" json:"max_customers"`
 	MaxLocked    int    `gorm:"type:int;default:0;comment:每人锁定客户上限" json:"max_locked"`
 	LockDays     int    `gorm:"type:int;default:0;comment:锁定期天数" json:"lock_days"`
-	RecycleDays  int    `gorm:"type:int;default:0;comment:公海回收天数" json:"recycle_days"`
 }
 
 // ==================== 财务扩展 ====================
@@ -1697,7 +1713,7 @@ type CrmIncomeCategory struct {
 	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
 	Name     string `gorm:"type:varchar(128);comment:类别名称" json:"name"`
 	Type     string `gorm:"type:varchar(16);index;comment:income/expense" json:"type"`
-	Status   int    `gorm:"type:smallint;default:1;comment:1-启用 0-禁用" json:"status"`
+	Status   bool   `gorm:"type:bool;default:true;comment:是否启用" json:"status"`
 }
 
 // CrmOtherIncome 其他收入单。
@@ -1818,7 +1834,7 @@ type CrmWorkorderType struct {
 	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
 	Name     string `gorm:"type:varchar(128);comment:类型名称" json:"name"`
 	Sort     int    `gorm:"type:int;comment:排序" json:"sort"`
-	Status   int    `gorm:"type:smallint;default:1;comment:1-启用 0-禁用" json:"status"`
+	Status   bool   `gorm:"type:bool;default:true;comment:是否启用" json:"status"`
 	Remark   string `gorm:"type:varchar(512);comment:备注" json:"remark"`
 }
 
@@ -1910,7 +1926,7 @@ type CrmAftersalesType struct {
 	TenantID string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
 	Name     string `gorm:"type:varchar(128);comment:类型名称" json:"name"`
 	Sort     int    `gorm:"type:int;default:0;comment:排序" json:"sort"`
-	Status   int    `gorm:"type:smallint;default:1;comment:1-启用 0-禁用" json:"status"`
+	Status   bool   `gorm:"type:bool;default:true;comment:是否启用" json:"status"`
 }
 
 // CrmAftersalesComment 售后评论。

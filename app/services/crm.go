@@ -2246,7 +2246,7 @@ type CrmOrderService struct{}
 
 func NewCrmOrder() *CrmOrderService { return &CrmOrderService{} }
 
-func (s CrmOrderService) Create(ctx context.Context, userID string, req models.CrmOrder) (models.CrmOrder, error) {
+func (s CrmOrderService) Create(ctx context.Context, userID string, req models.CrmOrder, couponCode string) (models.CrmOrder, error) {
 	tenantID := identity.TenantID(ctx)
 
 	req.ID = id_generator.StringID()
@@ -2264,8 +2264,8 @@ func (s CrmOrderService) Create(ctx context.Context, userID string, req models.C
 		req.OrderNo = "SO" + time.Now().Format("20060102150405") + req.ID[len(req.ID)-6:]
 	}
 	// 优惠券联动：传入 coupon_code 则核销券 + 计算折扣金额
-	if req.CouponCode != "" {
-		rec, err := NewCrmCoupon().Verify(ctx, req.CouponCode, "")
+	if couponCode != "" {
+		rec, err := NewCrmCoupon().Verify(ctx, couponCode, "")
 		if err != nil {
 			return req, fmt.Errorf("优惠券核销失败: %v", err)
 		}

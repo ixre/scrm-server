@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"fmt"
 	"strings"
@@ -45,14 +45,13 @@ func genWorkorderNo(tenantID string) string {
 	day := time.Now().Format("20060102")
 	prefix := "WO" + day
 	var cnt int64
-	models.DB.Model(&models.CrmWorkorder{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?",  prefix+"%").Count(&cnt)
+	models.DB.Model(&models.CrmWorkorder{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?", prefix+"%").Count(&cnt)
 	return fmt.Sprintf("%s%04d", prefix, cnt+1)
 }
 
 // Create 创建工单，自动生成 No。
 func (s CrmWorkorderService) Create(ctx context.Context, w *models.CrmWorkorder) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if w == nil {
 		return errors.New("工单不能为空")
@@ -72,8 +71,6 @@ func (s CrmWorkorderService) Create(ctx context.Context, w *models.CrmWorkorder)
 	if w.No == "" {
 		w.No = genWorkorderNo(tenantID)
 	}
-	now := time.Now()
-	w.CreatedAt2 = &now
 	if err := createCRM(models.DB, w, "CustomerID", "OrderID", "AssigneeID"); err != nil {
 		log.Sugar.Errorw("crm workorder create failed", "err", err)
 		return err
@@ -84,7 +81,6 @@ func (s CrmWorkorderService) Create(ctx context.Context, w *models.CrmWorkorder)
 // Update 更新工单。
 func (s CrmWorkorderService) Update(ctx context.Context, id string, w *models.CrmWorkorder) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if w == nil {
 		return errors.New("工单不能为空")
@@ -114,17 +110,15 @@ func (s CrmWorkorderService) Update(ctx context.Context, id string, w *models.Cr
 // Delete 删除工单。
 func (s CrmWorkorderService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmWorkorder{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmWorkorder{})
 	return res.RowsAffected, res.Error
 }
 
 // Get 查单个工单。
 func (s CrmWorkorderService) Get(ctx context.Context, id string) (*models.CrmWorkorder, error) {
-
 
 	var w models.CrmWorkorder
 	if err := models.MustFor(ctx).Where("id = ?", id).First(&w).Error; err != nil {
@@ -135,7 +129,6 @@ func (s CrmWorkorderService) Get(ctx context.Context, id string) (*models.CrmWor
 
 // Query 列出工单，支持按 status/customer_id/type/priority/keyword 筛选。
 func (s CrmWorkorderService) Query(ctx context.Context, req WorkorderQueryReq) ([]models.CrmWorkorder, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -174,7 +167,6 @@ func (s CrmWorkorderService) Query(ctx context.Context, req WorkorderQueryReq) (
 func (s CrmWorkorderService) ChangeStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if _, ok := workorderStatusFlow[status]; !ok {
 		return errors.New("无效的工单状态")
 	}
@@ -204,7 +196,6 @@ func (s CrmWorkorderService) ChangeStatus(ctx context.Context, id, status string
 // Transfer 转派工单处理人。
 func (s CrmWorkorderService) Transfer(ctx context.Context, id, toUserID string) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if toUserID == "" {
 		return errors.New("目标处理人不能为空")

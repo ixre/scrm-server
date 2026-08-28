@@ -72,7 +72,10 @@ func crmKnowledgeTypeDelete(ctx context.Context, _, _ string, params json.RawMes
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmKnowledgeType().Delete(ctx, req.IDs); return ok, e }
+	{
+		_, e := services.NewCrmKnowledgeType().Delete(ctx, req.IDs)
+		return ok, e
+	}
 }
 
 // ---- 工作报告评论 ----
@@ -140,7 +143,7 @@ func crmAftersalesTypeList(ctx context.Context, _, _ string, params json.RawMess
 	}
 	var req struct {
 		Keyword string `json:"keyword"`
-		Status  int    `json:"status"`
+		Status  *bool  `json:"status"`
 		*app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
@@ -192,7 +195,10 @@ func crmAftersalesTypeDelete(ctx context.Context, _, _ string, params json.RawMe
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmAftersalesType().Delete(ctx, req.IDs); return ok, e }
+	{
+		_, e := services.NewCrmAftersalesType().Delete(ctx, req.IDs)
+		return ok, e
+	}
 }
 
 // ---- 售后评论 ----

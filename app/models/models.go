@@ -212,6 +212,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmFinanceRecord{},
 		&CrmInvoice{},
 		&CrmProduct{},
+		&CrmProductCategory{},
 		&CrmWarehouse{},
 		&CrmStockRecord{},
 		&CrmKnowledge{},

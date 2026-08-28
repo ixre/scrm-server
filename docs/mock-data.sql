@@ -910,28 +910,28 @@ ON CONFLICT (id) DO NOTHING;
 -- ============================================================ 知识库（crm_knowledge）
 INSERT INTO crm_knowledge
   (id, created_at, updated_at, tenant_id, knowledge_type_id, title, content,
-   visibility, author_id, status, public_type)
+   visibility, author_id, status)
 VALUES
   (9010000000000000811, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
    9010000000000000801, 'SCRM标准版功能清单',
    'SCRM标准版包含：客户管理、线索管理、商机管理、合同订单、营销活动等核心模块...',
-   'company', 2087390044095516672, 'published', 'company'),
+   'company', 2087390044095516672, 'published'),
   (9010000000000000812, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
    9010000000000000801, 'SCRM企业版与标准版对比',
    '企业版额外支持：不限坐席、高级数据分析、API开放平台、专属客户成功经理...',
-   'company', 2087390044095516672, 'published', 'company'),
+   'company', 2087390044095516672, 'published'),
   (9010000000000000813, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
    9010000000000000802, '客户说"太贵了"怎么应对',
    '话术1：价值拆解法——将年费拆解到每天，强调日均成本低于一杯咖啡...',
-   'company', 2087390044095516672, 'published', 'company'),
+   'company', 2087390044095516672, 'published'),
   (9010000000000000814, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
    9010000000000000803, '如何申请发票',
    '客户在订单详情页点击"申请发票"，填写抬头和税号后提交，财务审核后开具...',
-   'company', 2087390044095516672, 'published', 'company'),
+   'company', 2087390044095516672, 'published'),
   (9010000000000000815, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
    9010000000000000804, '销售提成制度2026版',
    '基础提成5%，超额完成目标部分提成10%，大客户额外奖励2%...',
-   'department', 2087390044095516672, 'draft', 'department')
+   'department', 2087390044095516672, 'draft')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================ 公告（crm_notice）
@@ -977,13 +977,13 @@ INSERT INTO crm_workorder_type
   (id, created_at, updated_at, tenant_id, name, sort, status, remark)
 VALUES
   (9010000000000000841, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
-   '实施部署', 0, 1, '系统部署实施类工单'),
+   '实施部署', 0, true, '系统部署实施类工单'),
   (9010000000000000842, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
-   '技术支持', 1, 1, '技术问题咨询'),
+   '技术支持', 1, true, '技术问题咨询'),
   (9010000000000000843, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
-   '培训需求', 2, 1, '客户培训申请'),
+   '培训需求', 2, true, '客户培训申请'),
   (9010000000000000844, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2087127714048774144,
-   '投诉处理', 3, 1, '客户投诉')
+   '投诉处理', 3, true, '客户投诉')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================ 工单（crm_workorder）

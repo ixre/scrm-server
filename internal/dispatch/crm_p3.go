@@ -794,15 +794,15 @@ func crmKnowledgeList(ctx context.Context, _, _ string, params json.RawMessage) 
 		return nil, err
 	}
 	var req struct {
-		CategoryID string `json:"category_id"`
-		Status     string `json:"status"`
-		Keyword    string `json:"keyword"`
+		KnowledgeTypeID string `json:"knowledge_type_id"`
+		Status          string `json:"status"`
+		Keyword         string `json:"keyword"`
 		*app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.KnowledgeQueryReq{Page: req.Page, PageSize: req.PageSize, CategoryID: req.CategoryID, Status: req.Status, Keyword: req.Keyword}
+	q := services.KnowledgeQueryReq{Page: req.Page, PageSize: req.PageSize, KnowledgeTypeID: req.KnowledgeTypeID, Status: req.Status, Keyword: req.Keyword}
 	items, total, err := services.NewCrmKnowledge().Query(ctx, q)
 	if err != nil {
 		return nil, err

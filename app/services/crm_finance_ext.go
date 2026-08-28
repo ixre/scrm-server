@@ -23,7 +23,7 @@ type IncomeCategoryQueryReq struct {
 	Page     int
 	PageSize int
 	Type     string
-	Status   int
+	Status   *bool // nil=全部 true=启用 false=禁用
 }
 
 // CrmIncomeCategoryService 收支类别服务。
@@ -90,8 +90,8 @@ func (s CrmIncomeCategoryService) Query(ctx context.Context, req IncomeCategoryQ
 	if t := strings.TrimSpace(req.Type); t != "" {
 		db = db.Where("type = ?", t)
 	}
-	if req.Status >= 0 {
-		db = db.Where("status = ?", req.Status)
+	if req.Status != nil {
+		db = db.Where("status = ?", *req.Status)
 	}
 	var total int64
 	if err := db.Model(&models.CrmIncomeCategory{}).Count(&total).Error; err != nil {
