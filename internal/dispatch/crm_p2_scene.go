@@ -40,8 +40,12 @@ func crmSceneCreate(ctx context.Context, _, _ string, params json.RawMessage) (a
 	return ok, services.NewCrmScene().Create(ctx, u, &sc)
 }
 
-func crmSceneUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmSceneUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -68,11 +72,18 @@ func crmSceneDelete(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmScene().Delete(ctx, u, req.IDs); return ok, e }
+	{
+		_, e := services.NewCrmScene().Delete(ctx, u, req.IDs)
+		return ok, e
+	}
 }
 
-func crmSceneSetDefault(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmSceneSetDefault(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +148,12 @@ func crmConsumeCreate(ctx context.Context, _, _ string, params json.RawMessage) 
 	return ok, services.NewCrmConsume().Create(ctx, &c)
 }
 
-func crmConsumeUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmConsumeUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +178,18 @@ func crmConsumeDelete(ctx context.Context, _, _ string, params json.RawMessage) 
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmConsume().Delete(ctx, req.IDs); return ok, e }
+	{
+		_, e := services.NewCrmConsume().Delete(ctx, req.IDs)
+		return ok, e
+	}
 }
 
-func crmConsumeRevoke(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmConsumeRevoke(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}

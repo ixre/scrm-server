@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
+	"net/url"
 
 	"core/app/services"
 	"core/common/identity"
@@ -16,7 +18,7 @@ import (
 
 // StartXhsCallbackServer 启动小红书事件回调 webhook（独立 gin 端口，收小红书主动 POST 的事件）。
 // URL: http://<host>:<XhsCallbackPort>/xhs/callback/:app_id
-// 小红书 webhook 为明文 JSON（生产应加签名校验，此处预留 signature header 校验位）。
+// 小红书 webhook 为明文 JSON（必须携带 X-Signature 并验证签名）。
 // 同时承载 H5 落地页表单回收：POST /landing/:slug/submit
 func StartXhsCallbackServer() {
 	port := conf.Settings.Server.XhsCallbackPort
@@ -67,7 +69,7 @@ func landingPageMeta(c *gin.Context) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>` + page.Title + `</title>
+<title>` + html.EscapeString(page.Title) + `</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6f8; min-height: 100vh; }
@@ -93,8 +95,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <body>
 <div class="container">
   <div class="hero">
-    <h1>` + page.Title + `</h1>
-    <p>` + page.Template + ` 模板</p>
+    <h1>` + html.EscapeString(page.Title) + `</h1>
+    <p>` + html.EscapeString(page.Template) + ` 模板</p>
   </div>
   <div class="form-card" id="formCard">
     <div class="form-group">
@@ -129,7 +131,7 @@ function submitForm() {
   if (!mobile || mobile.length < 11) { errMsg.textContent = '请输入正确的手机号'; errMsg.style.display = 'block'; return; }
   errMsg.style.display = 'none';
   btn.disabled = true; btn.textContent = '提交中...';
-  fetch('/landing/` + slug + `/submit', {
+  fetch('/landing/` + url.PathEscape(slug) + `/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: name, mobile: mobile, company: company })
@@ -155,24 +157,30 @@ function submitForm() {
 // landingPageSubmit 接收 H5 落地页表单提交。
 func landingPageSubmit(c *gin.Context) {
 	slug := c.Param("slug")
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<10)
 	var formData map[string]string
 	if err := c.ShouldBindJSON(&formData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": "invalid body"})
 		return
 	}
-	cust, err := services.NewCrmLandingPage().SubmitForm(slug, formData)
+	_, err := services.NewCrmLandingPage().SubmitForm(slug, formData)
 	if err != nil {
 		log.Sugar.Errorw("landing page submit failed", "slug", slug, "err", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 1, "msg": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"customer_id": cust.ID}})
+	c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"ok": true}})
 }
 
 // xhsCallback 处理小红书 webhook 事件。
 // 事件类型由 body.event_type 区分：lead（留资）/comment（评论）/dm（私信）。
-// 签名校验：若请求带 X-Signature header，则用渠道 CallbackToken 做 HMAC-SHA256 校验。
+// 签名校验：请求必须带 X-Signature header，用渠道 CallbackToken 做 HMAC-SHA256 校验。
 func xhsCallback(c *gin.Context) {
+	if c.GetHeader("X-Signature") == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "缺少回调签名"})
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	appID := c.Param("app_id")
 
 	// 读 raw body（签名校验需要原始字节）
@@ -190,7 +198,7 @@ func xhsCallback(c *gin.Context) {
 		return
 	}
 
-	// 签名校验（若请求带 X-Signature 则强制校验；未带则跳过——开发期便利）
+	// 签名校验（X-Signature 必填，未通过校验拒绝写入）
 	if sig := c.GetHeader("X-Signature"); sig != "" {
 		if !services.NewCrmChannelConfig().VerifyXhsSignature(appID, rawBody, sig) {
 			log.Sugar.Warnw("xhs callback: signature mismatch", "app_id", appID)

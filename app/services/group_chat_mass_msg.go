@@ -1,10 +1,6 @@
 package services
 
 import (
-	"encoding/json"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
@@ -17,6 +13,10 @@ import (
 	"core/common/we_work"
 	"core/conf"
 	gowx "core/pkg/easywework"
+	"encoding/json"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -179,7 +179,11 @@ func (o GroupChatMassMsg) DoSendGroupChatMassMsg(jobBody, JobID string) (extMsgI
 		return
 	}
 
-	client, err := we_work.Clients.Get(conf.Settings.WeWork.ExtCorpID)
+	stored, err := o.groupChatMassMsgRepo.Get(JobID)
+	if err != nil {
+		return "", err
+	}
+	client, err := we_work.Clients.Get(stored.ExtCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return

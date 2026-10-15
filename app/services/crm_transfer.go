@@ -1,16 +1,16 @@
 package services
 
 import (
-	"core/common/identity"
-	
 	"context"
-	
+	"errors"
+	"time"
+
 	"core/app/models"
 	"core/common/app"
 	"core/common/id_generator"
-	"core/common/log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ---------- 客户转移/分配 ----------
@@ -22,69 +22,68 @@ func NewCrmTransfer() *CrmTransferService { return &CrmTransferService{} }
 // Transfer 批量转移客户归属：改 owner + 写转移日志（事务）。
 // 公海客户(pool_status=1)不可转移，需先认领。
 func (s CrmTransferService) Transfer(ctx context.Context, operatorUserID string, customerIDs []string, toUserID, reason string) (int64, error) {
-	tenantID := identity.TenantID(ctx)
-
-
-	if len(customerIDs) == 0 {
-		return 0, nil
+	ids, err := workflowIDs(customerIDs)
+	if err != nil {
+		return 0, err
 	}
-	if toUserID == "" {
-		return 0, nil
-	}
-	var logs []models.CrmTransferLog
-	err := models.DB.Transaction(func(tx *gorm.DB) error {
-		// 查当前客户归属，构造转移日志。
-		var cs []models.CrmCustomer
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id IN ?",  customerIDs).Find(&cs).Error; err != nil {
+	var count int64
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		actor, manager, err := customerActor(ctx, tx)
+		if err != nil {
 			return err
 		}
-		for _, c := range cs {
+		if !manager || actor.ID != operatorUserID {
+			return ErrCustomerAccess
+		}
+		if _, err = lockTenantUser(ctx, tx, toUserID); err != nil {
+			return err
+		}
+		var customers []models.CrmCustomer
+		if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND id IN ?", actor.TenantID, ids).Order("id").Find(&customers).Error; err != nil {
+			return err
+		}
+		if len(customers) != len(ids) {
+			return ErrCustomerAccess
+		}
+		for _, c := range customers {
 			if c.PoolStatus == 1 {
-				continue // 公海客户跳过
+				return errors.New("公海客户请使用分配操作")
+			}
+			if c.ReassignStatus != 0 {
+				return errors.New("客户尚在等待接收，请先完成上一次转交")
 			}
 			if c.OwnerUserID == toUserID {
-				continue // 归属不变跳过
+				continue
 			}
-			logs = append(logs, models.CrmTransferLog{
-				Model:          models.Model{ID: id_generator.StringID()},
-				TenantID:       tenantID,
-				CustomerID:     c.ID,
-				FromUserID:     c.OwnerUserID,
-				ToUserID:       toUserID,
-				Reason:         reason,
-				OperatorUserID: operatorUserID,
-			})
-		}
-		// 批量改 owner（仅非公海客户）。
-		res := tx.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ? AND pool_status = ?",  customerIDs,  0).
-			Update("owner_user_id", toUserID)
-		if res.Error != nil {
-			return res.Error
-		}
-		// 写转移日志。
-		for i := range logs {
-			if err := tx.Create(&logs[i]).Error; err != nil {
+			entry := models.CrmTransferLog{Model: models.Model{ID: id_generator.StringID()}, TenantID: actor.TenantID, CustomerID: c.ID, FromUserID: c.OwnerUserID, ToUserID: toUserID, Reason: reason, OperatorUserID: actor.ID}
+			if err = createCRM(tx, &entry); err != nil {
 				return err
 			}
+			updates := map[string]any{"owner_user_id": toUserID, "claimed_at": time.Now(), "reassign_status": 1, "reassign_from": nil}
+			if c.OwnerUserID != "" {
+				updates["reassign_from"] = c.OwnerUserID
+			}
+			if err = tx.Model(&c).Updates(updates).Error; err != nil {
+				return err
+			}
+			count++
 		}
 		return nil
 	})
 	if err != nil {
-		log.Sugar.Errorw("crm transfer failed", "err", err)
 		return 0, err
 	}
-	return int64(len(logs)), nil
+	return count, nil
 }
 
 // ListTransferLog 查某客户的转移历史（按时间倒序）。
 func (s CrmTransferService) ListTransferLog(ctx context.Context, customerID string, pager *app.Pager) ([]models.CrmTransferLog, int64, error) {
 
-
 	if pager == nil {
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.MustFor(ctx).Where("customer_id = ?",  customerID)
+	db := models.MustFor(ctx).Where("customer_id = ?", customerID)
 	var total int64
 	if err := db.Model(&models.CrmTransferLog{}).Count(&total).Error; err != nil {
 		return nil, 0, err

@@ -1,10 +1,10 @@
 package we_work
 
 import (
-	"github.com/pkg/errors"
 	"core/common/log"
 	"core/pkg"
 	"core/pkg/easywework"
+	"github.com/pkg/errors"
 	"sync"
 )
 
@@ -43,23 +43,16 @@ type WeWorkClients struct {
 
 // SetupClient 在连接db后init
 func SetupClient(conf CorpConf) {
-	once.Do(func() {
-		var err error
-		client, err := NewClient(conf)
-		if err != nil {
-			log.Sugar.Error("NewClient failed", err)
-			//panic(err)
-		}
-		Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{conf.ExtCorpID: client}}
-	})
+	EnsureClients()
+	if err := Clients.Add(conf); err != nil {
+		log.Sugar.Errorw("NewClient failed", "err", err)
+	}
 }
 
 // EnsureClients 懒初始化全局 Clients map（多租户 per-corp 运行时首次注册前调用）。
-// 与 SetupClient 的 once 并存：SetupClient 走单 corp 全局；此处为「一租户一企微」按 corp 追加。
+// SetupClient 和多租户渠道注册共用同一初始化入口，后续按 corp 追加客户端。
 func EnsureClients() {
-	if Clients == nil {
-		Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{}}
-	}
+	once.Do(func() { Clients = &WeWorkClients{mutex: sync.Mutex{}, clients: map[string]Client{}} })
 }
 
 func NewClient(conf CorpConf) (client Client, err error) {
@@ -85,6 +78,9 @@ func NewClient(conf CorpConf) (client Client, err error) {
 }
 
 func (clients *WeWorkClients) Get(extCorpID string) (client Client, err error) {
+	if clients == nil {
+		return client, errors.New("WeCom clients are not configured")
+	}
 	var ok bool
 	clients.mutex.Lock()
 	defer clients.mutex.Unlock()

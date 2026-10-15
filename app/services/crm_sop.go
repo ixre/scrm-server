@@ -15,6 +15,7 @@ import (
 	"core/common/log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ---------- SOP 自动化 ----------
@@ -118,7 +119,7 @@ func (s CrmSopService) MarkTaskDone(ctx context.Context, taskID string) error {
 	tenantID := identity.TenantID(ctx)
 
 	now := time.Now()
-	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
+	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND status = ?", taskID, "pending").
 		Updates(map[string]any{"status": "done", "done_at": &now}).Error
 }
 
@@ -126,7 +127,7 @@ func (s CrmSopService) MarkTaskDone(ctx context.Context, taskID string) error {
 func (s CrmSopService) MarkTaskSkipped(ctx context.Context, taskID string) error {
 	tenantID := identity.TenantID(ctx)
 
-	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", taskID).
+	return models.DB.Model(&models.CrmSopTask{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND status = ?", taskID, "pending").
 		Update("status", "skipped").Error
 }
 
@@ -218,40 +219,42 @@ func (s CrmSopService) createSopTask(ctx context.Context, rule models.CrmSopRule
 // 对 create_followup 类型：自动创建跟进记录。
 func (s CrmSopService) ExecutePendingTasks() {
 	var tasks []models.CrmSopTask
-	now := time.Now()
-	models.DB.Where("status = ? AND execute_at <= ?", "pending", now).Limit(100).Find(&tasks)
+	// 发消息暂由销售人工处理，保留 pending，不能当作已发送。
+	if err := models.DB.Where("status = ? AND execute_at <= ? AND action_type <> ?", "pending", time.Now(), "send_message").Order("execute_at, id").Limit(100).Find(&tasks).Error; err != nil {
+		log.Sugar.Errorw("load sop tasks failed", "err", err)
+		return
+	}
 	for _, task := range tasks {
-		s.executeTask(task)
+		if err := s.executeTask(task); err != nil {
+			log.Sugar.Errorw("sop task failed", "task", task.ID, "err", err)
+		}
 	}
 }
 
-// executeTask 执行单个 SOP 任务。
-func (s CrmSopService) executeTask(task models.CrmSopTask) {
-	switch task.ActionType {
-	case "create_followup":
-		// 自动创建跟进记录
-		followup := models.CrmFollowup{
-			Model:         models.Model{ID: id_generator.StringID()},
-			TenantID:      task.TenantID,
-			CustomerID:    task.CustomerID,
-			OpportunityID: task.OpportunityID,
-			UserID:        task.AssignUserID,
-			Type:          "other",
-			Content:       fmt.Sprintf("[SOP自动] %s", task.ActionContent),
+// executeTask 锁定任务，跟进写入与完成状态在同一事务，支持多实例并行扫描。
+func (s CrmSopService) executeTask(task models.CrmSopTask) error {
+	return models.DB.Transaction(func(tx *gorm.DB) error {
+		var current models.CrmSopTask
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("id = ? AND status = ?", task.ID, "pending").First(&current).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
 		}
-		// ContactID 也可能为空；一并 omit 避免写入 bigint 列空串触发 22P02。
-		if err := createCRM(models.DB, &followup, "CustomerID", "OpportunityID", "UserID", "ContactID"); err != nil {
-			log.Sugar.Errorw("sop execute: create followup failed", "err", err, "task", task.ID)
-			return
+		if err != nil {
+			return err
 		}
-	case "send_message":
-		// 仅记录，不发实际消息（需对接渠道发送能力）
-		log.Sugar.Infow("sop send_message triggered", "task", task.ID, "customer", task.CustomerID, "content", task.ActionContent)
-	}
-	// 标记完成
-	now := time.Now()
-	models.DB.Model(&models.CrmSopTask{}).Where("id = ?", task.ID).
-		Updates(map[string]any{"status": "done", "done_at": &now})
+		if current.ActionType == "send_message" {
+			return nil
+		}
+		if current.ActionType != "create_followup" {
+			return tx.Model(&current).Update("status", "failed").Error
+		}
+		followup := models.CrmFollowup{Model: models.Model{ID: id_generator.StringID()}, TenantID: current.TenantID, CustomerID: current.CustomerID, OpportunityID: current.OpportunityID, UserID: current.AssignUserID, Type: "other", Content: fmt.Sprintf("[SOP自动] %s", current.ActionContent)}
+		if err := createCRM(tx, &followup, "CustomerID", "OpportunityID", "UserID", "ContactID"); err != nil {
+			return err
+		}
+		now := time.Now()
+		return tx.Model(&current).Updates(map[string]any{"status": "done", "done_at": &now}).Error
+	})
 }
 
 // PendingTaskCountByUser 某销售的待处理 SOP 任务数（工作台用）。

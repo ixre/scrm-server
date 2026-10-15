@@ -105,6 +105,9 @@ func (o *Login) ConsoleLoginCallback(extCorpID string, code string) (item *model
 // 逻辑与 app/controller/login.go 的 ConsoleForceLogin 一致：查到员工直接返回；
 // 目标是超级管理员且员工不存在时自动创建。
 func (o *Login) ForceConsoleLogin(extCorpID string, extStaffID string) (item *models.Staff, err error) {
+	if conf.Settings == nil || (conf.Settings.App.Env != "DEV" && conf.Settings.App.Env != "TEST") {
+		return nil, errors.New("force login is only available in DEV/TEST")
+	}
 	if extCorpID == "" {
 		extCorpID = conf.Settings.WeWork.ExtCorpID
 	}

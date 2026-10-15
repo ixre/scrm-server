@@ -38,8 +38,12 @@ func crmFieldDefCreate(ctx context.Context, _, _ string, params json.RawMessage)
 	return ok, services.NewCrmField().CreateDef(ctx, &d)
 }
 
-func crmFieldDefUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmFieldDefUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +68,10 @@ func crmFieldDefDelete(ctx context.Context, _, _ string, params json.RawMessage)
 	if len(req.IDs) == 0 {
 		return nil, errNeedIdentity
 	}
-	{ _, e := services.NewCrmField().DeleteDef(ctx, req.IDs); return ok, e }
+	{
+		_, e := services.NewCrmField().DeleteDef(ctx, req.IDs)
+		return ok, e
+	}
 }
 
 // ---- 字段值 ----

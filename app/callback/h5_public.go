@@ -32,8 +32,8 @@ func smartCardView(c *gin.Context) {
 	}
 	var card models.CrmSmartCard
 	var err error
-	// 优先按分享码查（8位短码），再按ID查
-	if len(idOrCode) <= 8 {
+	// 兼容历史短码和新的 32 位随机分享码。
+	if len(idOrCode) <= 8 || len(idOrCode) == 32 {
 		card, err = services.NewCrmSmartCard().GetByShareCode(idOrCode)
 	} else {
 		card, err = services.NewCrmSmartCard().GetByID(idOrCode)
@@ -42,11 +42,12 @@ func smartCardView(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": 1, "msg": "名片不存在"})
 		return
 	}
-	// 记录浏览
+	// 在异步任务启动前复制请求字段，避免读取已回收的 Gin Context。
+	ip, userAgent := c.ClientIP(), c.GetHeader("User-Agent")
 	go func() {
 		defer func() { recover() }()
 		ctx := identity.WithIdentity(context.Background(), identity.Identity{TenantID: card.TenantID})
-		services.NewCrmSmartCard().RecordView(ctx, card.ID, "", c.ClientIP(), c.GetHeader("User-Agent"), "share", 0)
+		services.NewCrmSmartCard().RecordView(ctx, card.ID, "", ip, userAgent, "share", 0)
 	}()
 	c.JSON(http.StatusOK, gin.H{"code": 0, "data": card})
 }

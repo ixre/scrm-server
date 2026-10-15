@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"time"
 
@@ -23,7 +23,6 @@ func NewCrmSalesRule() *CrmSalesRuleService { return &CrmSalesRuleService{} }
 // GetRule 读取租户销售规则，不存在则返回默认（不强制校验）。
 func (s CrmSalesRuleService) GetRule(ctx context.Context) (models.CrmSalesRule, error) {
 
-
 	var r models.CrmSalesRule
 	err := models.MustFor(ctx).First(&r).Error
 	if err == nil {
@@ -38,7 +37,6 @@ func (s CrmSalesRuleService) GetRule(ctx context.Context) (models.CrmSalesRule, 
 // SetRule 设置租户销售规则（upsert）。
 func (s CrmSalesRuleService) SetRule(ctx context.Context, requireFollowup bool, followupDays int) (models.CrmSalesRule, error) {
 	tenantID := identity.TenantID(ctx)
-
 
 	if followupDays < 1 {
 		followupDays = 3
@@ -55,10 +53,10 @@ func (s CrmSalesRuleService) SetRule(ctx context.Context, requireFollowup bool, 
 		return r, err
 	}
 	r = models.CrmSalesRule{
-		Model:          models.Model{ID: id_generator.StringID()},
-		TenantID:       tenantID,
+		Model:           models.Model{ID: id_generator.StringID()},
+		TenantID:        tenantID,
 		RequireFollowup: requireFollowup,
-		FollowupDays:   followupDays,
+		FollowupDays:    followupDays,
 	}
 	err = models.DB.Create(&r).Error
 	return r, err
@@ -81,23 +79,7 @@ func hasRecentFollowup(followupTimes []time.Time, days int, now time.Time) bool 
 // checkMoveStageGuard 校验商机移动阶段的前置条件（跟进强制）。
 // 返回 nil 表示通过，返回 error 表示拒绝。
 func checkMoveStageGuard(ctx context.Context, opportunityID string) error {
-	rule, err := NewCrmSalesRule().GetRule(ctx)
-	if err != nil || !rule.RequireFollowup {
-		return nil
-	}
-	var fs []models.CrmFollowup
-	if err := models.MustFor(ctx).Where("opportunity_id = ?",  opportunityID).
-		Order("created_at desc").Find(&fs).Error; err != nil {
-		return err
-	}
-	times := make([]time.Time, 0, len(fs))
-	for _, f := range fs {
-		times = append(times, f.CreatedAt)
-	}
-	if !hasRecentFollowup(times, rule.FollowupDays, time.Now()) {
-		return errors.New("近" + itoa(rule.FollowupDays) + "天无跟进记录，无法移动阶段")
-	}
-	return nil
+	return checkMoveStageGuardDB(ctx, models.DB, opportunityID)
 }
 
 // itoa 简易 int→string，避免引入 strconv 仅为单处用。
@@ -121,4 +103,32 @@ func itoa(n int) string {
 		buf[i] = '-'
 	}
 	return string(buf[i:])
+}
+
+// Use the caller's transaction and fail closed if the rule cannot be read.
+func checkMoveStageGuardDB(ctx context.Context, tx *gorm.DB, opportunityID string) error {
+	var rule models.CrmSalesRule
+	err := tx.Where("tenant_id = ?", identity.TenantID(ctx)).First(&rule).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !rule.RequireFollowup {
+		return nil
+	}
+	days := rule.FollowupDays
+	if days < 1 {
+		days = 3
+	}
+	var count int64
+	now := time.Now()
+	if err = tx.Model(&models.CrmFollowup{}).Where("tenant_id = ? AND opportunity_id = ? AND created_at >= ? AND created_at <= ?", identity.TenantID(ctx), opportunityID, now.AddDate(0, 0, -days), now).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return errors.New("近" + itoa(days) + "天无跟进记录，无法移动阶段")
+	}
+	return nil
 }

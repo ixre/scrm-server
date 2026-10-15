@@ -279,8 +279,12 @@ func crmLeadMoveToPool(ctx context.Context, _, _ string, params json.RawMessage)
 	return ok, services.NewCrmLeadExt().MoveToPool(ctx, req.IDs)
 }
 
-func crmLeadReceiveFromPool(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmLeadReceiveFromPool(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -404,12 +408,13 @@ func crmRecycleList(ctx context.Context, _, _ string, params json.RawMessage) (a
 	}
 	var req struct {
 		EntityType string `json:"entity_type"`
-		*app.Pager
+		Keyword    string `json:"keyword"`
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.RecycleQueryReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.RecycleQueryReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmRecycle().List(ctx, req.EntityType, q)
 	if err != nil {
 		return nil, err
@@ -417,16 +422,24 @@ func crmRecycleList(ctx context.Context, _, _ string, params json.RawMessage) (a
 	return Result(items, total), nil
 }
 
-func crmRecycleRestore(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmRecycleRestore(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
 	return ok, services.NewCrmRecycle().Restore(ctx, id)
 }
 
-func crmRecycleClear(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmRecycleClear(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}

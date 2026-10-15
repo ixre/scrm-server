@@ -8,9 +8,11 @@ import (
 	"core/api/pb"
 	"core/app/callback"
 	"core/app/constants"
+	"core/app/consumers"
 	"core/app/models"
 	"core/app/services"
 	"core/app/tasks"
+	"core/common/delay_queue"
 	"core/common/id_generator"
 	log2 "core/common/log"
 	"core/common/redis"
@@ -23,7 +25,7 @@ import (
 
 // 闭源核心入口：初始化与 openscrm 一致的地基（conf/db/redis），
 // 然后对外提供 gRPC 服务。定时任务（tasks）已启动：公海自动回收 + openscrm 遗产 cron。
-// consumers/delay_queue 依赖企微回调，按需启动。
+// 队列消费者与定时任务在实际服务进程中启动，避免热更新监督进程重复执行。
 func init() {
 	if err := conf.SetupSetting(); err != nil {
 		log.Fatalf("[core] conf.SetupSetting: %v", err)
@@ -38,7 +40,6 @@ func init() {
 	services.SeedPlatformAdmin()         // 非生产：幂等创建平台超管账号（master/123456）
 	services.SeedDefaultPlans()          // 幂等创建默认套餐（free/standard/pro/enterprise）
 	services.SeedDefaultPaymentConfigs() // 幂等创建默认支付配置占位（微信/支付宝）
-	tasks.Start()                        // 启动定时任务（公海回收 + openscrm 遗产 cron）
 }
 
 func main() {
@@ -47,6 +48,12 @@ func main() {
 
 // runServer 启动闭源核心的 gRPC 服务与企微回调 webhook。
 func runServer() {
+	if err := services.RestoreChannelClients(); err != nil {
+		log.Fatalf("restore channel clients: %v", err)
+	}
+	delay_queue.SetupDelayQueue()
+	consumers.Start()
+	tasks.Start()
 	lis, err := net.Listen("tcp", ":9001")
 	if err != nil {
 		log.Fatalf("[core] listen: %v", err)

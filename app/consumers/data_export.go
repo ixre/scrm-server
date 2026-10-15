@@ -1,16 +1,15 @@
 package consumers
 
 import (
+	"core/common/app"
 	"encoding/json"
 	"fmt"
 	"github.com/gogf/gf/os/gfile"
 	"github.com/xuri/excelize/v2"
-	"core/common/app"
 	"path"
 	"path/filepath"
 
 	//"github.com/tealeg/xlsx"
-	"net/http"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
@@ -18,6 +17,7 @@ import (
 	"core/common/log"
 	"core/common/storage"
 	"core/conf"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +44,9 @@ func NewDataExporter() *DataExporter {
 }
 
 func (o DataExporter) DataExport(job delay_queue.Job) error {
+	if storage.FileStorage == nil {
+		return fmt.Errorf("export storage is not configured")
+	}
 	exportJob := requests.DataExportJob{}
 	err := json.Unmarshal([]byte(job.Body), &exportJob)
 	if err != nil {
@@ -51,13 +54,13 @@ func (o DataExporter) DataExport(job delay_queue.Job) error {
 	}
 	switch exportJob.Type {
 	case string(constants.DataExportTypeGroupChat):
-		//return o.ExportGroupChatList(job.ID, exportJob, )
+		return fmt.Errorf("group chat export worker is not implemented")
 	case string(constants.DataExportTypeDeleteStaffWarning):
 		return o.ExportDeleteStaffWarningList(job.ID, exportJob)
 	case string(constants.DataExportTypeDeleteCustomerWarning):
 		return o.ExportDeleteCustomerList(job.ID, exportJob)
 	case string(constants.DataExportTypeCustomer):
-		//return o.ExportCustomer(job.ID, exportJob)
+		return fmt.Errorf("customer export worker is not implemented")
 	default:
 	}
 

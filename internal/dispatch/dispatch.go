@@ -9,6 +9,8 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"reflect"
 
 	"core/app/services"
 	app "core/common/app"
@@ -24,6 +26,9 @@ type Registry map[string]map[string]Adapter
 func (r Registry) Register(service, action string, a Adapter) {
 	if r[service] == nil {
 		r[service] = map[string]Adapter{}
+	}
+	if _, exists := r[service][action]; exists {
+		panic(fmt.Sprintf("duplicate business action %s/%s", service, action))
 	}
 	r[service][action] = a
 }
@@ -52,7 +57,11 @@ var Reg = Registry{}
 
 // Bind 把入参 JSON 绑定到目标 struct（等价 gin 的 ShouldBindJSON）。
 func Bind(params json.RawMessage, v any) error {
-	return json.Unmarshal(params, v)
+	normalized, err := normalizeFormTimes(params, reflect.TypeOf(v))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(normalized, v)
 }
 
 // Result 包装"列表 + 总数"，对应 openscrm 常见的 ([]T, total int64) 返回形状。

@@ -1025,6 +1025,7 @@ type CrmQuote struct {
 	CustomerID    string                     `gorm:"type:bigint;index;comment:关联客户ID" json:"customer_id"`
 	ContactID     string                     `gorm:"type:bigint;comment:关联联系人ID" json:"contact_id"`
 	OpportunityID string                     `gorm:"type:bigint;comment:关联商机ID(可空)" json:"opportunity_id"`
+	OrderID       string                     `gorm:"type:bigint;index;comment:报价转成的合同ID" json:"order_id"`
 	Subject       string                     `gorm:"type:varchar(255);comment:报价主题" json:"subject"`
 	Amount        float64                    `gorm:"type:decimal(16,2);comment:报价金额" json:"amount"`
 	Discount      float64                    `gorm:"type:decimal(16,2);comment:折扣金额" json:"discount"`

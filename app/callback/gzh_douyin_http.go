@@ -14,8 +14,13 @@ import (
 
 // gzhCallback 处理公众号 webhook 事件。
 // 事件类型：subscribe（关注留资）/message（消息）/menu_click（菜单点击）。
-// 签名校验：若请求带 X-Signature header，则用渠道 CallbackToken 做 HMAC-SHA256 校验。
+// 签名校验：请求必须带 X-Signature header，用渠道 CallbackToken 做 HMAC-SHA256 校验。
 func gzhCallback(c *gin.Context) {
+	if c.GetHeader("X-Signature") == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "缺少回调签名"})
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	appID := c.Param("app_id")
 
 	rawBody, err := c.GetRawData()
@@ -90,6 +95,11 @@ func gzhCallback(c *gin.Context) {
 // douyinCallback 处理抖音 webhook 事件。
 // 事件类型：lead（主页留资）/dm（私信）/comment（评论）。
 func douyinCallback(c *gin.Context) {
+	if c.GetHeader("X-Signature") == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "缺少回调签名"})
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	appID := c.Param("app_id")
 
 	rawBody, err := c.GetRawData()

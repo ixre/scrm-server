@@ -2,7 +2,9 @@ package grpcserver
 
 import (
 	"context"
+	"core/app/services"
 	"encoding/json"
+	"strings"
 
 	"core/api/pb"
 	"core/common/identity"
@@ -35,6 +37,12 @@ func (s *BusinessServer) Invoke(ctx context.Context, req *pb.BusinessRequest) (*
 		IsPlatform: req.GetIsPlatform(),
 		PlatformID: req.GetPlatformId(),
 	})
+	if !publicBusinessAction(service, action) && (strings.HasPrefix(service, "crm_") || req.GetTenantId() != "" || req.GetIsPlatform()) {
+		allowExpired := expiredSessionAction(service, action)
+		if code, err := services.ValidateBusinessSession(ctx, allowExpired); err != nil {
+			return &pb.BusinessResponse{Code: code, Msg: err.Error()}, nil
+		}
+	}
 	res, err := a(ctx, req.GetCorpId(), req.GetStaffId(), req.GetParams())
 	if err != nil {
 		// 业务错误走响应码透传给网关，由网关映射为 HTTP 状态；不用 gRPC status。
@@ -45,4 +53,16 @@ func (s *BusinessServer) Invoke(ctx context.Context, req *pb.BusinessRequest) (*
 		return nil, status.Errorf(codes.Internal, "marshal result of %s/%s: %v", service, action, err)
 	}
 	return &pb.BusinessResponse{Data: data}, nil
+}
+
+func publicBusinessAction(service, action string) bool {
+	if (service == "crm_auth" || service == "crm_platform") && action == "Login" {
+		return true
+	}
+	return service == "crm_smart_card" && (action == "PublicGet" || action == "PublicSubmitLead" || action == "PublicLike")
+}
+
+// Keep account and billing entry points available so an expired tenant can renew.
+func expiredSessionAction(service, action string) bool {
+	return service == "crm_plan" && action == "List" || service == "crm_tenant_order" || service == "crm_tenant" && action == "GetCurrentInfo" || service == "crm_user" && action == "GetCurrent" || service == "crm_auth" && action == "ChangePassword"
 }

@@ -45,8 +45,12 @@ func crmApprovalFlowCreate(ctx context.Context, _, _ string, params json.RawMess
 	return ok, services.NewCrmApproval().CreateFlow(ctx, &f)
 }
 
-func crmApprovalFlowUpdate(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmApprovalFlowUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +132,12 @@ func crmApprovalInstanceList(ctx context.Context, _, _ string, params json.RawMe
 	return Result(items, total), nil
 }
 
-func crmApprovalApprove(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmApprovalApprove(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +151,12 @@ func crmApprovalApprove(ctx context.Context, _, id string, params json.RawMessag
 	return ok, services.NewCrmApproval().Approve(ctx, id, u, req.Comment)
 }
 
-func crmApprovalReject(ctx context.Context, _, id string, params json.RawMessage) (any, error) {
+func crmApprovalReject(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +170,12 @@ func crmApprovalReject(ctx context.Context, _, id string, params json.RawMessage
 	return ok, services.NewCrmApproval().Reject(ctx, id, u, req.Comment)
 }
 
-func crmApprovalVoid(ctx context.Context, _, id string, _ json.RawMessage) (any, error) {
+func crmApprovalVoid(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := bindActionID(params)
 	if err != nil {
 		return nil, err
 	}

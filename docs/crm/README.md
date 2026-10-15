@@ -79,12 +79,11 @@
 所有业务接口走 `dispatch` 注册表，HTTP 层在 `gateway`。约定调用形式：
 
 ```
-POST /api/dispatch
+POST /api/v1/biz/crm_customer/Create
 Headers: Authorization: Bearer <JWT>
 Body: {
-  "domain": "crm_customer",
-  "action": "Create",
-  "data": { ... }
+  "name": "示例客户",
+  "mobile": "13800000000"
 }
 ```
 
@@ -92,9 +91,7 @@ Body: {
 
 ```json
 {
-  "ok": true,
   "code": 0,
-  "message": "ok",
   "data": { ... }
 }
 ```

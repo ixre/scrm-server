@@ -1,26 +1,22 @@
 package services
 
 import (
-	"core/common/identity"
-
 	"context"
-
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"core/app/models"
 	"core/common/id_generator"
-	"core/common/log"
+	"core/common/identity"
+	"gorm.io/gorm"
 )
-
-// ---------- 报价单 ----------
 
 type CrmQuoteService struct{}
 
 func NewCrmQuote() *CrmQuoteService { return &CrmQuoteService{} }
 
-// QuoteQueryReq 报价单查询请求。
 type QuoteQueryReq struct {
 	Page          int    `json:"page"`
 	PageSize      int    `json:"page_size"`
@@ -30,116 +26,179 @@ type QuoteQueryReq struct {
 	Keyword       string `json:"keyword"`
 }
 
-// quoteStatusFlow 允许的状态流转：from -> [to...]
 var quoteStatusFlow = map[string]map[string]bool{
 	"draft":    {"sent": true, "void": true},
 	"sent":     {"accepted": true, "rejected": true, "void": true},
-	"accepted": {},
-	"rejected": {},
-	"void":     {},
+	"accepted": {}, "rejected": {}, "void": {},
 }
 
-// genQuoteNo 生成报价单号：Q + yyyyMMdd + 4位当日序号。
-func genQuoteNo(tenantID string) string {
-	day := time.Now().Format("20060102")
-	prefix := "Q" + day
-	var cnt int64
-	models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("quote_no LIKE ?", prefix+"%").Count(&cnt)
-	return fmt.Sprintf("%s%04d", prefix, cnt+1)
+// Snowflake IDs avoid duplicate numbers from concurrent creation or deleted rows.
+func genQuoteNo(_ string) string {
+	return "Q" + time.Now().Format("20060102") + id_generator.StringID()
 }
 
-// Create 创建报价单，自动生成 QuoteNo。
+func validateQuote(ctx context.Context, tx *gorm.DB, q *models.CrmQuote) error {
+	if q.ContactID != "" {
+		if err := contactWriteLock(ctx, tx); err != nil {
+			return err
+		}
+	}
+	q.Subject = strings.TrimSpace(q.Subject)
+	if q.Subject == "" {
+		return errors.New("请填写报价主题")
+	}
+	if _, err := activeSalesCustomer(ctx, tx, q.CustomerID); err != nil {
+		return err
+	}
+	if err := validateCustomerOwner(ctx, tx, q.OwnerUserID); err != nil {
+		return err
+	}
+	amount, err := moneyCents(q.Amount)
+	if err != nil {
+		return err
+	}
+	discount, err := moneyCents(q.Discount)
+	if err != nil {
+		return err
+	}
+	if discount > amount {
+		return errors.New("优惠金额不能超过报价金额")
+	}
+	q.FinalAmount = float64(amount-discount) / 100
+	if q.OpportunityID != "" {
+		db, err := salesAccessDB(ctx, tx, false)
+		if err != nil {
+			return err
+		}
+		var o models.CrmOpportunity
+		if err = db.Where("id = ? AND customer_id = ?", q.OpportunityID, q.CustomerID).First(&o).Error; err != nil {
+			return errors.New("商机不存在、无权操作或不属于报价客户")
+		}
+	}
+	if q.ContactID != "" {
+		var c models.CrmContact
+		if err := tx.Where("tenant_id = ? AND id = ? AND customer_id = ?", q.TenantID, q.ContactID, q.CustomerID).First(&c).Error; err != nil {
+			return errors.New("联系人不属于报价客户")
+		}
+	}
+	return nil
+}
+
 func (s CrmQuoteService) Create(ctx context.Context, q *models.CrmQuote) error {
-	tenantID := identity.TenantID(ctx)
-
 	if q == nil {
 		return errors.New("报价单不能为空")
 	}
-	q.ID = id_generator.StringID()
-	q.TenantID = tenantID
-	if q.Status == "" {
-		q.Status = "draft"
+	if q.Status != "" && q.Status != "draft" {
+		return errors.New("新报价必须先保存为草稿")
 	}
+	q.ID, q.TenantID, q.Status = id_generator.StringID(), identity.TenantID(ctx), "draft"
+	q.OrderID, q.VoidReason, q.VoidAt = "", "", nil
+	if q.OwnerUserID == "" {
+		q.OwnerUserID = identity.UserID(ctx)
+	}
+	q.QuoteNo = strings.TrimSpace(q.QuoteNo)
 	if q.QuoteNo == "" {
-		q.QuoteNo = genQuoteNo(tenantID)
+		q.QuoteNo = genQuoteNo(q.TenantID)
 	}
-	// 最终金额未传则按金额-折扣计算。
-	if q.FinalAmount == 0 && q.Amount > 0 {
-		q.FinalAmount = q.Amount - q.Discount
-	}
-	if err := createCRM(models.DB, q, "CustomerID", "ContactID", "OpportunityID", "OwnerUserID"); err != nil {
-		log.Sugar.Errorw("crm quote create failed", "err", err)
-		return err
-	}
-	return nil
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateQuote(ctx, tx, q); err != nil {
+			return err
+		}
+		if err := lockSalesKey(ctx, tx, "quote-number", q.QuoteNo); err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&models.CrmQuote{}).Where("tenant_id = ? AND quote_no = ?", q.TenantID, q.QuoteNo).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New("报价单号已存在")
+		}
+		return createCRM(tx, q)
+	})
 }
 
-// Update 更新报价单（仅 draft 状态可改业务字段）。
 func (s CrmQuoteService) Update(ctx context.Context, id string, q *models.CrmQuote) error {
-	tenantID := identity.TenantID(ctx)
-
 	if q == nil {
 		return errors.New("报价单不能为空")
 	}
-	var exist models.CrmQuote
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&exist).Error; err != nil {
-		return errors.New("报价单不存在")
-	}
-	if exist.Status != "draft" {
-		return errors.New("非草稿状态报价单不可编辑")
-	}
-	upd := updatesCRM(map[string]any{
-		"customer_id":    q.CustomerID,
-		"contact_id":     q.ContactID,
-		"opportunity_id": q.OpportunityID,
-		"subject":        q.Subject,
-		"amount":         q.Amount,
-		"discount":       q.Discount,
-		"final_amount":   q.FinalAmount,
-		"items":          q.Items,
-		"valid_until":    q.ValidUntil,
-		"owner_user_id":  q.OwnerUserID,
-		"remark":         q.Remark,
-	}, "customer_id", "contact_id", "opportunity_id", "owner_user_id")
-	selectCols := []string{
-		"customer_id", "contact_id", "opportunity_id", "subject", "amount",
-		"discount", "final_amount", "items", "valid_until", "owner_user_id", "remark",
-	}
-	if err := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Select(selectCols).Updates(upd).Error; err != nil {
-		log.Sugar.Errorw("crm quote update failed", "err", err)
-		return err
-	}
-	return nil
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		old, err := lockSalesRecord[models.CrmQuote](ctx, tx, id, false)
+		if err != nil {
+			return err
+		}
+		if old.Status != "draft" {
+			return errors.New("仅草稿报价可以编辑")
+		}
+		q.ID, q.TenantID, q.QuoteNo, q.Status, q.OrderID = old.ID, old.TenantID, old.QuoteNo, old.Status, old.OrderID
+		if q.OwnerUserID == "" {
+			q.OwnerUserID = old.OwnerUserID
+		}
+		if err := validateQuote(ctx, tx, q); err != nil {
+			return err
+		}
+		changes := map[string]any{"customer_id": q.CustomerID, "contact_id": nullableSalesID(q.ContactID), "opportunity_id": nullableSalesID(q.OpportunityID), "subject": q.Subject, "amount": q.Amount, "discount": q.Discount, "final_amount": q.FinalAmount, "items": q.Items, "valid_until": q.ValidUntil, "owner_user_id": q.OwnerUserID, "remark": q.Remark}
+		return tx.Model(&old).Updates(changes).Error
+	})
 }
 
-// Delete 删除报价单。
+func nullableSalesID(id string) any {
+	if id == "" {
+		return nil
+	}
+	return id
+}
+
 func (s CrmQuoteService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmQuote{})
-	return res.RowsAffected, res.Error
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
+	}
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, id := range ids {
+			q, err := lockSalesRecord[models.CrmQuote](ctx, tx, id, false)
+			if err != nil {
+				return err
+			}
+			if q.Status != "draft" || q.OrderID != "" {
+				return errors.New("仅未转合同的草稿报价可以删除")
+			}
+			if err := tx.Delete(&q).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
-// Get 查单个报价单。
 func (s CrmQuoteService) Get(ctx context.Context, id string) (*models.CrmQuote, error) {
-
-	var q models.CrmQuote
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&q).Error; err != nil {
+	db, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
 		return nil, err
 	}
-	return &q, nil
+	var q models.CrmQuote
+	err = db.Where("id = ?", id).First(&q).Error
+	return &q, err
 }
 
-// Query 列出报价单，支持按 customer_id/status/keyword 筛选。
 func (s CrmQuoteService) Query(ctx context.Context, req QuoteQueryReq) ([]models.CrmQuote, int64, error) {
-
 	if req.Page <= 0 {
 		req.Page = 1
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 10
 	}
-	db := models.MustFor(ctx)
+	if req.PageSize > 100 {
+		req.PageSize = 100
+	}
+	db, err := salesAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
 	}
@@ -150,7 +209,7 @@ func (s CrmQuoteService) Query(ctx context.Context, req QuoteQueryReq) ([]models
 		db = db.Where("status = ?", req.Status)
 	}
 	if req.Keyword != "" {
-		like := "%" + req.Keyword + "%"
+		like := "%" + strings.TrimSpace(req.Keyword) + "%"
 		db = db.Where("subject LIKE ? OR quote_no LIKE ?", like, like)
 	}
 	var total int64
@@ -158,51 +217,86 @@ func (s CrmQuoteService) Query(ctx context.Context, req QuoteQueryReq) ([]models
 		return nil, 0, err
 	}
 	var items []models.CrmQuote
-	err := db.Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).
-		Order("id desc").Find(&items).Error
+	err = db.Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).Order("id desc").Find(&items).Error
 	return items, total, err
 }
 
-// ChangeStatus 修改报价单状态，校验状态流转：
-// draft→sent→accepted/rejected, draft/sent→void。
 func (s CrmQuoteService) ChangeStatus(ctx context.Context, id, status string) error {
-	tenantID := identity.TenantID(ctx)
-
-	if _, ok := quoteStatusFlow[status]; !ok {
-		return errors.New("无效的报价单状态")
+	if status == "void" {
+		return errors.New("请使用作废操作并填写原因")
 	}
-	var q models.CrmQuote
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&q).Error; err != nil {
-		return errors.New("报价单不存在")
-	}
-	if q.Status == status {
-		return nil
-	}
-	transitions, ok := quoteStatusFlow[q.Status]
-	if !ok || !transitions[status] {
-		return fmt.Errorf("不允许从 %s 流转到 %s", q.Status, status)
-	}
-	if err := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).Update("status", status).Error; err != nil {
-		log.Sugar.Errorw("crm quote change status failed", "err", err)
-		return err
-	}
-	return nil
+	return s.changeStatus(ctx, id, status, "")
 }
 
-// Transfer 转移报价单负责人。
-func (s CrmQuoteService) Transfer(ctx context.Context, id, toUserID string) error {
-	tenantID := identity.TenantID(ctx)
+func (s CrmQuoteService) changeStatus(ctx context.Context, id, status, reason string) error {
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q, err := lockSalesRecord[models.CrmQuote](ctx, tx, id, false)
+		if err != nil {
+			return err
+		}
+		if q.Status == status {
+			return nil
+		}
+		if !quoteStatusFlow[q.Status][status] {
+			return fmt.Errorf("当前报价状态不允许此操作（%s → %s）", q.Status, status)
+		}
+		if status == "sent" || status == "accepted" {
+			if q.ValidUntil != nil && q.ValidUntil.Before(dayStart(time.Now())) {
+				return errors.New("报价已过有效期，请重新报价")
+			}
+			final := q.FinalAmount
+			if err = validateQuote(ctx, tx, &q); err != nil {
+				return err
+			}
+			if final != q.FinalAmount {
+				return errors.New("报价金额不一致，请先修正草稿或重新报价")
+			}
+		}
+		changes := map[string]any{"status": status}
+		if status == "void" {
+			changes["void_reason"], changes["void_at"] = reason, time.Now()
+		}
+		return tx.Model(&q).Updates(changes).Error
+	})
+}
 
-	if toUserID == "" {
-		return errors.New("目标负责人不能为空")
+func (s CrmQuoteService) Transfer(ctx context.Context, id, toUserID string) error {
+	return NewCrmQuoteExt().BatchTransfer(ctx, []string{id}, toUserID)
+}
+
+// ConvertToOrder creates exactly one draft contract and persists the backlink in the same transaction.
+func (s CrmQuoteService) ConvertToOrder(ctx context.Context, id string) (*models.CrmOrder, error) {
+	var order models.CrmOrder
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q, err := lockSalesRecord[models.CrmQuote](ctx, tx, id, false)
+		if err != nil {
+			return err
+		}
+		if q.OrderID != "" {
+			order, err = lockPaymentOrder(ctx, tx, q.OrderID)
+			return err
+		}
+		if q.Status != "accepted" {
+			return errors.New("仅客户已接受的报价可以转合同")
+		}
+		final := q.FinalAmount
+		if err = validateQuote(ctx, tx, &q); err != nil {
+			return err
+		}
+		if final != q.FinalAmount {
+			return errors.New("历史报价金额不一致，请核对后重新报价")
+		}
+		order = newOrder(ctx, q.OwnerUserID, models.CrmOrder{Title: q.Subject, CustomerID: q.CustomerID, OpportunityID: q.OpportunityID, Amount: q.FinalAmount, DiscountAmount: q.Discount, Remark: "来源报价：" + q.QuoteNo})
+		if err = validateOrder(ctx, tx, &order); err != nil {
+			return err
+		}
+		if err = createOrderWithCoupon(ctx, tx, &order, ""); err != nil {
+			return err
+		}
+		return tx.Model(&q).Update("order_id", order.ID).Error
+	})
+	if err != nil {
+		return nil, err
 	}
-	res := models.DB.Model(&models.CrmQuote{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).Update("owner_user_id", toUserID)
-	if res.Error != nil {
-		log.Sugar.Errorw("crm quote transfer failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("报价单不存在")
-	}
-	return nil
+	return &order, nil
 }

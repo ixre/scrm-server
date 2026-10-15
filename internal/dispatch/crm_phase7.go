@@ -859,36 +859,10 @@ func crmSmartCardPublicSubmitLead(ctx context.Context, _, _ string, params json.
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	if req.ShareCode == "" {
-		return nil, errors.New("share_code 不能为空")
-	}
-	if req.Name == "" || req.Mobile == "" {
-		return nil, errors.New("姓名和手机号不能为空")
-	}
-	// 通过分享码找到名片，推导出租户ID和归属销售
-	card, err := services.NewCrmSmartCard().GetByShareCode(req.ShareCode)
-	if err != nil {
-		return nil, errors.New("名片不存在")
-	}
-	// 用名片的租户和销售身份创建线索
-	ctx2 := identity.WithIdentity(context.Background(), identity.Identity{
-		TenantID: card.TenantID,
-		UserID:   card.UserID,
-	})
-	lead := models.CrmLead{
-		Name:        req.Name,
-		Mobile:      req.Mobile,
-		Remark:      req.Remark,
-		Source:      "smart_card",
-		Status:      "new",
-		OwnerUserID: card.UserID,
-		Title:       "名片留资-" + req.Name,
-	}
-	created, err := services.CrmLeadService{}.Create(ctx2, card.UserID, lead)
-	if err != nil {
+	if err := services.NewCrmSmartCard().SubmitLead(req.ShareCode, req.Name, req.Mobile, req.Remark); err != nil {
 		return nil, err
 	}
-	return created, nil
+	return map[string]any{"ok": true}, nil
 }
 
 // crmSmartCardPublicLike 公开点赞（无需登录，访客在H5名片页点赞）。
@@ -908,6 +882,8 @@ func crmSmartCardPublicLike(ctx context.Context, _, _ string, params json.RawMes
 	}
 	// 点赞数+1
 	ctx2 := identity.WithIdentity(context.Background(), identity.Identity{TenantID: card.TenantID})
-	models.MustFor(ctx2).Model(&models.CrmSmartCard{}).Where("id = ?", card.ID).UpdateColumn("like_count", gorm.Expr("like_count + 1"))
+	if err := models.MustFor(ctx2).Model(&models.CrmSmartCard{}).Where("id = ?", card.ID).UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error; err != nil {
+		return nil, err
+	}
 	return map[string]any{"ok": true}, nil
 }

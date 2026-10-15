@@ -33,59 +33,94 @@ func NewCrmReceivablesPlan() *CrmReceivablesPlanService { return &CrmReceivables
 
 // Create 创建单期回款计划。
 func (s CrmReceivablesPlanService) Create(ctx context.Context, p *models.CrmReceivablesPlan) error {
-	tenantID := identity.TenantID(ctx)
-
 	if p == nil {
 		return errors.New("回款计划不能为空")
 	}
-	if p.OrderID == "" {
-		return errors.New("order_id 不能为空")
+	plans := []models.CrmReceivablesPlan{*p}
+	if err := s.BatchCreate(ctx, plans); err != nil {
+		return err
 	}
-	p.ID = id_generator.StringID()
-	p.TenantID = tenantID
-	if p.Status == "" {
-		p.Status = "pending"
-	}
-	return createCRM(models.DB, p, "OrderID", "CustomerID")
+	*p = plans[0]
+	return nil
 }
 
 // Update 更新回款计划。
 func (s CrmReceivablesPlanService) Update(ctx context.Context, id string, p *models.CrmReceivablesPlan) error {
-
 	if p == nil {
 		return errors.New("回款计划不能为空")
 	}
-	m := map[string]any{
-		"order_id":    p.OrderID,
-		"customer_id": p.CustomerID,
-		"period_no":   p.PeriodNo,
-		"amount":      p.Amount,
-		"plan_date":   p.PlanDate,
-		"status":      p.Status,
-		"remark":      p.Remark,
-	}
-	updatesCRM(m, "OrderID", "CustomerID")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
-		return err
-	}
-	return nil
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing models.CrmReceivablesPlan
+		if err := tx.Where("tenant_id = ? AND id = ?", identity.TenantID(ctx), id).First(&existing).Error; err != nil {
+			return err
+		}
+		if p.OrderID != "" && p.OrderID != existing.OrderID {
+			return errors.New("已有计划不能转移到其他合同")
+		}
+		p.OrderID = existing.OrderID
+		order, err := lockPaymentOrder(ctx, tx, existing.OrderID)
+		if err != nil {
+			return err
+		}
+		// Re-read after locking: a concurrent deletion must not become a silent success.
+		if err = tx.Where("tenant_id = ? AND id = ?", order.TenantID, id).First(&existing).Error; err != nil {
+			return err
+		}
+		if err = validatePlan(tx, order, p, id); err != nil {
+			return err
+		}
+		return tx.Model(&existing).Updates(map[string]any{"period_no": p.PeriodNo, "amount": p.Amount, "plan_date": p.PlanDate, "status": p.Status, "remark": p.Remark}).Error
+	})
 }
 
 // Delete 删除回款计划（软删除）。
 func (s CrmReceivablesPlanService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	if len(ids) == 0 {
-		return 0, errors.New("ids 不能为空")
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
 	}
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmReceivablesPlan{})
-	return res.RowsAffected, res.Error
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var plans []models.CrmReceivablesPlan
+		if err := tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Find(&plans).Error; err != nil {
+			return err
+		}
+		if len(plans) != len(ids) {
+			return errors.New("计划不存在或无权操作")
+		}
+		orders := []string{}
+		for _, p := range plans {
+			orders = append(orders, p.OrderID)
+		}
+		orders, _ = workflowIDs(orders)
+		for _, id := range orders {
+			if _, err := lockPaymentOrder(ctx, tx, id); err != nil {
+				return err
+			}
+		}
+		var count int64
+		if err := tx.Model(&models.CrmReceivables{}).Where("tenant_id = ? AND plan_id IN ? AND status <> ?", identity.TenantID(ctx), ids, "void").Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New("计划已有回款记录，请先处理回款记录")
+		}
+		return tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Delete(&models.CrmReceivablesPlan{}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 // Get 读取单条回款计划。
 func (s CrmReceivablesPlanService) Get(ctx context.Context, id string) (*models.CrmReceivablesPlan, error) {
 
 	var item models.CrmReceivablesPlan
-	err := models.MustFor(ctx).Where("id = ?", id).First(&item).Error
+	db, err := receiptScope(ctx, models.DB)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Where("id = ?", id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +136,10 @@ func (s CrmReceivablesPlanService) Query(ctx context.Context, req PlanQueryReq) 
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.MustFor(ctx)
+	db, scopeErr := receiptScope(ctx, models.DB)
+	if scopeErr != nil {
+		return nil, 0, scopeErr
+	}
 	if req.OrderID != "" {
 		db = db.Where("order_id = ?", req.OrderID)
 	}
@@ -123,19 +161,34 @@ func (s CrmReceivablesPlanService) Query(ctx context.Context, req PlanQueryReq) 
 
 // BatchCreate 批量创建多期回款计划（事务）。
 func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []models.CrmReceivablesPlan) error {
-	tenantID := identity.TenantID(ctx)
-
 	if len(plans) == 0 {
-		return errors.New("plans 不能为空")
+		return errors.New("请至少添加一期回款计划")
 	}
-	return models.DB.Transaction(func(tx *gorm.DB) error {
-		for i := range plans {
-			plans[i].ID = id_generator.StringID()
-			plans[i].TenantID = tenantID
-			if plans[i].Status == "" {
-				plans[i].Status = "pending"
+	orderIDs := make([]string, 0, len(plans))
+	for _, p := range plans {
+		orderIDs = append(orderIDs, p.OrderID)
+	}
+	ids, err := workflowIDs(orderIDs)
+	if err != nil {
+		return err
+	}
+	return models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		orders := map[string]models.CrmOrder{}
+		for _, id := range ids {
+			order, err := lockPaymentOrder(ctx, tx, id)
+			if err != nil {
+				return err
 			}
-			if err := createCRM(tx, &plans[i], "OrderID", "CustomerID"); err != nil {
+			orders[id] = order
+		}
+		for i := range plans {
+			p := &plans[i]
+			p.ID = id_generator.StringID()
+			p.TenantID = identity.TenantID(ctx)
+			if err := validatePlan(tx, orders[p.OrderID], p, ""); err != nil {
+				return err
+			}
+			if err := createCRM(tx, p); err != nil {
 				return err
 			}
 		}
@@ -147,7 +200,7 @@ func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []mode
 func (s CrmReceivablesPlanService) MarkOverdue(ctx context.Context) error {
 	tenantID := identity.TenantID(ctx)
 
-	now := time.Now()
+	now := dayStart(time.Now())
 	res := models.DB.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("status = ? AND plan_date < ?", "pending", now).
 		Update("status", "overdue")
 	if res.Error != nil {
@@ -164,12 +217,13 @@ func (s CrmReceivablesPlanService) MarkOverdue(ctx context.Context) error {
 
 // RecvQueryReq 回款登记查询参数。
 type RecvQueryReq struct {
-	Page       int
-	PageSize   int
-	OrderID    string
-	CustomerID string
-	PlanID     string
-	Status     string
+	Page          int
+	PageSize      int
+	OrderID       string
+	CustomerID    string
+	PlanID        string
+	ApproveStatus string
+	Status        string
 }
 
 type CrmReceivablesService struct{}
@@ -178,82 +232,138 @@ func NewCrmReceivables() *CrmReceivablesService { return &CrmReceivablesService{
 
 // Create 创建回款登记。若指定 PlanID，事务内将计划状态置为 received。
 func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivables) error {
-	tenantID := identity.TenantID(ctx)
-
 	if r == nil {
 		return errors.New("回款登记不能为空")
 	}
-	if r.OrderID == "" {
-		return errors.New("order_id 不能为空")
-	}
 	r.ID = id_generator.StringID()
-	r.TenantID = tenantID
+	r.TenantID = identity.TenantID(ctx)
 	if r.Status == "" {
 		r.Status = "confirmed"
 	}
-	return models.DB.Transaction(func(tx *gorm.DB) error {
-		if err := createCRM(tx, r, "OrderID", "CustomerID", "PlanID"); err != nil {
+	if r.ApproveStatus == "" {
+		r.ApproveStatus = "none"
+	}
+	if r.ApproveStatus != "none" && r.ApproveStatus != "pending" {
+		return errors.New("新回款不能直接设置审批结果")
+	}
+	r.ApproverID = ""
+	r.ApproveAt = nil
+	r.ApproveRemark = ""
+	if r.ApproveStatus == "pending" {
+		r.Status = "pending"
+	}
+	if r.ReceivablesNo == "" {
+		r.ReceivablesNo = "RC" + r.ID
+	}
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		order, err := lockPaymentOrder(ctx, tx, r.OrderID)
+		if err != nil {
 			return err
 		}
-		if r.PlanID != "" {
-			if err := tx.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.PlanID).
-				Update("status", "received").Error; err != nil {
-				return err
-			}
+		if err = validateReceipt(tx, order, r); err != nil {
+			return err
 		}
-		return nil
+		baseline, err := paymentBaseline(tx, order)
+		if err != nil {
+			return err
+		}
+		if err = createCRM(tx, r); err != nil {
+			return err
+		}
+		return reconcilePayments(tx, &order, baseline)
 	})
-	// SOP 触发：回款
-	if r.CustomerID != "" {
-		NewCrmSop().Trigger(context.Background(), "payment_received", map[string]string{
-			"customer_id": r.CustomerID,
-			"order_id":    r.OrderID,
-		})
+	if err == nil {
+		paymentEvent(ctx, *r)
 	}
-	return nil
+	return err
 }
 
 // Update 更新回款登记。
 func (s CrmReceivablesService) Update(ctx context.Context, id string, r *models.CrmReceivables) error {
-
 	if r == nil {
 		return errors.New("回款登记不能为空")
 	}
-	m := map[string]any{
-		"order_id":    r.OrderID,
-		"customer_id": r.CustomerID,
-		"plan_id":     r.PlanID,
-		"amount":      r.Amount,
-		"received_at": r.ReceivedAt,
-		"pay_method":  r.PayMethod,
-		"pay_account": r.PayAccount,
-		"voucher_no":  r.VoucherNo,
-		"attachments": r.Attachments,
-		"status":      r.Status,
-		"remark":      r.Remark,
-	}
-	updatesCRM(m, "OrderID", "CustomerID", "PlanID")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	return s.changeReceipt(ctx, id, func(tx *gorm.DB, current *models.CrmReceivables, order models.CrmOrder) error {
+		if current.Status == "void" {
+			return errors.New("已作废回款不能修改")
+		}
+		if current.ApproveStatus == "approved" {
+			return errors.New("已审批回款不可修改，请作废后重新登记")
+		}
+		if r.OrderID != "" && r.OrderID != current.OrderID {
+			return errors.New("已有回款不能转移到其他合同")
+		}
+		r.OrderID = current.OrderID
+		r.ApproveStatus = current.ApproveStatus
+		if r.Status == "" {
+			r.Status = current.Status
+		}
+		if current.ApproveStatus == "pending" || current.ApproveStatus == "rejected" {
+			r.Status = "pending"
+		}
+		if err := validateReceipt(tx, order, r); err != nil {
+			return err
+		}
+		var plan any
+		r.PlanID = strings.TrimSpace(r.PlanID)
+		if r.PlanID != "" {
+			plan = r.PlanID
+		}
+		err := tx.Model(current).Updates(map[string]any{"plan_id": plan, "amount": r.Amount, "received_at": r.ReceivedAt, "pay_method": r.PayMethod, "pay_account": r.PayAccount, "voucher_no": r.VoucherNo, "attachments": r.Attachments, "status": r.Status, "remark": r.Remark}).Error
+		current.Status = r.Status
 		return err
-	}
-	return nil
+	})
 }
 
 // Delete 删除回款登记（软删除）。
 func (s CrmReceivablesService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	if len(ids) == 0 {
-		return 0, errors.New("ids 不能为空")
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
 	}
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmReceivables{})
-	return res.RowsAffected, res.Error
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var records []models.CrmReceivables
+		if err := tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Find(&records).Error; err != nil {
+			return err
+		}
+		if len(records) != len(ids) {
+			return errors.New("回款记录不存在或无权操作")
+		}
+		orders := []string{}
+		for _, r := range records {
+			orders = append(orders, r.OrderID)
+		}
+		orders, _ = workflowIDs(orders)
+		for _, id := range orders {
+			if _, err := lockPaymentOrder(ctx, tx, id); err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Find(&records).Error; err != nil {
+			return err
+		}
+		for _, r := range records {
+			if r.Status == "confirmed" {
+				return errors.New("已确认回款不能直接删除，请先作废")
+			}
+		}
+		return tx.Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Delete(&models.CrmReceivables{}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 // Get 读取单条回款登记。
 func (s CrmReceivablesService) Get(ctx context.Context, id string) (*models.CrmReceivables, error) {
 
 	var item models.CrmReceivables
-	err := models.MustFor(ctx).Where("id = ?", id).First(&item).Error
+	db, err := receiptScope(ctx, models.DB)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Where("id = ?", id).First(&item).Error
 	if err != nil {
 		return nil, err
 	}
@@ -269,12 +379,18 @@ func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]m
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	db := models.MustFor(ctx)
+	db, scopeErr := receiptScope(ctx, models.DB)
+	if scopeErr != nil {
+		return nil, 0, scopeErr
+	}
 	if req.OrderID != "" {
 		db = db.Where("order_id = ?", req.OrderID)
 	}
 	if req.CustomerID != "" {
 		db = db.Where("customer_id = ?", req.CustomerID)
+	}
+	if req.ApproveStatus != "" {
+		db = db.Where("approve_status = ?", req.ApproveStatus)
 	}
 	if req.PlanID != "" {
 		db = db.Where("plan_id = ?", req.PlanID)
@@ -294,26 +410,11 @@ func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]m
 
 // Void 作废回款登记。若关联 PlanID，事务内将计划状态恢复为 pending。
 func (s CrmReceivablesService) Void(ctx context.Context, id string) error {
-	tenantID := identity.TenantID(ctx)
-
-	return models.DB.Transaction(func(tx *gorm.DB) error {
-		var r models.CrmReceivables
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
-			return err
-		}
+	return s.changeReceipt(ctx, id, func(tx *gorm.DB, r *models.CrmReceivables, _ models.CrmOrder) error {
 		if r.Status == "void" {
 			return nil
 		}
-		if err := tx.Model(&models.CrmReceivables{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-			Update("status", "void").Error; err != nil {
-			return err
-		}
-		if r.PlanID != "" {
-			if err := tx.Model(&models.CrmReceivablesPlan{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", r.PlanID).
-				Update("status", "pending").Error; err != nil {
-				return err
-			}
-		}
-		return nil
+		r.Status = "void"
+		return tx.Model(r).Update("status", "void").Error
 	})
 }

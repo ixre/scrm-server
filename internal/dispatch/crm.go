@@ -128,6 +128,8 @@ func init() {
 	Reg.Register("crm_order", "Update", crmOrderUpdate)
 	Reg.Register("crm_order", "Delete", crmOrderDelete)
 	Reg.Register("crm_order", "Query", crmOrderQuery)
+	Reg.Register("crm_order", "Get", crmOrderGet)
+	Reg.Register("crm_order", "Sign", crmOrderSign)
 
 	// report
 	Reg.Register("crm_report", "SalesSummary", crmReportSalesSummary)
@@ -374,7 +376,7 @@ func init() {
 	Reg.Register("crm_quote", "Update", crmQuoteUpdate)
 	Reg.Register("crm_quote", "Delete", crmQuoteDelete)
 	Reg.Register("crm_quote", "ChangeStatus", crmQuoteChangeStatus)
-	Reg.Register("crm_quote", "Transfer", crmQuoteTransfer)
+	Reg.Register("crm_quote", "ConvertToOrder", crmQuoteConvertToOrder)
 
 	// P1: 待办
 	Reg.Register("crm_todo", "List", crmTodoList)
@@ -1895,7 +1897,7 @@ func crmCustomerQuery(ctx context.Context, _, _ string, params json.RawMessage) 
 	case string:
 		poolStatus, _ = strconv.Atoi(v)
 	}
-	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Source, outFlow, poolStatus, req.Query.Category, req.Pager)
+	items, total, err := services.NewCrmCustomer().Query(ctx, req.Query.Keyword, req.Query.OwnerUserID, req.Query.Source, outFlow, poolStatus, req.Query.Category, req.Pager)
 	if err != nil {
 		return nil, err
 	}
@@ -2094,6 +2096,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 	var req struct {
 		Query struct {
 			Status      string `json:"status"`
+			CustomerID  string `json:"customer_id"`
 			StageID     string `json:"stage_id"`
 			OwnerUserID string `json:"owner_user_id"`
 			Keyword     string `json:"keyword"`
@@ -2103,7 +2106,7 @@ func crmOpportunityQuery(ctx context.Context, _, _ string, params json.RawMessag
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Keyword, req.Pager)
+	items, total, err := services.NewCrmOpportunity().Query(ctx, req.Query.Status, req.Query.StageID, EffectiveOwnerFilter(ctx, req.Query.OwnerUserID), req.Query.Keyword, req.Pager, req.Query.CustomerID)
 	if err != nil {
 		return nil, err
 	}

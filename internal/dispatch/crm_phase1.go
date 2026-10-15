@@ -54,9 +54,6 @@ func crmPoolRecycle(ctx context.Context, _, _ string, params json.RawMessage) (a
 	if err != nil {
 		return nil, err
 	}
-	if err := requireRole(ctx, "admin"); err != nil {
-		return nil, err
-	}
 	var req struct {
 		IDs []string `json:"ids"`
 	}

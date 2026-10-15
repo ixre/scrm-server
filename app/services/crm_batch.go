@@ -6,11 +6,13 @@ import (
 	"context"
 
 	"errors"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"strconv"
 	"strings"
 
 	"core/app/models"
 	"core/common/id_generator"
-	"core/common/log"
 )
 
 // BatchExecReq 批量操作执行入参。
@@ -21,6 +23,7 @@ type BatchExecReq struct {
 	ToUserID   string   `json:"to_user_id"`  // 转移目标用户ID（op_type=change）
 	FieldKey   string   `json:"field_key"`   // 字段名（op_type=edit_field）
 	FieldValue string   `json:"field_value"` // 字段值（op_type=edit_field）
+	Reason     string   `json:"reason"`
 }
 
 type CrmBatchService struct{}
@@ -29,41 +32,39 @@ func NewCrmBatch() *CrmBatchService { return &CrmBatchService{} }
 
 // Execute 执行批量操作并记录。
 func (s CrmBatchService) Execute(ctx context.Context, userID string, req BatchExecReq) (*models.CrmBatchOp, error) {
-	tenantID := identity.TenantID(ctx)
-
-	if len(req.EntityIDs) == 0 {
-		return nil, errors.New("entity_ids 不能为空")
+	if userID == "" || userID != identity.UserID(ctx) {
+		return nil, ErrCustomerAccess
 	}
-	if req.EntityType == "" {
-		return nil, errors.New("entity_type 不能为空")
+	if _, _, err := customerActor(ctx, models.DB); err != nil {
+		return nil, err
 	}
-	op := strings.TrimSpace(req.OpType)
-	if op == "" {
-		return nil, errors.New("op_type 不能为空")
-	}
-
-	success, fail, remark, err := s.dispatch(ctx, userID, req)
-
-	batch := &models.CrmBatchOp{
-		Model:        models.Model{ID: id_generator.StringID()},
-		TenantID:     tenantID,
-		OpType:       op,
-		EntityType:   req.EntityType,
-		EntityIDs:    req.EntityIDs,
-		Status:       "done",
-		SuccessCount: success,
-		FailCount:    fail,
-		OperatorID:   userID,
-		Remark:       remark,
-	}
+	ids, err := workflowIDs(req.EntityIDs)
 	if err != nil {
+		return nil, err
+	}
+	req.EntityIDs = ids
+	if len(ids) > 500 {
+		return nil, errors.New("单次批量操作最多 500 条")
+	}
+	if req.EntityType != "customer" && req.EntityType != "lead" {
+		return nil, errors.New("仅支持客户或线索批量操作")
+	}
+	req.OpType = strings.TrimSpace(req.OpType)
+	batch := &models.CrmBatchOp{Model: models.Model{ID: id_generator.StringID()}, TenantID: identity.TenantID(ctx), OpType: req.OpType, EntityType: req.EntityType, EntityIDs: ids, Status: "pending", OperatorID: userID}
+	// Record intent before mutation, so a logging failure never performs an untracked operation.
+	if err = createCRM(models.DB.WithContext(ctx), batch); err != nil {
+		return nil, err
+	}
+	success, fail, remark, operationErr := s.dispatch(ctx, userID, req)
+	batch.SuccessCount, batch.FailCount, batch.Remark, batch.Status = success, fail, remark, "done"
+	if operationErr != nil {
 		batch.Status = "failed"
+		batch.Remark = operationErr.Error()
 	}
-	if cerr := models.DB.Create(batch).Error; cerr != nil {
-		log.Sugar.Errorw("crm batch op record create failed", "err", cerr)
-		return batch, cerr
+	if err = models.DB.WithContext(ctx).Model(batch).Updates(map[string]any{"status": batch.Status, "success_count": success, "fail_count": fail, "remark": batch.Remark}).Error; err != nil {
+		return batch, errors.New("操作执行记录更新失败，请先核对业务结果，勿重复提交")
 	}
-	return batch, err
+	return batch, operationErr
 }
 
 // dispatch 根据 op_type 调用对应 service 方法，返回 (成功数, 失败数, 备注, error)。
@@ -71,6 +72,24 @@ func (s CrmBatchService) dispatch(ctx context.Context, userID string, req BatchE
 
 	total := len(req.EntityIDs)
 	remark := ""
+	if req.EntityType == "lead" {
+		var n int64
+		var err error
+		switch req.OpType {
+		case "change":
+			n, err = NewCrmLeadExt().BatchTransfer(ctx, req.EntityIDs, req.ToUserID)
+		case "seas":
+			err = NewCrmLeadExt().MoveToPool(ctx, req.EntityIDs)
+			if err == nil {
+				n = int64(total)
+			}
+		case "edit_field":
+			n, err = batchUpdateField(ctx, "lead", req.EntityIDs, req.FieldKey, req.FieldValue)
+		default:
+			err = errors.New("线索仅支持转移、入池和修改字段")
+		}
+		return int(n), total - int(n), "批量线索操作", err
+	}
 	switch req.OpType {
 	case "change": // 转移
 		if req.ToUserID == "" {
@@ -98,7 +117,10 @@ func (s CrmBatchService) dispatch(ctx context.Context, userID string, req BatchE
 		}
 		return total, 0, remark, nil
 	case "blacklist": // 拉黑
-		err := NewCrmCustomerExt().Blacklist(ctx, req.EntityIDs, "批量拉黑")
+		if strings.TrimSpace(req.Reason) == "" {
+			return 0, total, "", errors.New("请填写拉黑原因")
+		}
+		err := NewCrmCustomerExt().Blacklist(ctx, req.EntityIDs, req.Reason)
 		remark = "批量拉黑"
 		if err != nil {
 			return 0, total, remark, err
@@ -126,27 +148,59 @@ func (s CrmBatchService) dispatch(ctx context.Context, userID string, req BatchE
 // batchUpdateField 批量更新实体某字段（仅支持 customer/lead）。
 // 字段白名单：排除状态/关联/转化等关键字段，防止批量操作破坏状态一致性。
 func batchUpdateField(ctx context.Context, entityType string, ids []string, fieldKey, fieldValue string) (int64, error) {
-	// 允许批量修改的字段白名单。
-	allowedFields := map[string]bool{
-		"name": true, "mobile": true, "email": true, "company": true, "industry": true,
-		"level": true, "address": true, "remark": true, "source": true, "tags": true,
-		"position": true, "gender": true, "birthday": true, "next_followup_at": true,
+	ids, err := workflowIDs(ids)
+	if err != nil {
+		return 0, err
 	}
-	if !allowedFields[fieldKey] {
+	// Only editable descriptive fields; individual identity and business-state fields use their dedicated forms.
+	allowed := map[string]bool{"company": true, "source": true, "remark": true, "position": true, "address": true}
+	if entityType == "customer" {
+		allowed["industry"] = true
+		allowed["level"] = true
+	}
+	if !allowed[fieldKey] {
 		return 0, errors.New("不支持批量修改字段: " + fieldKey)
 	}
-	switch entityType {
-	case "customer":
-		res := models.MustFor(ctx).Model(&models.CrmCustomer{}).
-			Where("id IN ?", ids).
-			Update(fieldKey, fieldValue)
-		return res.RowsAffected, res.Error
-	case "lead":
-		res := models.MustFor(ctx).Model(&models.CrmLead{}).
-			Where("id IN ?", ids).
-			Update(fieldKey, fieldValue)
-		return res.RowsAffected, res.Error
-	default:
-		return 0, errors.New("不支持的 entity_type: " + entityType)
+	var value any = strings.TrimSpace(fieldValue)
+	if fieldKey == "level" {
+		n, err := strconv.Atoi(fieldValue)
+		if err != nil || n < 0 || n > 5 {
+			return 0, errors.New("客户等级须为 0 到 5 的整数")
+		}
+		value = n
 	}
+	if entityType == "lead" {
+		return mutateLeads(ctx, ids, func(tx *gorm.DB, lead *models.CrmLead) error {
+			if err := mutableLead(*lead); err != nil {
+				return err
+			}
+			return tx.Model(lead).Update(fieldKey, value).Error
+		})
+	}
+	if entityType != "customer" {
+		return 0, errors.New("实体类型无效")
+	}
+	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		db, err := customerAccessDB(ctx, tx, true)
+		if err != nil {
+			return err
+		}
+		var rows []models.CrmCustomer
+		if err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", ids).Order("id").Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) != len(ids) {
+			return ErrCustomerAccess
+		}
+		for _, row := range rows {
+			if row.PoolStatus == 1 || row.ReassignStatus == 1 {
+				return errors.New("请先领取或接收客户再编辑")
+			}
+		}
+		return tx.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND id IN ?", identity.TenantID(ctx), ids).Update(fieldKey, value).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }

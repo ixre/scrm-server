@@ -24,7 +24,7 @@ scrm/
 openscrm 有数十个业务域、上百个异构方法签名（io.ReadCloser、bytes.Buffer、多字符串参数等），为每个域建模类型化 proto 不现实。因此除 customer/staff 的类型化契约外，增加一个通用 `BusinessService.Invoke(BusinessRequest) → BusinessResponse`：
 - `BusinessRequest{service, action, corp_id, staff_id, params}`，`params` 为该动作入参 JSON。
 - 本仓库内的 `internal/dispatch` 按 `(service, action)` 分发到真实 service，结果序列化回 JSON。
-- 覆盖 39 个业务域、130+ 个动作（CRUD/Query/Get/Update/Delete/统计/导出等），已注册清单见 `internal/dispatch/*.go` 的 `init()`。
+- 覆盖 CRM 与企微兼容业务域，具体动作以注册表为准（CRUD/Query/Get/Update/Delete/统计/导出等），已注册清单见 `internal/dispatch/*.go` 的 `init()`。
 - 内部/回调/Sync/批量拉取/二进制上传（bytes.Buffer、io.ReadCloser）方法不对外暴露，属核心内部。
 - 若某域需要强类型契约，仍可按 customer/staff 模板叠加类型化 proto，BusinessService 保持兼容。
 
@@ -61,7 +61,7 @@ msg-server(独立会话存档服务，企微专属 .so，Linux-only)
 - `conf/config.yaml` 含密钥，已 gitignore 不入库。
 
 ## 快速开始（开发）
-1. 分别启动本仓库（闭源核心）与 gateway（需 MySQL + Redis 就绪，配置 `conf/config.yaml`）。
+1. 分别启动本仓库（闭源核心）与 gateway（需 PostgreSQL + Redis 就绪，配置 `conf/config.yaml`）。
 2. `cd scrm-server && ./scripts/sync-pb.sh` 同步契约到 `scrm-app/gateway/api/pb`。
 3. `cd scrm-app/gateway && go run ./hack/gentoken` 生成 JWT，调用 HTTP 接口。
 
@@ -105,7 +105,7 @@ scrm-server/
 
 ## 运行
 ```bash
-go run .   # 需 MySQL + Redis 就绪，config.yaml 配好
+go run .   # 需 PostgreSQL + Redis 就绪，config.yaml 配好
 ```
 
 ## 与 gateway 的关系
@@ -117,4 +117,113 @@ go run .   # 需 MySQL + Redis 就绪，config.yaml 配好
 - openscrm 的 `app`(models/services/constants/entities/requests/responses)、`common`、`pkg`、`conf` 已整体迁入，模块路径 `openscrm/` → `core/`，编译通过。
 - openscrm 的 HTTP 层（`routers/`、HTTP `main.go`、`test/`、`docker/`、`LICENSE` 等）已被 gateway 路径映射取代，原源码压缩备份于 `~/git/_archive/` 并删除。
 - 业务仍继承 openscrm 的全局单例结构（`conf.Settings`、共享 gorm DB）。customer/staff 暴露类型化 Get/Query；其余业务经 `internal/dispatch` 的通用 JSON 透传分发暴露。新增业务动作：在 `internal/dispatch/<域>.go` 的 `init()` 里 `Reg.Register("域","动作",handler)` 即可。
-- 试点 main 未启动 consumers/tasks/delay_queue（依赖企微回调），生产需按 openscrm `main.go` 完整初始化。
+- main 在实际服务进程中启动延迟队列、消费者和定时任务；热更新监督进程不执行任务。队列使用配置中的 Redis.DBNumber。企微任务按记录所属企业选择客户端，现有渠道配置在重启时恢复。
+
+## 安全与回归验证
+
+- Gateway 必须配置至少 32 字节的 `GATEWAY_JWT_SECRET`，不再回退固定默认密钥。生成随机值后通过环境变量或密钥服务注入，所有网关实例使用同一个值。
+- 企微强制登录仅允许 `App.Env=DEV/TEST`；`DEMO/PROD` 使用正常账号登录。
+- 客户列表、详情、导出和修改使用统一业务层权限：管理员/经理访问本租户，销售访问自己的客户；共享客户只读。批量写入遇到无权限客户时整体回滚。
+- 客户合并保留渠道身份、迁移关联记录、合并活动参与档位并重算计数，所有操作处于同一事务。
+- 优惠券发放锁定库存，核销锁定模板和券记录；同一非空订单重复核销幂等返回，不重复累计。
+- 小红书/公众号/抖音的现有 JSON 适配回调必须携带 `X-Signature`（以渠道 CallbackToken 对原始 body 做 HMAC-SHA256，hex 编码）；该适配协议仍需与实际渠道接入方联调。
+- SOP 的 `create_followup` 自动执行并保持事务幂等；`send_message` 暂由销售人工执行，任务保持待处理，不将日志记录当作发送成功。
+- 延迟队列消费者将任务异常转为失败重试；真实企微发送、云存储以及遗留导出动作仍需相应配置和联调。未实现的导出任务返回错误，不再静默确认成功。
+
+日常检查（不连接项目业务数据库，也不读取真实云存储凭据）：
+
+```bash
+go build ./...
+go test ./...
+```
+
+数据库回归测试通过 `SCRM_TEST_DATABASE_URL` 显式指定**独立测试 PostgreSQL**，每个用例创建自己的 schema，结束后删除。覆盖销售/租户隔离、合并回滚、24 路并发发券与核销、SOP 幂等。Redis 用例通过 `SCRM_TEST_REDIS_ADDR` 指定独立测试实例；未设置时这两类集成测试会跳过。
+
+```bash
+SCRM_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:PORT/TEST_DB?sslmode=disable' go test ./app/services -run Regression -count=1
+SCRM_TEST_REDIS_ADDR='127.0.0.1:PORT' go test ./common/delay_queue -count=1
+```
+
+`internal/dispatch` 测试会检查重复动作及相邻 `scrm-app/dashboard` 中的静态 CRM 调用契约；独立检出 core 时跳过前端扫描。
+
+## 日常业务流程与验收
+
+当前已验证客户建档、公海流转、线索转化、商机阶段、报价转合同与回款。渠道真实发送、退款退券、进销存等模块仍需各自的场景验收。
+
+- 新建客户默认归当前销售；勾选“放入公海池”提交 `pool_status=1`，明确清空归属。批量导入客户进入公海，历史无归属且未处于转交中的记录也会出现在公海，可直接认领，无需改写存量数据。
+- 销售可以释放自己的未锁定客户；管理员/经理可以分配公海客户。认领上限、冷却期、归属变更与操作日志统一在事务内校验，多人争抢同一客户仅一人成功。客户批量转交后进入目标销售的待接收列表。
+- 新跟进中的“下次跟进时间”同步到客户提醒；留空表示本次跟进结束、不另设下一次提醒。跟进人取登录账号，不能代填其他员工。
+- 合同列表的“回款”入口支持登记、确认、作废和查看余额；新合同的已收金额从回款登记产生，不能直接编辑已收金额或收款状态。历史合同已有的手工已收余额在新增回款时保留，应在上线前核对其与历史流水的差额。
+- 回款计划按 `period_no` 区分期次，不允许同一合同重复期次或计划总额超出应收。只有确认且无需审批/审批通过的回款计入已收；部分回款不会将整期标成已收清。作废、修改和审批会同步重算订单与计划，金额按分比较，禁止累计超额。
+- 当前合同应收口径为 `amount - coupon_amount`。保存合同与优惠券核销处于同一事务；优惠券必须属于合同客户并达到使用门槛。取消合同不会自动退回优惠券，需另行制定退款退券流程。
+- 有回款的合同必须先完成回款冲销，再作废；已有关联回款或计划的合同保留历史记录，禁止直接删除。作废合同的计划标记为 `cancelled`。
+- 业务动作的记录 ID 从 JSON 请求体读取；表单日期接受 RFC3339、`YYYY-MM-DD` 和 `YYYY-MM-DD HH:mm:ss`。未带时区的日期按北京时间处理，空的可选时间转为 NULL。
+
+在独立测试 PostgreSQL 中执行业务验收：
+
+```bash
+SCRM_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:PORT/TEST_DB?sslmode=disable' go test ./app/services -run 'Test(CustomerLifecycle|PoolQuotaAndRecycle|ReceivablesLifecycle|PaymentConcurrency|OrderCouponAtomic|WorkflowEditingGuards)Regression$' -count=1
+go test ./internal/dispatch -run 'Test(FormTimeBinding|ActionIDsComeFromPayload|DashboardContracts)$'
+```
+
+人工验收可依次操作：新建公海客户 → 销售认领 → 记录跟进及下次时间 → 创建合同 → 制定分期计划 → 登记部分回款 → 补足本期 → 作废一笔回款。每一步核对客户归属、跟进提醒、合同余额与计划状态。
+
+
+## 销售链路验收（线索 → 商机 → 报价 → 合同）
+
+- 线索新建默认 `new`。领取、转移、入池、标记联系/流失以及转客户均校验租户、有效员工与归属。转客户保留原线索负责人，池中线索默认归操作人；流失线索先恢复，已转化线索继续在客户中办理业务。
+- 线索转客户在事务中锁定来源记录，重复提交返回同一客户。同手机号的并发线索转化串行去重；已关联客户直接复用。已有客户归属不同、在公海或手机号匹配冲突时明确报错，不暴露其他销售客户或抢占归属。跟进历史同步关联到客户；任何落库失败会回滚新客户。
+- 商机需要关联可操作的客户。新商机默认进入第一个非终态阶段；无阶段配置时保持进行中。单条/批量改阶段、表单编辑、赢单/输单使用同一跟进规则；规则读取失败不放行。状态、阶段、概率、预计收入及赢单/输单时间同步保存。已关闭商机只能通过恢复操作回到首个非终态阶段；赢单/输单操作要求预先配置对应终态阶段。
+- 报价 `discount` 的口径是**优惠金额（元）**，`final_amount = amount - discount`，使用分进行校验、后端计算。页面不再提交百分比或手工最终金额。历史版本页面曾把此字段标成百分比，已有报价需要在上线前核对原始约定价格；本次不自动改写历史金额。
+- 报价必须先建草稿，草稿可编辑和删除；发送后可登记客户接受/拒绝。页面“标记已发送”只登记状态，不会自动给客户发消息。过期报价不能新发送或接受；作废仅限草稿/已发送状态，必须填写原因。单号生成不再依赖当日记录数量，已有报价的补号操作会实际保存。
+- 已接受报价可一键转合同，复制主题、客户、商机、负责人及最终金额，生成**合同草稿**并保存 `crm_quote.order_id`。报价优惠已计入合同 `amount`，不能再扣减一次。重复点击返回原合同；合同与报价回链在同一事务中保存。已转合同报价和关联的合同保留业务记录，不能直接删除。
+- 合同详情展示合同信息、金额及签约日期，可确认签约并打开回款管理。专用签约接口只变更锁定草稿的状态与签约日期，不回写客户端旧金额。
+
+上线前需新增 `crm_quote.order_id`：开启 AutoMigration 时由模型迁移创建；关闭时应执行 `migrations/0008_quote_order_link.sql`，或按本仓库迁移流程运行 `go run ./cmd/migrate`。迁移只增加可空字段与索引，不回填或修改原报价金额。本轮测试使用无业务数据的临时 PostgreSQL，没有执行生产迁移。
+
+```bash
+SCRM_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:PORT/TEST_DB?sslmode=disable' go test -race ./app/services -run 'Test(LeadConversion|LeadPool|QuoteWorkflow|QuoteConversionRollback|OpportunityWorkflow|SalesJourney)Regression$' -count=1
+```
+
+人工验收顺序：新建线索 → 标记已联系 → 转客户 → 创建关联商机并记录跟进 → 推进阶段 → 新建报价（1000 元、优惠 100 元，应付 900 元）→ 标记已发送 → 客户已接受 → 转合同 → 核对合同金额与来源 → 确认签约 → 登记 900 元回款。另验重复点击转客户/转合同、他人记录、超额优惠、过期报价以及批量操作中一条记录失败时的整批回滚。
+
+## 首期商用范围与补充验收（2026-10-15）
+
+首期范围已确定为**核心 CRM + 多渠道获客**。进销存、OA、复杂营销及售后等扩展模块分期验收。以下代码回归证明特定流程的正确性，不代表所有部署环境或真实渠道已经通过商业交付验收。
+
+本轮已补齐：
+
+- 每次 CRM 业务请求重新检查有效用户、平台管理员、企业状态与套餐有效期，停用账号的旧令牌不再继续访问业务。到期企业仍可读取本人及套餐信息并办理续费。网关保留 HTTP 401/403 语义。
+- 联系人继承客户的数据权限，未关联联系人作为企业共享联系人池。主要联系人变更串行处理，转客户保留操作人归属并防止重复建档；有跟进/报价的联系人不能随意改绑客户。
+- 跟进及其评论、拜访记录检查关联客户权限。线索与客户不匹配、未领取或已转化线索不能继续新增跟进。删除跟进后重新计算客户的下次提醒。
+- 合同产品、附件、进度按父合同校验权限。产品小计由后端计算，折扣为百分数，100 为原价，0 为免费；有明细时签约要求合计等于合同金额。签约后锁定产品与附件删除，已完成/作废合同不再修改履约节点。撤回完成状态时清除完成时间。
+- 批量操作使用正确的 `entity_type`、`entity_ids`、`op_type` 和 `field_key`，线索和客户分别调用对应工作流。输入 ID 去重，整批检查权限，不允许通过改字段绕过状态/负责人控制。先保存执行记录再执行业务，结果写入失败时提示先核对业务，不能把自动重试当作幂等保证。
+- 客户、线索、商机、合同、联系人删除与回收站登记同一事务提交。管理员/经理可恢复或彻底删除，恢复前检查关联主档和负责人，彻底删除检查包含软删除历史的关联数据。回收站页面已修正合同分类、名称、删除时间和单条恢复参数。
+- 销售阶段配置限管理员/经理维护，不能删除已有商机的阶段，或直接改变该阶段的终态/概率而留下不一致商机。
+- 名片、落地页改用随机分享标识；历史冲突名片码拒绝模糊匹配，须重新创建名片并更新分享链接。公开页面检查企业状态，名片还检查有效销售。名片重复留资复用同一销售、手机号下的进行中线索；落地页创建客户、线索、活动参与和计数使用同一事务。留资响应不返回内部客户或线索资料，标题和模板文本做 HTML 转义。
+
+升级时，除 `0008_quote_order_link.sql` 外，还应按仓库迁移流程应用 `0009_recycle_legacy_records.sql`。后者仅补录历史软删除记录的回收站索引，不恢复业务数据、不编造历史删除人；保留原删除时间，并可重复执行。历史补录使用保留的负数回收站 ID，与应用生成的正数 ID 分离。仅开启 AutoMigration 不会执行这项数据补录。先在备份副本验证迁移，再按部署流程执行。
+
+新增 PostgreSQL 回归覆盖账号状态、联系人并发、跟进边界、合同子项、批量操作/回收站、阶段配置、重复获客、获客失败回滚和历史回收站迁移。运行全部服务回归（含竞态检查）：
+
+```bash
+SCRM_TEST_DATABASE_URL='postgres://USER:PASSWORD@127.0.0.1:PORT/TEST_DB?sslmode=disable' go test -race ./app/services -count=1
+go test ./...
+# 相邻 scrm-app/gateway：go test ./...
+# 相邻 scrm-app/dashboard：npm run build
+```
+
+本轮实测：服务端和网关 `go test ./...` 通过，前端 `npm run build` 通过，独立 PostgreSQL 下全部服务 `-race` 测试通过（其中 25 项业务回归，新增 9 项）。前端仍有大体积共享包构建提示，尚未进行真实浏览器及生产网络性能验收。临时数据库已在测试后清理，未操作生产数据库。
+
+首期正式上线仍需完成以下交付项，不以已有菜单或模拟数据替代验收：
+
+| 项目 | 当前边界 | 放行依据 |
+| --- | --- | --- |
+| 多渠道接入 | 企微及其他渠道需要真实凭据与回调环境，公众号/抖音/小红书的 JSON HMAC 适配不能直接当作各平台官方协议已验收 | 每个选定渠道完成新增/重复回调、归属、失败重试、停用与凭据失效测试，核对客户及来源记录 |
+| 合同文件 | 当前详情登记文件 URL，本地 `/uploads` 为公开静态资源 | 接入受控附件上传、授权下载或私有存储，并验证链接失效及跨租户访问 |
+| 公网防滥用 | 表单已校验输入并去重，尚无完整的网关分布式限流、验证码和异常提交告警 | 在实际入口配置并压测限流/防刷，确认正常咨询不会丢失 |
+| 财务及历史数据 | 当前回款口径已校验，但历史手工已收余额、旧报价折扣需要核对，作废合同不会自动退款退券 | 财务确认金额口径和历史差异，明确退款、退券与冲销流程 |
+| 上线运行 | 本轮仅使用临时 PostgreSQL，本地构建及回归没有替代生产演练 | 数据库/附件备份恢复、升级回滚、日志告警、渠道失败监控与业务量压测通过 |
+| 角色及业务验收 | 核心按销售归属、客户共享、管理员/经理权限处理，扩展模块另行验收 | 用两个企业及管理员、经理、销售账号完成页面验收；首期菜单只开放已验收模块 |
+
+建议人工验收补充路线：两个销售同时设置主要联系人 → 联系人转客户并重复提交 → 新建跟进及评论 → 添加合同产品明细并故意制造合计差额 → 修正后签约 → 批量线索入池 → 删除空主档 → 回收站恢复；再连续提交名片/落地页表单并核对客户、线索、活动参与和计数。以无权限账号重复相同操作，确认数据不泄露且无部分写入。

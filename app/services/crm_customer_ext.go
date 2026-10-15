@@ -4,7 +4,6 @@ import (
 	"core/common/identity"
 
 	"context"
-
 	"errors"
 	"strings"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"core/common/log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // CustomerPoolQueryReq 客户池扩展查询参数。
@@ -36,101 +36,68 @@ func NewCrmCustomerExt() *CrmCustomerExtService { return &CrmCustomerExtService{
 
 // Lock 批量锁客：设 IsLocked=true, LockReason, LockAt=now。
 func (s CrmCustomerExtService) Lock(ctx context.Context, ids []string, reason string) error {
-	tenantID := identity.TenantID(ctx)
+	_, err := updateCustomers(ctx, ids, map[string]any{"is_locked": true, "lock_reason": reason, "lock_at": time.Now()})
+	return err
 
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
-	}
-	now := time.Now()
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Updates(map[string]any{"is_locked": true, "lock_reason": reason, "lock_at": now})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer lock failed", "err", res.Error)
-	}
-	return res.Error
 }
 
 // Unlock 批量解锁。
 func (s CrmCustomerExtService) Unlock(ctx context.Context, ids []string) error {
-	tenantID := identity.TenantID(ctx)
+	_, err := updateCustomers(ctx, ids, map[string]any{"is_locked": false, "lock_reason": "", "lock_at": nil})
+	return err
 
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
-	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Updates(map[string]any{"is_locked": false, "lock_reason": "", "lock_at": nil})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer unlock failed", "err", res.Error)
-	}
-	return res.Error
 }
 
 // Blacklist 批量拉黑。
 func (s CrmCustomerExtService) Blacklist(ctx context.Context, ids []string, reason string) error {
-	tenantID := identity.TenantID(ctx)
+	_, err := updateCustomers(ctx, ids, map[string]any{"is_blacklist": true, "blacklist_reason": reason, "blacklist_at": time.Now()})
+	return err
 
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
-	}
-	now := time.Now()
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Updates(map[string]any{"is_blacklist": true, "blacklist_reason": reason, "blacklist_at": now})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer blacklist failed", "err", res.Error)
-	}
-	return res.Error
 }
 
 // RemoveBlacklist 移出黑名单。
 func (s CrmCustomerExtService) RemoveBlacklist(ctx context.Context, ids []string) error {
-	tenantID := identity.TenantID(ctx)
+	_, err := updateCustomers(ctx, ids, map[string]any{"is_blacklist": false, "blacklist_reason": "", "blacklist_at": nil})
+	return err
 
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
-	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Updates(map[string]any{"is_blacklist": false, "blacklist_reason": "", "blacklist_at": nil})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer remove blacklist failed", "err", res.Error)
-	}
-	return res.Error
 }
 
 // SetKey 设置/取消重点客户。
 func (s CrmCustomerExtService) SetKey(ctx context.Context, ids []string, isKey bool) error {
-	tenantID := identity.TenantID(ctx)
+	_, err := updateCustomers(ctx, ids, map[string]any{"is_key": isKey})
+	return err
 
-	if len(ids) == 0 {
-		return errors.New("ids 不能为空")
-	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
-		Update("is_key", isKey)
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer set key failed", "err", res.Error)
-	}
-	return res.Error
 }
 
 // Share 设置共享可见人。
 func (s CrmCustomerExtService) Share(ctx context.Context, customerID string, staffIDs []string) error {
-	tenantID := identity.TenantID(ctx)
+	unique := make(map[string]bool)
+	for _, id := range staffIDs {
+		unique[id] = true
+	}
+	var count int64
+	if len(staffIDs) > 0 {
+		if err := models.DB.Model(&models.User{}).Where("tenant_id = ? AND id IN ? AND status = ?", identity.TenantID(ctx), staffIDs, 1).Count(&count).Error; err != nil {
+			return err
+		}
+		if count != int64(len(unique)) {
+			return ErrCustomerAccess
+		}
+	}
+	_, err := updateCustomers(ctx, []string{customerID}, map[string]any{"shared_staff_ids": constants.StringArrayField(staffIDs)})
+	return err
 
-	if customerID == "" {
-		return errors.New("customer_id 不能为空")
-	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", customerID).
-		Update("shared_staff_ids", constants.StringArrayField(staffIDs))
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer share failed", "err", res.Error)
-	}
-	return res.Error
 }
 
 // ListBlacklist 黑名单列表。
 func (s CrmCustomerExtService) ListBlacklist(ctx context.Context, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
 
 	p := req.pager()
-	db := models.MustFor(ctx).Where("is_blacklist = ?", true)
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
+	db = db.Where("is_blacklist = ?", true)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -140,7 +107,7 @@ func (s CrmCustomerExtService) ListBlacklist(ctx context.Context, req CustomerPo
 		return nil, 0, err
 	}
 	var items []models.CrmCustomer
-	err := db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("blacklist_at desc, id desc").Find(&items).Error
+	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("blacklist_at desc, id desc").Find(&items).Error
 	return items, total, err
 }
 
@@ -148,7 +115,11 @@ func (s CrmCustomerExtService) ListBlacklist(ctx context.Context, req CustomerPo
 func (s CrmCustomerExtService) ListKey(ctx context.Context, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
 
 	p := req.pager()
-	db := models.MustFor(ctx).Where("is_key = ?", true)
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
+	db = db.Where("is_key = ?", true)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -158,7 +129,7 @@ func (s CrmCustomerExtService) ListKey(ctx context.Context, req CustomerPoolQuer
 		return nil, 0, err
 	}
 	var items []models.CrmCustomer
-	err := db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
+	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
 	return items, total, err
 }
 
@@ -166,7 +137,11 @@ func (s CrmCustomerExtService) ListKey(ctx context.Context, req CustomerPoolQuer
 func (s CrmCustomerExtService) ListShared(ctx context.Context, userID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
 
 	p := req.pager()
-	db := models.MustFor(ctx).Where("shared_staff_ids @> ?", constants.StringArrayField{userID})
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
+	db = db.Where("shared_staff_ids @> ?", constants.StringArrayField{userID})
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -176,7 +151,7 @@ func (s CrmCustomerExtService) ListShared(ctx context.Context, userID string, re
 		return nil, 0, err
 	}
 	var items []models.CrmCustomer
-	err := db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
+	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
 	return items, total, err
 }
 
@@ -184,7 +159,11 @@ func (s CrmCustomerExtService) ListShared(ctx context.Context, userID string, re
 func (s CrmCustomerExtService) ListUnreceive(ctx context.Context, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
 
 	p := req.pager()
-	db := models.MustFor(ctx).Where("(owner_user_id IS NULL OR owner_user_id = '')")
+	db, err := customerAccessDB(ctx, models.DB, false)
+	if err != nil {
+		return nil, 0, err
+	}
+	db = db.Where("owner_user_id IS NULL")
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -194,15 +173,15 @@ func (s CrmCustomerExtService) ListUnreceive(ctx context.Context, req CustomerPo
 		return nil, 0, err
 	}
 	var items []models.CrmCustomer
-	err := db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
+	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).Order("id desc").Find(&items).Error
 	return items, total, err
 }
 
-// ListReassign 再分配客户（ReassignStatus=1 且 ReassignFrom=userID）。
+// ListReassign 当前用户待接收的客户（ReassignStatus=1 且 OwnerUserID=userID）。
 func (s CrmCustomerExtService) ListReassign(ctx context.Context, userID string, req CustomerPoolQueryReq) ([]models.CrmCustomer, int64, error) {
 
 	p := req.pager()
-	db := models.MustFor(ctx).Where("reassign_status = ? AND reassign_from = ?", 1, userID)
+	db := models.MustFor(ctx).Where("reassign_status = ? AND owner_user_id = ?", 1, userID)
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like)
@@ -216,86 +195,76 @@ func (s CrmCustomerExtService) ListReassign(ctx context.Context, userID string, 
 	return items, total, err
 }
 
-// AcceptReassign 确认接收再分配：归属改为当前用户，清空再分配状态。
+// AcceptReassign 确认接收当前用户的再分配任务。
 func (s CrmCustomerExtService) AcceptReassign(ctx context.Context, userID, id string) error {
-	tenantID := identity.TenantID(ctx)
-
-	if id == "" {
-		return errors.New("id 不能为空")
+	if userID != identity.UserID(ctx) {
+		return ErrCustomerAccess
 	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id = ? AND reassign_status = ?", id, 1).
-		Updates(map[string]any{"owner_user_id": userID, "reassign_status": 0, "reassign_from": ""})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer accept reassign failed", "err", res.Error)
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	_, err := respondToReassign(ctx, []string{id}, true)
+	return err
 }
-
-// RejectReassign 拒绝再分配：清空再分配状态，归属恢复为原转出人。
 func (s CrmCustomerExtService) RejectReassign(ctx context.Context, id string) error {
-	tenantID := identity.TenantID(ctx)
-
-	if id == "" {
-		return errors.New("id 不能为空")
-	}
-	var c models.CrmCustomer
-	if err := models.MustFor(ctx).Where("id = ?", id).First(&c).Error; err != nil {
-		return err
-	}
-	if c.ReassignStatus != 1 {
-		return errors.New("该客户非待确认再分配状态")
-	}
-	// 拒绝：归属恢复为转出人，清空再分配状态。
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
-		Updates(map[string]any{"owner_user_id": c.ReassignFrom, "reassign_status": 0, "reassign_from": ""})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer reject reassign failed", "err", res.Error)
-	}
-	return res.Error
+	_, err := respondToReassign(ctx, []string{id}, false)
+	return err
 }
-
-// AcceptReassignBatch 批量确认接收再分配。
 func (s CrmCustomerExtService) AcceptReassignBatch(ctx context.Context, userID string, ids []string) (int64, error) {
-	tenantID := identity.TenantID(ctx)
-	if len(ids) == 0 {
-		return 0, errors.New("ids 不能为空")
+	if userID != identity.UserID(ctx) {
+		return 0, ErrCustomerAccess
 	}
-	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).
-		Where("id IN ? AND reassign_status = ?", ids, 1).
-		Updates(map[string]any{"owner_user_id": userID, "reassign_status": 0, "reassign_from": ""})
-	if res.Error != nil {
-		log.Sugar.Errorw("crm customer accept reassign batch failed", "err", res.Error)
-	}
-	return res.RowsAffected, res.Error
+	return respondToReassign(ctx, ids, true)
+}
+func (s CrmCustomerExtService) RejectReassignBatch(ctx context.Context, ids []string) (int64, error) {
+	return respondToReassign(ctx, ids, false)
 }
 
-// RejectReassignBatch 批量拒绝再分配：归属恢复为原转出人。
-func (s CrmCustomerExtService) RejectReassignBatch(ctx context.Context, ids []string) (int64, error) {
-	tenantID := identity.TenantID(ctx)
+func respondToReassign(ctx context.Context, ids []string, accept bool) (int64, error) {
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	// 先查出待拒绝的客户（需要原转出人信息）
-	var customers []models.CrmCustomer
-	if err := models.MustFor(ctx).Scopes(models.TenantScope(tenantID)).
-		Where("id IN ? AND reassign_status = ?", ids, 1).Find(&customers).Error; err != nil {
+	var count int64
+	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		user, _, err := customerActor(ctx, tx)
+		if err != nil {
+			return err
+		}
+		var customers []models.CrmCustomer
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id = ? AND owner_user_id = ? AND reassign_status = ? AND id IN ?", user.TenantID, user.ID, 1, ids).Order("id").Find(&customers).Error; err != nil {
+			return err
+		}
+		unique := make(map[string]bool)
+		for _, id := range ids {
+			unique[id] = true
+		}
+		if len(customers) != len(unique) {
+			return ErrCustomerAccess
+		}
+		for _, customer := range customers {
+			changes := map[string]any{"reassign_status": 0, "reassign_from": nil}
+			if !accept {
+				var previous models.User
+				err := tx.Where("tenant_id = ? AND id = ? AND status = ?", user.TenantID, zeroID(customer.ReassignFrom), 1).First(&previous).Error
+				if err == nil {
+					changes["owner_user_id"] = previous.ID
+				} else if errors.Is(err, gorm.ErrRecordNotFound) {
+					changes = recycledCustomerChanges(customer, time.Now())
+					if err := poolLog(tx, user.TenantID, customer, "recycle", user, "", "接收被拒绝，原负责人不可用"); err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			}
+			if err := tx.Model(&customer).Updates(changes).Error; err != nil {
+				return err
+			}
+			count++
+		}
+		return nil
+	})
+	if err != nil {
 		return 0, err
 	}
-	var n int64
-	for _, c := range customers {
-		res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", c.ID).
-			Updates(map[string]any{"owner_user_id": c.ReassignFrom, "reassign_status": 0, "reassign_from": ""})
-		if res.Error != nil {
-			log.Sugar.Errorw("crm customer reject reassign batch failed", "err", res.Error, "id", c.ID)
-		} else {
-			n += res.RowsAffected
-		}
-	}
-	return n, nil
+	return count, nil
 }
 
 // ReassignByTransfer 触发再分配：由批量转移服务调用，将客户标记为待接收。
