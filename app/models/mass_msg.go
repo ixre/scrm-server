@@ -1,15 +1,24 @@
 package models
 
 import (
+	"core/app/constants"
+	"core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/constants"
-	"core/common/app"
 )
 
 func (o MassMsg) Update(msg MassMsg) error {
-	return DB.Session(&gorm.Session{FullSaveAssociations: true}).Where("id = ?", msg.ID).Updates(&msg).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var current MassMsg
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND ext_corp_id = ?", msg.ID, msg.ExtCorpID).First(&current).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&current).Omit("created_at").Updates(&msg).Error; err != nil {
+			return err
+		}
+		return writeMassMsgStaffs(tx, &msg)
+	})
 }
 
 // MassMsg 企业群发消息内容
@@ -41,7 +50,7 @@ type MassMsg struct {
 	// 未送达客户计数
 	FailedNum int `gorm:"comment:未送达客户计数;type:int" json:"failed_num"`
 	// 需要发送的员工
-	Staffs []MassMsgStaff `gorm:"foreignKey:MassMsgID;references:ID" json:"staffs"`
+	Staffs []MassMsgStaff `gorm:"-" json:"staffs"`
 	// 定时发送时间
 	SendAt constants.DateTimeFiled `json:"send_at" validate:"omitempty,gt=0"`
 	Timestamp
@@ -61,7 +70,12 @@ func (o MassMsg) GetExtStaffIDs(msgID string) (staffsCustomers []StaffsCustomers
 }
 
 func (o MassMsg) Create(msg MassMsg) error {
-	return DB.Session(&gorm.Session{FullSaveAssociations: true}).Create(&msg).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&msg).Error; err != nil {
+			return err
+		}
+		return writeMassMsgStaffs(tx, &msg)
+	})
 }
 
 func (o MassMsg) Delete(id string) error {
@@ -69,18 +83,24 @@ func (o MassMsg) Delete(id string) error {
 }
 
 func (o MassMsg) Get(id string) (msg MassMsg, err error) {
-	err = DB.Model(&MassMsg{}).Preload("Staffs").Where("id=?", id).First(&msg).Error
+	err = DB.Model(&MassMsg{}).Where("id=?", id).First(&msg).Error
 	if err != nil {
 		return
 	}
+	err = loadMassMsgStaffs(DB, []*MassMsg{&msg})
 	return
 }
 
 func (o MassMsg) GetMsgs(ids []string) (msgs []MassMsg, err error) {
-	err = DB.Model(&MassMsg{}).Preload("Staffs").Where("id in (?)", ids).Take(&msgs).Error
+	err = DB.Model(&MassMsg{}).Where("id in (?)", ids).Find(&msgs).Error
 	if err != nil {
 		return nil, err
 	}
+	ptrs := make([]*MassMsg, len(msgs))
+	for i := range msgs {
+		ptrs[i] = &msgs[i]
+	}
+	err = loadMassMsgStaffs(DB, ptrs)
 	return
 }
 func (o MassMsg) Query(extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]MassMsg, int64, error) {

@@ -2,10 +2,6 @@ package services
 
 import (
 	"context"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"github.com/thoas/go-funk"
-	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
 	"core/app/requests"
@@ -14,6 +10,10 @@ import (
 	"core/common/log"
 	"core/common/we_work"
 	"core/pkg/easywework"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"github.com/thoas/go-funk"
+	"gorm.io/gorm"
 	"strings"
 )
 
@@ -123,7 +123,7 @@ func (o *ContactWay) Preprocess(ctx context.Context, mode preprocessMode, item *
 		}
 	}
 	staffs := make([]models.Staff, 0)
-	err = models.DB.Select("name,avatar_url,ext_id").Where("ext_id in (?)", extStaffIDs).Find(&staffs).Error
+	err = models.DB.Select("name,avatar_url,ext_id").Where("ext_corp_id = ?", extCorpID).Where("ext_id in (?)", extStaffIDs).Find(&staffs).Error
 	if err != nil {
 		err = errors.Wrap(err, "Find staffs failed")
 		return

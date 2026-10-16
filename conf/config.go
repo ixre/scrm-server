@@ -85,13 +85,17 @@ type weWorkConfig struct {
 }
 
 type DBConfig struct {
-	User     string `validate:"required"`
-	Password string `validate:"required"`
-	Host     string `validate:"required"`
-	Port     string `validate:"required"`
-	Name     string `validate:"required"`
-	SSLMode  string // PostgreSQL sslmode: disable/require/verify-ca/verify-full，默认 disable
-	TimeZone string // PostgreSQL 会话时区，默认 Asia/Shanghai
+	User                   string `validate:"required"`
+	Password               string `validate:"required"`
+	Host                   string `validate:"required"`
+	Port                   string `validate:"required"`
+	Name                   string `validate:"required"`
+	SSLMode                string // PostgreSQL sslmode: disable/require/verify-ca/verify-full，默认 disable
+	TimeZone               string // PostgreSQL 会话时区，默认 Asia/Shanghai
+	MaxOpenConns           int    // 每个进程的连接上限，默认 25
+	MaxIdleConns           int    // 空闲连接上限，默认 10，且不超过 MaxOpenConns
+	ConnMaxLifetimeSeconds int    // 连接最长使用时间，默认 1800 秒
+	ConnMaxIdleTimeSeconds int    // 空闲连接回收时间，默认 300 秒
 }
 
 // redisConfig redis config

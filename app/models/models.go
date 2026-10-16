@@ -4,6 +4,7 @@ import (
 	"core/app/constants"
 	log "core/common/log"
 	"core/conf"
+	"core/migrations"
 	"fmt"
 	"os"
 	"time"
@@ -59,14 +60,14 @@ func SetupSchema() {
 	DB = initDB(conf.Settings.DB)
 }
 
-// AutoMigrate 用于根据结构体定义自动迁移表结构,只新增字段
+// AutoMigrate 同步模型表结构及查询索引。数据回填由版本化 SQL 迁移执行。
 func AutoMigrate(db *gorm.DB) error {
 	if !conf.Settings.App.AutoMigration {
 		return nil
 	}
 
 	err := db.AutoMigrate(
-		// 此处顺序不可改动，以免触发外键约束
+		// 显式注册每张表，禁用物理外键。聚合展示字段不触发自动建表。
 		&Customer{},
 		&CustomerInfo{},
 		&CustomerInfoDisplayRule{},
@@ -282,6 +283,16 @@ func AutoMigrate(db *gorm.DB) error {
 		}
 	}
 
+	indexes, err := migrations.ModelIndexStatements()
+	if err != nil {
+		return err
+	}
+	for _, statement := range indexes {
+		if err := db.Exec(statement).Error; err != nil {
+			return fmt.Errorf("create model index: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -315,13 +326,19 @@ func initDB(c conf.DBConfig) (db *gorm.DB) {
 			}},
 	)
 	if err != nil {
-		log.Sugar.Errorw("models.Setup failed", "err", err, "conf", c)
+		log.Sugar.Errorw("models.Setup failed", "err", err)
 		os.Exit(1)
 	}
+	connection, err := db.DB()
+	if err != nil {
+		log.Sugar.Errorw("database connection pool unavailable", "err", err)
+		os.Exit(1)
+	}
+	configureConnectionPool(connection, c)
 
 	err = AutoMigrate(db)
 	if err != nil {
-		log.Sugar.Errorw("model auto migrate failed", "err", err, "conf", c)
+		log.Sugar.Errorw("model auto migrate failed", "err", err)
 		os.Exit(1)
 	}
 

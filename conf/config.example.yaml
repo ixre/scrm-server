@@ -39,6 +39,11 @@ DB:
   SSLMode: disable
   # 会话时区
   TimeZone: Asia/Shanghai
+  # Per-process connection budget. Reserve capacity for all replicas and jobs.
+  MaxOpenConns: 25
+  MaxIdleConns: 10
+  ConnMaxLifetimeSeconds: 1800
+  ConnMaxIdleTimeSeconds: 300
 
 # redis服务器配置
 Redis:
