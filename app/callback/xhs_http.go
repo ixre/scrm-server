@@ -26,16 +26,19 @@ func StartXhsCallbackServer() {
 		port = 9004
 	}
 	r := gin.Default()
+	if err := configurePublicProxies(r); err != nil {
+		panic("invalid TRUSTED_PROXY_CIDRS: " + err.Error())
+	}
 	r.Any("/xhs/callback/:app_id", xhsCallback)
 	// H5 落地页表单回收（公开接口，不需登录）
-	r.POST("/landing/:slug/submit", landingPageSubmit)
-	r.GET("/landing/:slug", landingPageMeta)
+	r.POST("/landing/:slug/submit", publicTraffic("lead"), landingPageSubmit)
+	r.GET("/landing/:slug", publicTraffic("view"), landingPageMeta)
 	// 公众号回调
 	r.Any("/gzh/callback/:app_id", gzhCallback)
 	// 抖音回调
 	r.Any("/douyin/callback/:app_id", douyinCallback)
 	// Phase 7 公开端点：营销活动 H5 交互 + 智能名片
-	r.GET("/card/:id", smartCardView)
+	r.GET("/card/:id", publicTraffic("view"), smartCardView)
 	r.POST("/h5/group_buy/open", h5GroupBuyOpen)
 	r.POST("/h5/group_buy/join", h5GroupBuyJoin)
 	r.POST("/h5/bargain/start", h5BargainStart)
@@ -127,6 +130,7 @@ function submitForm() {
   var company = document.getElementById('company').value.trim();
   var errMsg = document.getElementById('errMsg');
   var btn = document.getElementById('submitBtn');
+  if (btn.disabled) return;
   if (!name) { errMsg.textContent = '请输入姓名'; errMsg.style.display = 'block'; return; }
   if (!mobile || mobile.length < 11) { errMsg.textContent = '请输入正确的手机号'; errMsg.style.display = 'block'; return; }
   errMsg.style.display = 'none';
@@ -141,7 +145,15 @@ function submitForm() {
       document.getElementById('successPage').style.display = 'block';
     } else {
       errMsg.textContent = res.msg || '提交失败，请重试'; errMsg.style.display = 'block';
-      btn.disabled = false; btn.textContent = '立即提交';
+      if (res.code === 429) {
+        var remaining = Math.min(3600, Math.max(1, Number(res.data && res.data.retry_after) || 60));
+        btn.textContent = remaining + ' 秒后重试';
+        var retryTimer = setInterval(function() {
+          remaining--;
+          if (remaining <= 0) { clearInterval(retryTimer); btn.disabled = false; btn.textContent = '立即提交'; }
+          else btn.textContent = remaining + ' 秒后重试';
+        }, 1000);
+      } else { btn.disabled = false; btn.textContent = '立即提交'; }
     }
   }).catch(function() {
     errMsg.textContent = '网络错误，请重试'; errMsg.style.display = 'block';

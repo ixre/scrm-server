@@ -1083,6 +1083,8 @@ type CrmOrderAttachment struct {
 	FileSize   int64  `gorm:"type:bigint;comment:文件大小(字节)" json:"file_size"`
 	FileType   string `gorm:"type:varchar(32);comment:文件类型" json:"file_type"`
 	UploadedBy string `gorm:"type:bigint;comment:上传人" json:"uploaded_by"`
+	StorageKey string `gorm:"type:varchar(255);uniqueIndex:idx_crm_attachment_storage_key,where:storage_key <> '';comment:私有文件存储键" json:"storage_key"`
+	SHA256     string `gorm:"type:varchar(64);comment:文件内容摘要" json:"sha256"`
 }
 
 // CrmOrderProgress 合同进度节点。

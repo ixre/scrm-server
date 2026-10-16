@@ -43,6 +43,11 @@ func (s *BusinessServer) Invoke(ctx context.Context, req *pb.BusinessRequest) (*
 			return &pb.BusinessResponse{Code: code, Msg: err.Error()}, nil
 		}
 	}
+	if service == "crm_smart_card" && publicBusinessAction(service, action) {
+		if rejection := checkPublicTraffic(ctx, action, req.GetParams()); rejection != nil {
+			return rejection, nil
+		}
+	}
 	res, err := a(ctx, req.GetCorpId(), req.GetStaffId(), req.GetParams())
 	if err != nil {
 		// 业务错误走响应码透传给网关，由网关映射为 HTTP 状态；不用 gRPC status。

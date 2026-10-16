@@ -146,6 +146,9 @@ type CrmOrderAttachmentService struct{}
 
 func NewCrmOrderAttachment() *CrmOrderAttachmentService { return &CrmOrderAttachmentService{} }
 func (s CrmOrderAttachmentService) Create(ctx context.Context, a *models.CrmOrderAttachment) error {
+	if a.StorageKey != "" || a.SHA256 != "" {
+		return errors.New("私有附件请通过文件上传入口提交")
+	}
 	a.FileName, a.FileURL = strings.TrimSpace(a.FileName), strings.TrimSpace(a.FileURL)
 	u, err := url.Parse(a.FileURL)
 	if err != nil || u.User != nil || !((u.Scheme == "https" || u.Scheme == "http") && u.Host != "" || u.Scheme == "" && u.Host == "" && strings.HasPrefix(u.Path, "/uploads/")) {

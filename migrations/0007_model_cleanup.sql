@@ -25,13 +25,19 @@ ALTER TABLE crm_knowledge DROP COLUMN IF EXISTS public_type;
 -- 3. crm_product_category 表由 AutoMigrate 自动创建，此处无需手动建表
 
 -- 4. crm_income_category.status smallint→boolean
-ALTER TABLE crm_income_category ALTER COLUMN status TYPE boolean USING status = 1;
+ALTER TABLE crm_income_category ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE crm_income_category ALTER COLUMN status TYPE boolean USING status::text::boolean;
+ALTER TABLE crm_income_category ALTER COLUMN status SET DEFAULT true;
 
 -- 5. crm_workorder_type.status smallint→boolean
-ALTER TABLE crm_workorder_type ALTER COLUMN status TYPE boolean USING status = 1;
+ALTER TABLE crm_workorder_type ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE crm_workorder_type ALTER COLUMN status TYPE boolean USING status::text::boolean;
+ALTER TABLE crm_workorder_type ALTER COLUMN status SET DEFAULT true;
 
 -- 6. crm_aftersales_type.status smallint→boolean
-ALTER TABLE crm_aftersales_type ALTER COLUMN status TYPE boolean USING status = 1;
+ALTER TABLE crm_aftersales_type ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE crm_aftersales_type ALTER COLUMN status TYPE boolean USING status::text::boolean;
+ALTER TABLE crm_aftersales_type ALTER COLUMN status SET DEFAULT true;
 
 -- 7. 删除 crm_customer_setting.recycle_days
 ALTER TABLE crm_customer_setting DROP COLUMN IF EXISTS recycle_days;
