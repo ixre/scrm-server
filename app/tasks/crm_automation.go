@@ -47,6 +47,9 @@ func (CrmAutomation) ApplyAutoTags() {
 
 // RegisterCrmAutomationTasks 注册 Phase 4 + Phase 7 自动化定时任务。
 func RegisterCrmAutomationTasks() {
+	if _, err := gcron.AddSingleton("@every 5m", (CrmAutomation{}).GenerateReminders, "CrmGenerateReminders"); err != nil {
+		log.Sugar.Errorw("RegisterCrmGenerateReminders failed", "err", err)
+	}
 	_, err := gcron.AddSingleton("@hourly", (CrmAutomation{}).ExecuteSopTasks, "CrmExecuteSopTasks")
 	if err != nil {
 		log.Sugar.Errorw("RegisterCrmExecuteSopTasks failed", "err", err)
@@ -263,4 +266,35 @@ func (CrmAutomation) EscalateReplyTimeout() {
 // GenerateBirthdayCare 生日关怀待办生成（每日）。
 func (CrmAutomation) GenerateBirthdayCare() {
 	services.NewCrmCare().GenerateBirthdayCareTodos()
+}
+
+// GenerateReminders pages tenants and sources instead of loading all tenant IDs.
+func (CrmAutomation) GenerateReminders() {
+	ctx := context.Background()
+	lastID := "0"
+	for {
+		var tenants []models.Tenant
+		if err := models.DB.WithContext(ctx).Select("id").Where("id > ? AND status = 1 AND (expire_at IS NULL OR expire_at > ?)", lastID, time.Now()).Order("id").Limit(100).Find(&tenants).Error; err != nil {
+			log.Sugar.Errorw("reminder tenant scan failed", "err", err)
+			return
+		}
+		if len(tenants) == 0 {
+			return
+		}
+		for _, tenant := range tenants {
+			bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
+			tenantCtx := identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
+			if err := services.NewCrmTodo().GenerateFollowupTodos(tenantCtx); err != nil {
+				log.Sugar.Errorw("followup reminders failed", "tenant", tenant.ID, "err", err)
+			}
+			cancel()
+			bounded, cancel = context.WithTimeout(ctx, 30*time.Second)
+			tenantCtx = identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
+			if err := services.NewCrmTodo().GenerateExpireTodos(tenantCtx); err != nil {
+				log.Sugar.Errorw("receivables reminders failed", "tenant", tenant.ID, "err", err)
+			}
+			cancel()
+		}
+		lastID = tenants[len(tenants)-1].ID
+	}
 }

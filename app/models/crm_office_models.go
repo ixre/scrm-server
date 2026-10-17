@@ -9,15 +9,18 @@ import (
 type CrmTodo struct {
 	Model
 	Timestamp
-	TenantID string     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	UserID   string     `gorm:"type:bigint;index;comment:归属用户ID" json:"user_id"`
-	Type     string     `gorm:"type:varchar(32);index;comment:类型 followup/contract_expire/receivables_expire/loss/timeout/task" json:"type"`
-	Title    string     `gorm:"type:varchar(255);comment:标题" json:"title"`
-	Content  string     `gorm:"type:text;comment:内容" json:"content"`
-	RefType  string     `gorm:"type:varchar(32);comment:关联类型 customer/order/lead/opportunity" json:"ref_type"`
-	RefID    string     `gorm:"type:bigint;comment:关联ID" json:"ref_id"`
-	DueAt    *time.Time `gorm:"comment:到期时间" json:"due_at"`
-	Status   string     `gorm:"type:varchar(16);index;default:pending;comment:pending(待处理)/done(已处理)/ignored(已忽略)" json:"status"`
+	TenantID  string     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	UserID    string     `gorm:"type:bigint;index;comment:归属用户ID" json:"user_id"`
+	Type      string     `gorm:"type:varchar(32);index;comment:类型 followup/contract_expire/receivables_expire/loss/timeout/task" json:"type"`
+	Title     string     `gorm:"type:varchar(255);comment:标题" json:"title"`
+	Content   string     `gorm:"type:text;comment:内容" json:"content"`
+	RefType   string     `gorm:"type:varchar(32);comment:关联类型 customer/order/lead/opportunity" json:"ref_type"`
+	RefID     string     `gorm:"type:bigint;comment:关联ID" json:"ref_id"`
+	DueAt     *time.Time `gorm:"comment:到期时间" json:"due_at"`
+	Status    string     `gorm:"type:varchar(16);index;default:pending;comment:pending(待处理)/done(已处理)/ignored(已忽略)/cancelled(已失效)" json:"status"`
+	SourceID  string     `gorm:"type:bigint;comment:提醒源ID(回款计划或客户)" json:"source_id"`
+	EventKey  string     `gorm:"type:varchar(160);not null;default:'';comment:同一提醒事件去重键" json:"-"`
+	HandledAt *time.Time `gorm:"comment:处理或失效时间" json:"handled_at"`
 }
 
 // ==================== P3: 大模块扩展 ====================

@@ -2569,24 +2569,25 @@ type FollowupReminder struct {
 // ListReminders 今日待跟进：owner=userID 且 next_followup_at <= 今天结束 且非公海。
 func (s CrmFollowupService) ListReminders(ctx context.Context, userID string) ([]FollowupReminder, error) {
 
-	now := time.Now()
-	endOfToday := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-	return s.queryReminders(ctx, userID, "next_followup_at <= ?", endOfToday)
+	_, end := followupDay(time.Now())
+	return s.queryReminders(ctx, userID, "next_followup_at < ?", end)
 }
 
 // ListOverdue 已逾期跟进：owner=userID 且 next_followup_at < 今天开始 且非公海。
 func (s CrmFollowupService) ListOverdue(ctx context.Context, userID string) ([]FollowupReminder, error) {
 
-	now := time.Now()
-	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	return s.queryReminders(ctx, userID, "next_followup_at < ?", startOfToday)
+	start, _ := followupDay(time.Now())
+	return s.queryReminders(ctx, userID, "next_followup_at < ?", start)
 }
 
 func (s CrmFollowupService) queryReminders(ctx context.Context, userID, cond string, bound time.Time) ([]FollowupReminder, error) {
 
 	var cs []models.CrmCustomer
-	if err := models.MustFor(ctx).Where("owner_user_id = ? AND pool_status = ? AND next_followup_at IS NOT NULL AND "+cond,
-		userID, 0, bound).
+	db, err := actionableFollowupCustomers(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Where(cond, bound).
 		Order("next_followup_at asc").Limit(50).Find(&cs).Error; err != nil {
 		return nil, err
 	}

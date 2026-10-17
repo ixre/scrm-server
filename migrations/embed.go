@@ -3,6 +3,7 @@ package migrations
 
 import (
 	"embed"
+	"fmt"
 	"strings"
 )
 
@@ -20,6 +21,25 @@ func ModelIndexStatements() ([]string, error) {
 	}
 	var statements []string
 	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			statements = append(statements, statement)
+		}
+	}
+	return statements, nil
+}
+
+// ReminderIndexStatements shares DDL with AutoMigrate without replaying data changes.
+func ReminderIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0016_actionable_reminders.sql")
+	if err != nil {
+		return nil, err
+	}
+	_, ddl, ok := strings.Cut(string(content), "-- Reminder indexes.\n")
+	if !ok {
+		return nil, fmt.Errorf("reminder index marker missing")
+	}
+	var statements []string
+	for _, statement := range strings.Split(ddl, ";") {
 		if statement = strings.TrimSpace(statement); statement != "" {
 			statements = append(statements, statement)
 		}

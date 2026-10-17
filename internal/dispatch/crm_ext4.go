@@ -89,11 +89,16 @@ func crmQuickRemarkCreate(ctx context.Context, _, _ string, params json.RawMessa
 	u := identity.UserID(ctx)
 	var req struct {
 		Content string `json:"content"`
+		Sort    *int   `json:"sort"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	r, err := services.NewCrmQuickRemark().Create(ctx, u, req.Content)
+	sort := []int{}
+	if req.Sort != nil {
+		sort = append(sort, *req.Sort)
+	}
+	r, err := services.NewCrmQuickRemark().Create(ctx, u, req.Content, sort...)
 	if err != nil {
 		return nil, err
 	}
@@ -109,11 +114,16 @@ func crmQuickRemarkUpdate(ctx context.Context, _, _ string, params json.RawMessa
 	var req struct {
 		ID      string `json:"id"`
 		Content string `json:"content"`
+		Sort    *int   `json:"sort"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	return ok, services.NewCrmQuickRemark().Update(ctx, u, req.ID, req.Content)
+	sort := []int{}
+	if req.Sort != nil {
+		sort = append(sort, *req.Sort)
+	}
+	return ok, services.NewCrmQuickRemark().Update(ctx, u, req.ID, req.Content, sort...)
 }
 
 func crmQuickRemarkDelete(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
@@ -156,11 +166,12 @@ func crmFollowupViewTodayTodo(ctx context.Context, _, _ string, params json.RawM
 	u := identity.UserID(ctx)
 	var req struct {
 		app.Pager
+		Keyword string `json:"keyword"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.PageReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmFollowupView().ListTodayTodo(ctx, u, q)
 	if err != nil {
 		return nil, err
@@ -176,11 +187,12 @@ func crmFollowupViewTodayDone(ctx context.Context, _, _ string, params json.RawM
 	u := identity.UserID(ctx)
 	var req struct {
 		app.Pager
+		Keyword string `json:"keyword"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.PageReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmFollowupView().ListTodayDone(ctx, u, q)
 	if err != nil {
 		return nil, err
@@ -196,11 +208,12 @@ func crmFollowupViewNeverFollowup(ctx context.Context, _, _ string, params json.
 	u := identity.UserID(ctx)
 	var req struct {
 		app.Pager
+		Keyword string `json:"keyword"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.PageReq{Page: req.Page, PageSize: req.PageSize, Keyword: req.Keyword}
 	items, total, err := services.NewCrmFollowupView().ListNeverFollowup(ctx, u, q)
 	if err != nil {
 		return nil, err
