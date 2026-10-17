@@ -35,6 +35,22 @@ func crmPoolList(ctx context.Context, _, _ string, params json.RawMessage) (any,
 	return Result(items, total), nil
 }
 
+func crmPoolGet(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	if req.ID == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	return services.NewCrmPool().Get(ctx, req.ID)
+}
+
 func crmPoolClaim(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {

@@ -1463,6 +1463,9 @@ func (s CrmCustomerService) Create(ctx context.Context, userID string, req model
 	if strings.TrimSpace(req.Name) == "" && strings.TrimSpace(req.Mobile) == "" {
 		return req, errors.New("客户名称或手机号至少填写一项")
 	}
+	if req.ExtCustomerID != "" || req.ExtCorpID != "" {
+		return req, errors.New("外部渠道身份只能由渠道同步建立")
+	}
 	if req.PoolStatus == 1 {
 		req.OwnerUserID = ""
 	} else if req.OwnerUserID == "" {
@@ -1527,6 +1530,9 @@ func (s CrmCustomerService) updateCustomer(ctx context.Context, tx *gorm.DB, id 
 	var existing models.CrmCustomer
 	if err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&existing).Error; err != nil {
 		return req, ErrCustomerAccess
+	}
+	if (req.ExtCustomerID != "" && req.ExtCustomerID != existing.ExtCustomerID) || (req.ExtCorpID != "" && req.ExtCorpID != existing.ExtCorpID) {
+		return req, errors.New("外部渠道身份不能通过客户编辑修改")
 	}
 	if existing.OwnerUserID != req.OwnerUserID {
 		if existing.IsLocked || existing.ReassignStatus != 0 {
@@ -1714,10 +1720,15 @@ func (s CrmCustomerService) GetDetail(ctx context.Context, id string) (map[strin
 	if err != nil {
 		return nil, err
 	}
-	var follows []models.CrmFollowup
-	if err := models.MustFor(ctx).Where("customer_id = ?", id).
-		Order("created_at desc").Find(&follows).Error; err != nil {
-		return nil, err
+	histories := map[string]CustomerHistoryPage{}
+	historyPages := map[string]map[string]any{}
+	for _, kind := range []string{"followups", "activity_records", "channel_interactions", "transfer_logs"} {
+		page, err := s.History(ctx, CustomerHistoryRequest{CustomerID: id, Kind: kind})
+		if err != nil {
+			return nil, err
+		}
+		histories[kind] = page
+		historyPages[kind] = map[string]any{"has_more": page.HasMore, "next_cursor": page.NextCursor}
 	}
 	// 企微互动（消息存档单聊）：经 CrmCustomer 上的渠道快照 ext_customer_id 关联 chat_msg。
 	var msgs []models.ChatMsg
@@ -1725,27 +1736,22 @@ func (s CrmCustomerService) GetDetail(ctx context.Context, id string) (map[strin
 		target, _ := json.Marshal([]string{c.ExtCustomerID})
 		if err := models.DB.Where(`ext_corp_id = ? AND room_id = '' AND ("from" = ? OR to_list @> ?::jsonb)`,
 			c.ExtCorpID, c.ExtCustomerID, string(target)).
+			Where(`EXISTS (SELECT 1 FROM channel_link customer_link
+				JOIN channel_link tenant_link ON tenant_link.channel = 'wecom' AND tenant_link.entity_type = 'tenant'
+				AND tenant_link.ext_id = customer_link.ext_corp_id AND tenant_link.tenant_id = customer_link.tenant_id
+				AND tenant_link.entity_id = customer_link.tenant_id AND tenant_link.deleted_at IS NULL
+				WHERE customer_link.tenant_id = ? AND customer_link.entity_type = 'customer' AND customer_link.entity_id = ?
+				AND customer_link.channel = 'wecom' AND customer_link.ext_corp_id = ? AND customer_link.ext_id = ?
+				AND customer_link.deleted_at IS NULL)`, c.TenantID, c.ID, c.ExtCorpID, c.ExtCustomerID).
 			Order("msg_time desc").Limit(20).Find(&msgs).Error; err != nil {
 			return nil, err
 		}
 	}
-	// 非企微渠道互动（小红书留资/评论/私信等），企微互动仍走上方 chat_msg。
-	var interactions []models.CrmChannelInteraction
-	if err := models.MustFor(ctx).Where("customer_id = ? AND channel <> ?", id, constants.ChannelWecom).
-		Order("happened_at desc").Limit(20).Find(&interactions).Error; err != nil {
-		return nil, err
-	}
-	// 活动参与史（营销活动触达/参与/转化明细）。
-	activityRecs, err := NewCrmActivity().ListByCustomer(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	// 转移历史。
-	transferLogs, _, _ := NewCrmTransfer().ListTransferLog(ctx, id, &app.Pager{Page: 1, PageSize: 20})
 	return map[string]any{
-		"customer": c, "followups": follows, "wecom_messages": msgs,
-		"channel_interactions": interactions, "activity_records": activityRecs,
-		"transfer_logs": transferLogs,
+		"customer": c, "followups": histories["followups"].Items, "wecom_messages": msgs,
+		"channel_interactions": histories["channel_interactions"].Items,
+		"activity_records":     histories["activity_records"].Items, "transfer_logs": histories["transfer_logs"].Items,
+		"history_pages": historyPages,
 	}, nil
 }
 
@@ -2536,7 +2542,10 @@ func (s CrmFollowupService) ListByCustomer(ctx context.Context, customerID strin
 		return nil, err
 	}
 	var rows []models.CrmFollowup
-	err := models.MustFor(ctx).Where("customer_id = ?", customerID).Order("created_at desc, id desc").Find(&rows).Error
+	err := models.MustFor(ctx).Where("customer_id = ?", customerID).Order("created_at desc, id desc").Limit(1001).Find(&rows).Error
+	if err == nil && len(rows) > 1000 {
+		return nil, errors.New("历史记录超过1000条，请使用 crm_customer.History 分页读取")
+	}
 	return rows, err
 }
 
@@ -3808,13 +3817,20 @@ func (s CrmActivityService) ListRecords(ctx context.Context, activityID, recordT
 
 // ListByCustomer 返回某客户的活动参与史（带活动名/类型/状态），客户360使用。
 func (s CrmActivityService) ListByCustomer(ctx context.Context, customerID string) ([]CustomerActivityRow, error) {
+	if _, err := NewCrmCustomer().Get(ctx, customerID); err != nil {
+		return nil, err
+	}
 	tenantID := identity.TenantID(ctx)
 
 	var rows []CustomerActivityRow
-	err := models.DB.Table("crm_activity_record").
+	err := models.DB.WithContext(ctx).Table("crm_activity_record").
 		Select("crm_activity_record.*, crm_activity.name AS activity_name, crm_activity.activity_type AS activity_type, crm_activity.status AS activity_status").
-		Joins("LEFT JOIN crm_activity ON crm_activity.id = crm_activity_record.activity_id").Scopes(models.TenantScope(tenantID)).Where("crm_activity_record.customer_id = ?", customerID).
-		Order("crm_activity_record.happened_at desc, crm_activity_record.id desc").Scan(&rows).Error
+		Joins("LEFT JOIN crm_activity ON crm_activity.id = crm_activity_record.activity_id AND crm_activity.tenant_id = crm_activity_record.tenant_id AND crm_activity.deleted_at IS NULL").
+		Where("crm_activity_record.tenant_id = ? AND crm_activity_record.customer_id = ? AND crm_activity_record.deleted_at IS NULL", tenantID, customerID).
+		Order("crm_activity_record.happened_at desc, crm_activity_record.id desc").Limit(1001).Scan(&rows).Error
+	if err == nil && len(rows) > 1000 {
+		return nil, errors.New("历史记录超过1000条，请使用 crm_customer.History 分页读取")
+	}
 	return rows, err
 }
 
@@ -3823,65 +3839,6 @@ func (s CrmActivityService) ListByCustomer(ctx context.Context, customerID strin
 type CrmChannelInteractionService struct{}
 
 func NewCrmChannelInteraction() *CrmChannelInteractionService { return &CrmChannelInteractionService{} }
-
-// Create 录入渠道互动（非企微渠道的留资/评论/私信等，企微互动仍走消息存档）。
-func (s CrmChannelInteractionService) Create(ctx context.Context, userID string, req models.CrmChannelInteraction) (models.CrmChannelInteraction, error) {
-	tenantID := identity.TenantID(ctx)
-
-	if req.CustomerID == "" {
-		return req, errors.New("customer_id 不能为空")
-	}
-	var c models.CrmCustomer
-	if err := models.MustFor(ctx).Where("id = ?", req.CustomerID).First(&c).Error; err != nil {
-		return req, errors.New("客户不存在")
-	}
-	if req.Channel == "" {
-		req.Channel = constants.ChannelGeneral
-	}
-	if req.ActionType == "" {
-		req.ActionType = "other"
-	}
-	if req.HappenedAt == nil {
-		now := time.Now()
-		req.HappenedAt = &now
-	}
-	req.ID = id_generator.StringID()
-	req.TenantID = tenantID
-	err := createCRM(models.DB, &req)
-	if err != nil {
-		log.Sugar.Errorw("crm channel interaction create failed", "err", err)
-	}
-	return req, err
-}
-
-func (s CrmChannelInteractionService) Delete(ctx context.Context, ids []string) (int64, error) {
-
-	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmChannelInteraction{})
-	return res.RowsAffected, res.Error
-}
-
-// Query 分页查询渠道互动，可按客户/渠道过滤。
-func (s CrmChannelInteractionService) Query(ctx context.Context, customerID, channel string, pager *app.Pager) ([]models.CrmChannelInteraction, int64, error) {
-
-	if pager == nil {
-		pager = &app.Pager{}
-	}
-	pager.SetDefault()
-	db := models.MustFor(ctx)
-	if customerID != "" {
-		db = db.Where("customer_id = ?", customerID)
-	}
-	if channel != "" {
-		db = db.Where("channel = ?", channel)
-	}
-	var total int64
-	if err := db.Model(&models.CrmChannelInteraction{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var items []models.CrmChannelInteraction
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("happened_at desc, id desc").Find(&items).Error
-	return items, total, err
-}
 
 // ---------- CrmChannelConfig（渠道接入配置，一租户一企微）----------
 

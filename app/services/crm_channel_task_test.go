@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"core/app/constants"
 	"core/app/models"
 	"core/common/app"
 	"core/migrations"
@@ -56,7 +57,29 @@ func TestChannelTaskPermissionsAndLifecycle(t *testing.T) {
 	if err = svc.Assign(admin, task.ID, "11", task.Version); err == nil {
 		t.Fatal("assignment granted implicit customer access")
 	}
-	requireNoError(t, db.Model(&models.CrmCustomer{}).Where("id = 100").Update("shared_staff_ids", `["11"]`).Error)
+	mustCreate(t, db, &models.User{Model: models.Model{ID: "13"}, TenantID: "1", Username: "disabled", Status: 2})
+	requireNoError(t, db.Model(&models.CrmCustomer{}).Where("id = 100").Update("shared_staff_ids", constants.StringArrayField{"11", "13", "20"}).Error)
+	users, err := svc.Assignees(admin, task.ID, "")
+	requireNoError(t, err)
+	if len(users) != 2 {
+		t.Fatalf("assignees must only include active owner/shared members in this tenant: %+v", users)
+	}
+	users, err = svc.Assignees(admin, task.ID, "sales-b")
+	requireNoError(t, err)
+	if len(users) != 1 || users[0].ID != "11" {
+		t.Fatal("assignee search did not filter eligible members")
+	}
+	if _, err = svc.Assignees(ctx, task.ID, ""); err == nil {
+		t.Fatal("sales accessed manager assignment search")
+	}
+	if _, err = svc.Assignees(testIdentity("2", "20"), task.ID, ""); err == nil {
+		t.Fatal("foreign actor accessed assignment search")
+	}
+	for _, uid := range []string{"13", "20"} {
+		if err = svc.Assign(admin, task.ID, uid, task.Version); err == nil {
+			t.Fatalf("ineligible shared member %s was assigned", uid)
+		}
+	}
 	requireNoError(t, svc.Assign(admin, task.ID, "11", task.Version))
 	task = readChannelTask(t, db, task.ID)
 	if task.AssignUserID != "11" || task.Version != 2 {
@@ -104,7 +127,7 @@ func TestChannelTaskPermissionsAndLifecycle(t *testing.T) {
 		t.Fatal("foreign task history disclosed")
 	}
 	// A handover revokes access immediately, including history.
-	requireNoError(t, db.Model(&models.CrmCustomer{}).Where("id = 100").Updates(map[string]any{"owner_user_id": "11", "shared_staff_ids": "[]"}).Error)
+	requireNoError(t, db.Model(&models.CrmCustomer{}).Where("id = 100").Updates(map[string]any{"owner_user_id": "11", "shared_staff_ids": constants.StringArrayField{}}).Error)
 	_, total, err = svc.List(ctx, "", nil)
 	requireNoError(t, err)
 	if total != 0 {
@@ -245,6 +268,9 @@ func TestChannelTaskMigrationAndPagination(t *testing.T) {
 	if total != 25 || len(rows) != 10 || rows[0].ID == "10024" {
 		t.Fatal("pagination ignored")
 	}
+	// Older completed tasks have no deadline or audit identity; migration must not invent history.
+	requireNoError(t, db.Model(&models.CrmChannelTask{}).Where("id = 10000").Updates(map[string]any{"due_at": nil, "status": "done"}).Error)
+	legacy := readChannelTask(t, db, "10000")
 	sql, err := migrations.Files.ReadFile("0017_channel_task_workflow.sql")
 	requireNoError(t, err)
 	requireNoError(t, db.Exec(string(sql)).Error)
@@ -252,5 +278,13 @@ func TestChannelTaskMigrationAndPagination(t *testing.T) {
 	requireNoError(t, db.Model(&models.CrmChannelTask{}).Count(&n).Error)
 	if n != 25 {
 		t.Fatal("migration lost history")
+	}
+	upgraded := readChannelTask(t, db, legacy.ID)
+	if upgraded.DueAt == nil || !upgraded.DueAt.Equal(legacy.CreatedAt.Add(48*time.Hour)) || upgraded.Status != "done" || upgraded.HandledAt != nil || upgraded.HandledBy != "" || upgraded.Version != legacy.Version {
+		t.Fatal("migration changed historical task outcome or failed deadline backfill")
+	}
+	requireNoError(t, db.Model(&models.CrmChannelTaskLog{}).Count(&n).Error)
+	if n != 0 {
+		t.Fatal("migration invented audit history")
 	}
 }

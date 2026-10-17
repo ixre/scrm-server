@@ -41,6 +41,10 @@ func customerAccessDB(ctx context.Context, db *gorm.DB, write bool) (*gorm.DB, e
 	if err != nil {
 		return nil, err
 	}
+	return customerAccessForActor(ctx, db, user, manager, write), nil
+}
+
+func customerAccessForActor(ctx context.Context, db *gorm.DB, user models.User, manager, write bool) *gorm.DB {
 	q := db.WithContext(ctx).Where("tenant_id = ?", user.TenantID)
 	if !manager {
 		if write {
@@ -50,7 +54,7 @@ func customerAccessDB(ctx context.Context, db *gorm.DB, write bool) (*gorm.DB, e
 			q = q.Where("(owner_user_id = ? OR shared_staff_ids @> ?::jsonb)", user.ID, string(shared))
 		}
 	}
-	return q, nil
+	return q
 }
 
 func validateCustomerOwner(ctx context.Context, db *gorm.DB, owner string) error {

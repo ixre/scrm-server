@@ -1,118 +1,17 @@
-# 多渠道（Channel）
+# 多渠道获客
 
-> 4 个渠道（企业微信 / 小红书 / 公众号 / 抖音）统一接入 + 跨渠道任务。
+首期目标为来源可追踪、客户可承接、任务可处理、结果可追溯。下列目录记录各渠道代码与使用方式；存在菜单、模型或适配器不代表已通过真实渠道商用验收。
 
-## 子模块清单
+| 文档 | 内容与验收状态 |
+| --- | --- |
+| [渠道总览](01-渠道总览.md) | 既有架构说明，部分概念仍需按当前实现复核 |
+| [企业微信](02-企业微信.md) | 既有企微流程，需真实企业账号验收 |
+| [小红书](03-小红书.md) | 已按代码校正标准事件、事务与重试行为；真实平台协议待联调 |
+| [公众号](04-公众号.md) | 既有流程说明，本轮未作完整交付验证 |
+| [抖音](05-抖音.md) | 既有流程说明，本轮未作完整交付验证 |
+| [跨渠道引流任务](06-跨渠道任务.md) | 已补齐权限、领取/分配、处理结果、超时、重新打开和日志 |
+| [渠道统计](07-渠道统计.md) | 渠道分析说明，需按真实数据核对统计口径 |
 
-| 文档 | 内容 |
-|------|------|
-| [01-渠道总览.md](01-渠道总览.md) | 渠道架构、ChannelLink、适配器模式 |
-| [02-企业微信.md](02-企业微信.md) | 企微接入、好友/群/消息 |
-| [03-小红书.md](03-小红书.md) | 小红书接入、私信/笔记 |
-| [04-公众号.md](04-公众号.md) | 公众号接入、关注/菜单 |
-| [05-抖音.md](05-抖音.md) | 抖音接入、私信/视频 |
-| [06-跨渠道任务.md](06-跨渠道任务.md) | 跨渠道 SOP/群发 |
-| [07-渠道统计.md](07-渠道统计.md) | 渠道对比、渠道漏斗 |
+当前身份关系使用 `ChannelLink` 的 `tenant_id/channel/entity_type/entity_id/ext_corp_id/ext_id`；互动使用 `CrmChannelInteraction`。不要按旧文档中虚构的 `CrmChannelLink.channel_user_id/is_primary` 字段编写集成。
 
-## 渠道支持矩阵
-
-| 渠道 | 接入状态 | 主要功能 |
-|------|----------|----------|
-| 企业微信 | ✅ 已实现 | 好友/群/消息/SOP |
-| 小红书 | ✅ 已实现 | 私信/笔记互动 |
-| 公众号 | ✅ 已实现 | 关注/菜单/模板消息 |
-| 抖音 | ✅ 已实现 | 私信/视频互动 |
-| 视频号 | ⚠️ 未独立接入 | 复用企微 |
-| 一般渠道 | ✅ 已实现 | 通用适配 |
-
-## 渠道架构
-
-```
-┌──────────────────────────────────────────────┐
-│                 业务层（CRM）                  │
-│  CrmCustomer + CrmChannelLink + Interaction  │
-└──────────────────────┬───────────────────────┘
-                       │ 适配器接口
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-   wecom-adapter  xhs-adapter  gzh-adapter
-        │              │              │
-        ▼              ▼              ▼
-   企微 API       小红书 API    公众号 API
-```
-
-## 渠道模型
-
-### 5 个渠道常量
-`constants/channel.go`：
-- `wecom`（企业微信）
-- `xiaohongshu`（小红书）
-- `gzh`（公众号）
-- `douyin`（抖音）
-- `general`（通用）
-
-### CrmChannelLink
-`models/crm.go:200-`：
-
-| 字段 | 说明 |
-|------|------|
-| `customer_id` | 客户本地 ID |
-| `channel` | 渠道常量 |
-| `channel_user_id` | 渠道侧用户 ID（如��微 external_userid） |
-| `channel_union_id` | 跨账号唯一 ID |
-| `nickname` | 渠道昵称 |
-| `avatar` | 渠道头像 |
-| `is_primary` | 是否主渠道 |
-
-## ChannelLink 写入位置
-
-所有渠道适配器在创建/更新客户时均写入 `CrmChannelLink`：
-
-| 渠道 | 文件 | 行 |
-|------|------|-----|
-| 企微 | `services/crm_wecom.go` | line 42, 86 |
-| 小红书 | `services/crm_xhs.go` | line 42, 94, 137 |
-| 公众号 | `services/crm_gzh_douyin.go` | line 42, 86, 123 |
-| 抖音 | `services/crm_gzh_douyin.go` | line 233, 268 |
-
-## 适配器接口
-
-`internal/channel/adapter.go`（示意）：
-
-```go
-type Adapter interface {
-    Channel() string                                    // 渠道常量
-    SendMessage(to, content) error                      // 发消息
-    SendGroupMessage(groupID, content) error            // 群消息
-    GetUserInfo(channelUserID) (User, error)            // 拉取用户
-    HandleWebhook(payload) (events []Event, error)     // 回调处理
-}
-```
-
-## 跨渠道任务
-
-通过 `dispatch/crm.go` 注册，所有渠道走统一路由：
-
-```
-业务调用 dispatch.Send(channel, to, content)
-        │
-        ▼
-查 channel → 找到 adapter
-        │
-        ▼
-adapter.SendMessage(to, content)
-```
-
-## 注意事项
-
-- **主渠道**：每个客户有 1 个主渠道（is_primary=true），主渠道是默认沟通渠道。
-- **跨渠道**：同一客户可在多渠道存在（如小红书引流、企微成交）。
-- **渠道断开**：某渠道断开不影响其他渠道（**当前未实现断开重连机制**）。
-
-## 当前限制（**产品补强点**）
-
-- 视频号、视频号小店未独立接入。
-- 跨渠道客户行为串联（如抖音看视频 → 公众号留资料 → 企微成交）**未深度整合**。
-
-## 相关文档
-- [dashboard/03-渠道对比.md](../dashboard/03-渠道对比.md)（渠道效果分析）
+本轮验证范围是“小红书标准留资事件 → 客户承接 → 人工引流任务”。公众号、抖音等仍需独立验证重试幂等、协议及对外发送；视频号、商城、直播等按扩展模块分期验收。产品待办与验收边界见 [CRM 总览](../README.md)。

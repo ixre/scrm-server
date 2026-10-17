@@ -105,74 +105,6 @@ func (s CrmPoolService) Recycle(ctx context.Context, customerIDs []string) (int6
 	return int64(len(ids)), nil
 }
 
-// AutoRecycle 自动回收：按租户公海规则，将超 N 天未跟进或超 N 天未成单的非公海客户回收。
-// 保护期内的客户（ClaimedAt + ProtectDays > now）不被回收。锁定客户不被回收。
-func (s CrmPoolService) AutoRecycle(ctx context.Context) (int64, error) {
-	rule, err := s.GetRule(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if !rule.Enabled || (rule.RecycleDays <= 0 && rule.NoDealDays <= 0) {
-		return 0, nil
-	}
-	tenant := identity.TenantID(ctx)
-	var count int64
-	err = models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var customers []models.CrmCustomer
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("tenant_id = ? AND pool_status = 0 AND owner_user_id IS NOT NULL AND is_locked = false AND reassign_status = 0", tenant).Order("id").Find(&customers).Error; err != nil {
-			return err
-		}
-		now := time.Now()
-		for _, c := range customers {
-			if rule.ProtectDays > 0 && c.ClaimedAt != nil && c.ClaimedAt.AddDate(0, 0, rule.ProtectDays).After(now) {
-				continue
-			}
-			should := false
-			base := c.CreatedAt
-			if c.ClaimedAt != nil && c.ClaimedAt.After(base) {
-				base = *c.ClaimedAt
-			}
-			dealBase := base
-			if rule.RecycleDays > 0 {
-				var followup models.CrmFollowup
-				err := tx.Where("tenant_id = ? AND customer_id = ?", tenant, c.ID).Order("created_at desc").First(&followup).Error
-				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-					return err
-				}
-				if err == nil && followup.CreatedAt.After(base) {
-					base = followup.CreatedAt
-				}
-				should = shouldRecycle(base, now.AddDate(0, 0, -rule.RecycleDays))
-			}
-			if !should && rule.NoDealDays > 0 && dealBase.Before(now.AddDate(0, 0, -rule.NoDealDays)) {
-				var opportunities, orders int64
-				if err := tx.Model(&models.CrmOpportunity{}).Where("tenant_id = ? AND customer_id = ? AND status NOT IN ?", tenant, c.ID, []string{"won", "lost"}).Count(&opportunities).Error; err != nil {
-					return err
-				}
-				if err := tx.Model(&models.CrmOrder{}).Where("tenant_id = ? AND customer_id = ? AND status IN ?", tenant, c.ID, []string{"signed", "completed"}).Count(&orders).Error; err != nil {
-					return err
-				}
-				should = opportunities == 0 && orders == 0
-			}
-			if !should {
-				continue
-			}
-			if err := tx.Model(&c).Updates(recycledCustomerChanges(c, now)).Error; err != nil {
-				return err
-			}
-			if err := poolLog(tx, tenant, c, "recycle", models.User{Name: "系统自动回收"}, "", "按公海规则自动回收"); err != nil {
-				return err
-			}
-			count++
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
 // lastFollowupTime 取某客户最新跟进时间，无跟进则返回零值。
 func lastFollowupTime(ctx context.Context, customerID string) time.Time {
 	var f models.CrmFollowup
@@ -208,58 +140,6 @@ func (s CrmPoolService) GetRule(ctx context.Context) (models.CrmPoolRule, error)
 	return models.CrmPoolRule{}, err
 }
 
-// SetRule 设置租户公海规则（upsert）。
-func (s CrmPoolService) SetRule(ctx context.Context, rule models.CrmPoolRule) (models.CrmPoolRule, error) {
-	tenantID := identity.TenantID(ctx)
-
-	var r models.CrmPoolRule
-	err := models.MustFor(ctx).First(&r).Error
-	if err == nil {
-		r.RecycleDays = rule.RecycleDays
-		r.NoDealDays = rule.NoDealDays
-		r.Enabled = rule.Enabled
-		r.ClaimLimit = rule.ClaimLimit
-		r.ClaimCooldownDays = rule.ClaimCooldownDays
-		r.ProtectDays = rule.ProtectDays
-		err = models.DB.Save(&r).Error
-		return r, err
-	}
-	if err != gorm.ErrRecordNotFound {
-		return r, err
-	}
-	r = models.CrmPoolRule{
-		Model:             models.Model{ID: id_generator.StringID()},
-		TenantID:          tenantID,
-		RecycleDays:       rule.RecycleDays,
-		NoDealDays:        rule.NoDealDays,
-		Enabled:           rule.Enabled,
-		ClaimLimit:        rule.ClaimLimit,
-		ClaimCooldownDays: rule.ClaimCooldownDays,
-		ProtectDays:       rule.ProtectDays,
-	}
-	err = models.DB.Create(&r).Error
-	return r, err
-}
-
-// AutoRecycleAll 遍历所有租户执行自动回收（定时任务调用）。
-func (s CrmPoolService) AutoRecycleAll() {
-	var ts []models.Tenant
-	if err := models.DB.Find(&ts).Error; err != nil {
-		log.Sugar.Errorw("pool auto recycle: list tenants failed", "err", err)
-		return
-	}
-	for _, t := range ts {
-		n, err := s.AutoRecycle(identity.WithIdentity(context.Background(), identity.Identity{TenantID: t.ID}))
-		if err != nil {
-			log.Sugar.Errorw("pool auto recycle failed", "tenant", t.ID, "err", err)
-			continue
-		}
-		if n > 0 {
-			log.Sugar.Infow("pool auto recycled", "tenant", t.ID, "count", n)
-		}
-	}
-}
-
 // ---------- 公海操作记录 ----------
 
 // ListLogs 查询公海操作记录，支持按客户ID筛选。
@@ -268,7 +148,10 @@ func (s CrmPoolService) ListLogs(ctx context.Context, customerID string, pager *
 		pager = &app.Pager{}
 	}
 	pager.SetDefault()
-	db := models.MustFor(ctx).Model(&models.CrmPoolLog{})
+	db, err := poolLogScope(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	if customerID != "" {
 		db = db.Where("customer_id = ?", customerID)
 	}
@@ -277,7 +160,7 @@ func (s CrmPoolService) ListLogs(ctx context.Context, customerID string, pager *
 		return nil, 0, err
 	}
 	var items []models.CrmPoolLog
-	err := db.Order("created_at desc").Offset(pager.GetOffset()).Limit(pager.GetLimit()).Find(&items).Error
+	err = db.Order("created_at desc, id desc").Offset(pager.GetOffset()).Limit(pager.GetLimit()).Find(&items).Error
 	return items, total, err
 }
 
@@ -311,20 +194,20 @@ type PoolStats struct {
 
 // GetStats 获取公海池统计概览。
 func (s CrmPoolService) GetStats(ctx context.Context) (PoolStats, error) {
-	tenantID := identity.TenantID(ctx)
 	var stats PoolStats
-
-	models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).
-		Where(availablePoolCustomers).Count(&stats.TotalInPool)
-
-	today := time.Now().Format("2006-01-02")
-	models.DB.Model(&models.CrmPoolLog{}).Scopes(models.TenantScope(tenantID)).
-		Where("action = ? AND created_at >= ?", "claim", today).Count(&stats.ClaimedToday)
-	models.DB.Model(&models.CrmPoolLog{}).Scopes(models.TenantScope(tenantID)).
-		Where("action = ? AND created_at >= ?", "recycle", today).Count(&stats.RecycledToday)
-	models.DB.Model(&models.CrmPoolLog{}).Scopes(models.TenantScope(tenantID)).
-		Where("action = ? AND created_at >= ?", "assign", today).Count(&stats.AssignedToday)
-
+	logs, err := poolLogScope(ctx)
+	if err != nil {
+		return stats, err
+	}
+	if err := models.MustFor(ctx).Model(&models.CrmCustomer{}).Where(availablePoolCustomers).Count(&stats.TotalInPool).Error; err != nil {
+		return stats, err
+	}
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	err = logs.Select("COUNT(*) FILTER (WHERE action = 'claim') AS claimed_today, COUNT(*) FILTER (WHERE action = 'recycle') AS recycled_today, COUNT(*) FILTER (WHERE action = 'assign') AS assigned_today").Where("created_at >= ?", today).Scan(&stats).Error
+	if err != nil {
+		return PoolStats{}, err
+	}
 	return stats, nil
 }
 

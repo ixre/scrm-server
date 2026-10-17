@@ -67,7 +67,7 @@ func regressionDB(t *testing.T) *gorm.DB {
 			_ = conn.Close()
 		}
 	})
-	entities := []any{&models.CrmFollowupComment{}, &models.CrmSmartCard{}, &models.CrmSmartCardView{}, &models.CrmLandingPage{}, &models.Tenant{}, &models.PlatformAdmin{}, &models.CrmRecycle{}, &models.CrmBatchOp{}, &models.CrmOrderProduct{}, &models.CrmOrderAttachment{}, &models.CrmOrderProgress{}, &models.User{}, &models.CrmRole{}, &models.CrmCustomer{}, &models.ChannelLink{}, &models.CrmActivity{}, &models.CrmActivityRecord{}, &models.CrmCoupon{}, &models.CrmCouponRecord{}, &models.CrmPoolRule{}, &models.CrmSopRule{}, &models.CrmPipelineStage{}, &models.CrmSalesRule{}}
+	entities := []any{&models.CrmAutoAllocation{}, &models.CrmAllocationLog{}, &models.CrmFollowupComment{}, &models.CrmSmartCard{}, &models.CrmSmartCardView{}, &models.CrmLandingPage{}, &models.Tenant{}, &models.PlatformAdmin{}, &models.CrmRecycle{}, &models.CrmBatchOp{}, &models.CrmOrderProduct{}, &models.CrmOrderAttachment{}, &models.CrmOrderProgress{}, &models.User{}, &models.CrmRole{}, &models.CrmCustomer{}, &models.ChannelLink{}, &models.CrmActivity{}, &models.CrmActivityRecord{}, &models.CrmCoupon{}, &models.CrmCouponRecord{}, &models.CrmPoolRule{}, &models.CrmSopRule{}, &models.CrmPipelineStage{}, &models.CrmSalesRule{}}
 	for _, rel := range customerMergeRelations {
 		entities = append(entities, rel.Model)
 	}

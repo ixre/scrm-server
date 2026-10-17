@@ -78,7 +78,9 @@ func (s CrmTransferService) Transfer(ctx context.Context, operatorUserID string,
 
 // ListTransferLog 查某客户的转移历史（按时间倒序）。
 func (s CrmTransferService) ListTransferLog(ctx context.Context, customerID string, pager *app.Pager) ([]models.CrmTransferLog, int64, error) {
-
+	if _, err := NewCrmCustomer().Get(ctx, customerID); err != nil {
+		return nil, 0, err
+	}
 	if pager == nil {
 		pager = &app.Pager{}
 	}
@@ -89,6 +91,6 @@ func (s CrmTransferService) ListTransferLog(ctx context.Context, customerID stri
 		return nil, 0, err
 	}
 	var logs []models.CrmTransferLog
-	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("created_at desc").Find(&logs).Error
+	err := db.Offset(pager.GetOffset()).Limit(pager.GetLimit()).Order("created_at desc, id desc").Find(&logs).Error
 	return logs, total, err
 }

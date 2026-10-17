@@ -346,3 +346,39 @@ func (s CrmChannelTaskService) Expire(ctx context.Context) error {
 		}
 	}
 }
+
+// Assignees searches only the customer's current owner/shared members, not every employee.
+func (s CrmChannelTaskService) Assignees(ctx context.Context, id, keyword string) ([]models.User, error) {
+	actor, manager, err := customerActor(ctx, models.DB)
+	if err != nil {
+		return nil, err
+	}
+	if !manager {
+		return nil, errors.New("仅管理员或经理可以分配任务")
+	}
+	var task models.CrmChannelTask
+	if err = models.DB.WithContext(ctx).Where("tenant_id = ? AND id = ?", actor.TenantID, id).First(&task).Error; err != nil {
+		return nil, err
+	}
+	var c models.CrmCustomer
+	if err = models.DB.WithContext(ctx).Where("tenant_id = ? AND id = ?", actor.TenantID, task.CustomerID).First(&c).Error; err != nil {
+		return nil, err
+	}
+	if c.PoolStatus != 0 || c.IsBlacklist || c.ReassignStatus != 0 {
+		return nil, errors.New("请先完成客户领取或交接")
+	}
+	ids := append([]string{}, c.SharedStaffIDs...)
+	if c.OwnerUserID != "" {
+		ids = append(ids, c.OwnerUserID)
+	}
+	var users []models.User
+	if len(ids) == 0 {
+		return users, nil
+	}
+	q := models.DB.WithContext(ctx).Model(&models.User{}).Select("id, name, username, status").Where("tenant_id = ? AND id IN ? AND status = 1", actor.TenantID, ids)
+	if keyword = strings.TrimSpace(keyword); keyword != "" {
+		q = q.Where("(name ILIKE ? OR username ILIKE ?)", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	err = q.Order("name, id").Limit(100).Find(&users).Error
+	return users, err
+}

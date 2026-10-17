@@ -60,6 +60,7 @@ func init() {
 	Reg.Register("crm_tenant_order", "ListPaymentMethods", crmTenantOrderListPaymentMethods)
 	Reg.Register("crm_user", "Create", crmUserCreate)
 	Reg.Register("crm_user", "Query", crmUserQuery)
+	Reg.Register("crm_user", "Options", crmUserOptions)
 	Reg.Register("crm_user", "SetPassword", crmUserSetPassword)
 	Reg.Register("crm_user", "Update", crmUserUpdate)
 	Reg.Register("crm_user", "BindWecom", crmUserBindWecom)
@@ -90,6 +91,9 @@ func init() {
 	Reg.Register("crm_customer", "Delete", crmCustomerDelete)
 	Reg.Register("crm_customer", "Get", crmCustomerGet)
 	Reg.Register("crm_customer", "GetDetail", crmCustomerGetDetail)
+	Reg.Register("crm_customer", "History", crmCustomerHistory)
+	Reg.Register("crm_customer", "BusinessSummary", crmCustomerBusinessSummary)
+	Reg.Register("crm_customer", "BusinessRecords", crmCustomerBusinessRecords)
 	Reg.Register("crm_customer", "Query", crmCustomerQuery)
 
 	// lead
@@ -174,6 +178,7 @@ func init() {
 	// ---- Phase 1 销售域深化 ----
 	// 公海池
 	Reg.Register("crm_pool", "List", crmPoolList)
+	Reg.Register("crm_pool", "Get", crmPoolGet)
 	Reg.Register("crm_pool", "Claim", crmPoolClaim)
 	Reg.Register("crm_pool", "Recycle", crmPoolRecycle)
 	Reg.Register("crm_pool", "Assign", crmPoolAssign)
@@ -216,6 +221,7 @@ func init() {
 	Reg.Register("crm_channel_task", "Claim", crmChannelTaskClaim)
 	Reg.Register("crm_channel_task", "Reopen", crmChannelTaskReopen)
 	Reg.Register("crm_channel_task", "Logs", crmChannelTaskLogs)
+	Reg.Register("crm_channel_task", "Assignees", crmChannelTaskAssignees)
 
 	// ---- Phase 3 营销活动落地 ----
 	// 活动效果漏斗
@@ -585,6 +591,7 @@ func init() {
 
 	// P4: 系统设置
 	Reg.Register("crm_auto_allocation", "List", crmAutoAllocationList)
+	Reg.Register("crm_auto_allocation", "Logs", crmAutoAllocationLogs)
 	Reg.Register("crm_auto_allocation", "Create", crmAutoAllocationCreate)
 	Reg.Register("crm_auto_allocation", "Update", crmAutoAllocationUpdate)
 	Reg.Register("crm_auto_allocation", "Delete", crmAutoAllocationDelete)

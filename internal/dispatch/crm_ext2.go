@@ -437,7 +437,7 @@ func crmAutoAllocationList(ctx context.Context, _, _ string, params json.RawMess
 	}
 	var req struct {
 		EntityType string `json:"entity_type"`
-		*app.Pager
+		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -892,4 +892,19 @@ func crmIndustryDictDelete(ctx context.Context, _, _ string, params json.RawMess
 	}
 	_, e := services.NewCrmIndustryDict().Delete(req.IDs)
 	return ok, e
+}
+
+func crmAutoAllocationLogs(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		RuleID   string `json:"rule_id"`
+		BeforeID string `json:"before_id"`
+		PageSize int    `json:"page_size"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmAutoAllocation().Logs(ctx, req.RuleID, req.BeforeID, req.PageSize)
 }

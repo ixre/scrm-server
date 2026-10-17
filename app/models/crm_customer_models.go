@@ -198,14 +198,32 @@ type CrmTransferLog struct {
 type CrmAutoAllocation struct {
 	Model
 	Timestamp
-	TenantID   string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	EntityType string                     `gorm:"type:varchar(32);comment:实体类型 customer/lead" json:"entity_type"`
-	Name       string                     `gorm:"type:varchar(128);comment:规则名称" json:"name"`
-	Conditions constants.StringArrayField `gorm:"type:jsonb;comment:条件JSON" json:"conditions"`
-	Strategy   string                     `gorm:"type:varchar(32);comment:分配策略 round_robin/weighted/random" json:"strategy"`
-	TargetIDs  constants.StringArrayField `gorm:"type:jsonb;comment:目标用户ID列表" json:"target_ids"`
-	IsEnabled  bool                       `gorm:"type:bool;default:true;comment:是否启用" json:"is_enabled"`
-	Priority   int                        `gorm:"type:int;comment:优先级" json:"priority"`
+	TenantID         string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	EntityType       string                     `gorm:"type:varchar(32);comment:实体类型 customer/lead" json:"entity_type"`
+	Name             string                     `gorm:"type:varchar(128);comment:规则名称" json:"name"`
+	Conditions       constants.StringArrayField `gorm:"type:jsonb;comment:条件JSON" json:"conditions"`
+	Strategy         string                     `gorm:"type:varchar(32);comment:分配策略 round_robin/weighted/random" json:"strategy"`
+	TargetIDs        constants.StringArrayField `gorm:"type:jsonb;comment:目标用户ID列表" json:"target_ids"`
+	IsEnabled        bool                       `gorm:"type:bool;default:true;comment:是否启用" json:"is_enabled"`
+	Priority         int                        `gorm:"type:int;comment:优先级" json:"priority"`
+	ExecutionEnabled bool                       `gorm:"not null;default:false;comment:明确启用新获客执行" json:"execution_enabled"`
+	Sources          constants.StringArrayField `gorm:"type:jsonb;comment:新获客来源匹配" json:"sources"`
+	LastTargetID     string                     `gorm:"type:varchar(64);comment:上次轮询接收人" json:"-"`
+}
+
+// CrmAllocationLog records the result of a new-customer allocation attempt.
+type CrmAllocationLog struct {
+	Model
+	Timestamp
+	TenantID     string `gorm:"type:bigint" json:"tenant_id"`
+	CustomerID   string `gorm:"type:bigint" json:"customer_id"`
+	CustomerName string `gorm:"type:varchar(128)" json:"customer_name"`
+	RuleID       string `gorm:"type:bigint" json:"rule_id"`
+	RuleName     string `gorm:"type:varchar(128)" json:"rule_name"`
+	Source       string `gorm:"type:varchar(32)" json:"source"`
+	TargetUserID string `gorm:"type:varchar(64)" json:"target_user_id"`
+	Outcome      string `gorm:"type:varchar(32)" json:"outcome"`
+	Reason       string `gorm:"type:varchar(512)" json:"reason"`
 }
 
 // CrmLeadSource 线索来源选项（租户级，管理员在设置页维护）。

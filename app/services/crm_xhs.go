@@ -81,7 +81,7 @@ func (s CrmCustomerService) syncXhsEvent(ctx context.Context, appID, extID, nick
 			return err
 		}
 		var count int64
-		if err := tx.Model(&models.CrmChannelInteraction{}).Where("tenant_id = ? AND event_key = ?", tid, eventKey).Unscoped().Count(&count).Error; err != nil {
+		if err := tx.Model(&models.CrmChannelInteraction{}).Where("tenant_id = ? AND event_key = ? AND event_key <> ''", tid, eventKey).Unscoped().Count(&count).Error; err != nil {
 			return err
 		}
 		if count > 0 {
@@ -113,6 +113,9 @@ func (s CrmCustomerService) syncXhsEvent(ctx context.Context, appID, extID, nick
 				now := time.Now()
 				c = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: tid, Name: nickname, Mobile: mobile, Source: constants.ChannelXiaohongshu, ExtCorpID: appID, ExtCustomerID: extID, AccountType: "小红书", PoolStatus: 1, PoolAt: &now}
 				if err := createCRM(tx, &c); err != nil {
+					return err
+				}
+				if err := allocateNewCustomer(ctx, tx, &c); err != nil {
 					return err
 				}
 			}

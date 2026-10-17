@@ -159,6 +159,9 @@ func (s CrmLandingPageService) SubmitForm(slug string, formData map[string]strin
 			if err := createCRM(tx, &customer); err != nil {
 				return err
 			}
+			if err := allocateNewCustomer(ctx, tx, &customer); err != nil {
+				return err
+			}
 		}
 		if page.ActivityID != "" {
 			var activity models.CrmActivity

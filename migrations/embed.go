@@ -65,3 +65,67 @@ func ChannelTaskIndexStatements() ([]string, error) {
 	}
 	return statements, nil
 }
+
+// BoundedReadIndexStatements shares the pure DDL used for history and employee cursors.
+func BoundedReadIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0018_bounded_crm_reads.sql")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
+// PoolRecycleIndexStatements shares index-only DDL with AutoMigrate.
+func PoolRecycleIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0019_pool_recycle_indexes.sql")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
+// AllocationIndexStatements shares pure index DDL with fresh installations.
+func AllocationIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0020_acquisition_allocation.sql")
+	if err != nil {
+		return nil, err
+	}
+	_, ddl, ok := strings.Cut(string(content), "-- Allocation indexes.\n")
+	if !ok {
+		return nil, fmt.Errorf("allocation index marker missing")
+	}
+	var result []string
+	for _, statement := range strings.Split(ddl, ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
+// CustomerBusinessIndexStatements shares index definitions with AutoMigrate.
+func CustomerBusinessIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0021_customer_business_reads.sql")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}

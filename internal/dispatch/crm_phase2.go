@@ -6,7 +6,6 @@ import (
 
 	"core/app/services"
 	"core/common/app"
-	"core/common/identity"
 )
 
 // ---------- Phase 2 渠道对比看板 ----------
@@ -129,5 +128,20 @@ func crmChannelTaskLogs(ctx context.Context, _, _ string, params json.RawMessage
 	return Result(rows, total), nil
 }
 
-// _ 确保 identity 包被引用（UserID 在其他 handler 中使用）
-var _ = identity.UserID
+func crmChannelTaskAssignees(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req struct {
+		ID      string `json:"id"`
+		Keyword string `json:"keyword"`
+	}
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	rows, err := services.NewCrmChannelTask().Assignees(ctx, req.ID, req.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return Result(rows, int64(len(rows))), nil
+}

@@ -236,6 +236,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmAttendance{},
 		&CrmLeave{},
 		&CrmAutoAllocation{},
+		&CrmAllocationLog{},
 		&CrmSeasType{},
 		&CrmCustomerSetting{},
 		&CrmLeadSource{},
@@ -304,6 +305,26 @@ func AutoMigrate(db *gorm.DB) error {
 		return err
 	}
 	indexes = append(indexes, channelIndexes...)
+	readIndexes, err := migrations.BoundedReadIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, readIndexes...)
+	poolIndexes, err := migrations.PoolRecycleIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, poolIndexes...)
+	allocationIndexes, err := migrations.AllocationIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, allocationIndexes...)
+	businessIndexes, err := migrations.CustomerBusinessIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, businessIndexes...)
 	for _, statement := range indexes {
 		if err := db.Exec(statement).Error; err != nil {
 			return fmt.Errorf("create model index: %w", err)
