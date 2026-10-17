@@ -17,6 +17,7 @@ type CrmChannelInteraction struct {
 	Content    string     `gorm:"type:text;comment:互动内容" json:"content"`
 	HappenedAt *time.Time `gorm:"comment:互动发生时间" json:"happened_at"`
 	ExtRef     string     `gorm:"type:varchar(255);comment:渠道侧引用(笔记ID/会话ID等)" json:"ext_ref"`
+	EventKey   string     `gorm:"type:varchar(64);not null;default:'';comment:渠道事件去重摘要" json:"-"`
 }
 
 // CrmChannelTag 渠道标签目录（参考 SCRM 标签中心，按渠道组织预设标签）。
@@ -79,14 +80,35 @@ type CrmWecomEventLog struct {
 type CrmChannelTask struct {
 	Model
 	Timestamp
-	TenantID     string `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	CustomerID   string `gorm:"type:bigint;index;comment:客户ID" json:"customer_id"`
-	FromChannel  string `gorm:"type:varchar(32);comment:来源渠道" json:"from_channel"`
-	ToChannel    string `gorm:"type:varchar(32);comment:目标渠道" json:"to_channel"`
-	Action       string `gorm:"type:varchar(32);comment:动作类型 add_wecom/call_back" json:"action"`
-	Status       string `gorm:"type:varchar(16);index;default:pending;comment:pending/done/skipped" json:"status"`
-	AssignUserID string `gorm:"type:bigint;comment:分配给哪个销售" json:"assign_user_id"`
-	Remark       string `gorm:"type:varchar(512);comment:备注" json:"remark"`
+	TenantID     string     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	CustomerID   string     `gorm:"type:bigint;index;comment:客户ID" json:"customer_id"`
+	FromChannel  string     `gorm:"type:varchar(32);comment:来源渠道" json:"from_channel"`
+	ToChannel    string     `gorm:"type:varchar(32);comment:目标渠道" json:"to_channel"`
+	Action       string     `gorm:"type:varchar(32);comment:动作类型 add_wecom/call_back" json:"action"`
+	Status       string     `gorm:"type:varchar(16);index;default:pending;comment:pending/timeout/done/skipped" json:"status"`
+	AssignUserID string     `gorm:"type:bigint;comment:分配给哪个销售" json:"assign_user_id"`
+	Remark       string     `gorm:"type:varchar(512);comment:备注" json:"remark"`
+	DueAt        *time.Time `gorm:"comment:处理截止时间" json:"due_at"`
+	HandledAt    *time.Time `gorm:"comment:最后处理时间" json:"handled_at"`
+	HandledBy    string     `gorm:"type:bigint;comment:最后处理人" json:"handled_by"`
+	Resolution   string     `gorm:"type:varchar(512);comment:处理结果或跳过原因" json:"resolution"`
+	Version      int64      `gorm:"not null;default:1;comment:并发版本" json:"version"`
+	DedupKey     string     `gorm:"type:varchar(160);not null;default:'';comment:来源任务去重标识" json:"-"`
+}
+
+// CrmChannelTaskLog records assignment and state transitions without foreign keys.
+type CrmChannelTaskLog struct {
+	Model
+	Timestamp
+	TenantID   string `gorm:"type:bigint;not null" json:"tenant_id"`
+	TaskID     string `gorm:"type:bigint;not null" json:"task_id"`
+	ActorID    string `gorm:"type:bigint" json:"actor_id"`
+	Action     string `gorm:"type:varchar(32);not null" json:"action"`
+	FromStatus string `gorm:"type:varchar(16)" json:"from_status"`
+	ToStatus   string `gorm:"type:varchar(16)" json:"to_status"`
+	FromUserID string `gorm:"type:bigint" json:"from_user_id"`
+	ToUserID   string `gorm:"type:bigint" json:"to_user_id"`
+	Note       string `gorm:"type:varchar(512)" json:"note"`
 }
 
 // ---- C4 智能名片 ----

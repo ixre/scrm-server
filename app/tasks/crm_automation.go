@@ -229,12 +229,11 @@ func (CrmAutomation) CheckUnfollowedLoss() {
 
 // ScanChannelTasks 扫描渠道引流任务，标记超时未处理的任务。
 func (CrmAutomation) ScanChannelTasks() {
-	var tasks []models.CrmChannelTask
-	models.DB.Where("status = ? AND created_at < NOW() - INTERVAL '48 hours'", "pending").Find(&tasks)
-	for _, t := range tasks {
-		models.DB.Model(&t).Update("status", "timeout")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := services.NewCrmChannelTask().Expire(ctx); err != nil {
+		log.Sugar.Errorw("channel task scan failed", "err", err)
 	}
-	log.Sugar.Infow("channel tasks scanned", "timeout_count", len(tasks))
 }
 
 // ExpireGroupBuyRecords 扫描超时未成团的拼团记录，标记为失败。

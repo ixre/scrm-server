@@ -152,6 +152,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&CrmTransferLog{},
 		// Phase 2 小红书渠道接入
 		&CrmChannelTask{},
+		&CrmChannelTaskLog{},
 		// Phase 3 营销活动落地
 		&CrmCoupon{},
 		&CrmCouponRecord{},
@@ -298,6 +299,11 @@ func AutoMigrate(db *gorm.DB) error {
 		return err
 	}
 	indexes = append(indexes, reminderIndexes...)
+	channelIndexes, err := migrations.ChannelTaskIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, channelIndexes...)
 	for _, statement := range indexes {
 		if err := db.Exec(statement).Error; err != nil {
 			return fmt.Errorf("create model index: %w", err)

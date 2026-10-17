@@ -213,6 +213,9 @@ func init() {
 	Reg.Register("crm_channel_task", "MarkDone", crmChannelTaskMarkDone)
 	Reg.Register("crm_channel_task", "MarkSkipped", crmChannelTaskMarkSkipped)
 	Reg.Register("crm_channel_task", "Assign", crmChannelTaskAssign)
+	Reg.Register("crm_channel_task", "Claim", crmChannelTaskClaim)
+	Reg.Register("crm_channel_task", "Reopen", crmChannelTaskReopen)
+	Reg.Register("crm_channel_task", "Logs", crmChannelTaskLogs)
 
 	// ---- Phase 3 营销活动落地 ----
 	// 活动效果漏斗

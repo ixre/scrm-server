@@ -46,3 +46,22 @@ func ReminderIndexStatements() ([]string, error) {
 	}
 	return statements, nil
 }
+
+// ChannelTaskIndexStatements shares pure index DDL with fresh installations.
+func ChannelTaskIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0017_channel_task_workflow.sql")
+	if err != nil {
+		return nil, err
+	}
+	_, ddl, ok := strings.Cut(string(content), "-- Channel task indexes.\n")
+	if !ok {
+		return nil, fmt.Errorf("channel task index marker missing")
+	}
+	var statements []string
+	for _, statement := range strings.Split(ddl, ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			statements = append(statements, statement)
+		}
+	}
+	return statements, nil
+}
