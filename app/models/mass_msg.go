@@ -25,6 +25,7 @@ func (o MassMsg) Update(msg MassMsg) error {
 // 消息内容不可修改
 type MassMsg struct {
 	ExtCorpModel
+	LegacyTenant
 	// 消息类型
 	SendType constants.SendMassMsgType `gorm:"type:smallint;comment:1-立即发送,2-定时发送" json:"send_type" `
 	// 员工ID

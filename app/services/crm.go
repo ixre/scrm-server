@@ -859,27 +859,16 @@ func seedChannelConfig(tenantID string) {
 	if cfg.CallbackAesKey, cerr = util.AESEncode(ww.CallbackAesKey); cerr != nil {
 		return
 	}
-	if err := models.DB.Create(&cfg).Error; err != nil {
+	if err := models.DB.Transaction(func(tx *gorm.DB) error {
+		if err := models.EnsureWecomTenantLink(tx, tenantID, cfg.CorpID); err != nil {
+			return err
+		}
+		return tx.Create(&cfg).Error
+	}); err != nil {
 		log.Sugar.Errorw("seed channel config failed", "err", err)
 		return
 	}
 	registerWecomClient(cfg)
-	// 租户级 wecom 链路（供 ChannelSummary 读 corp_id 统计企微资源）
-	var link models.ChannelLink
-	if err := models.DB.Scopes(models.TenantScope(tenantID)).Where("channel = ? AND entity_type = ?", constants.ChannelWecom, "tenant").
-		First(&link).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			models.DB.Create(&models.ChannelLink{
-				Model:      models.Model{ID: id_generator.StringID()},
-				TenantID:   tenantID,
-				Channel:    constants.ChannelWecom,
-				EntityType: "tenant",
-				EntityID:   tenantID,
-				ExtID:      ww.ExtCorpID,
-				ExtCorpID:  ww.ExtCorpID,
-			})
-		}
-	}
 }
 
 // isTodo 判断配置值是否为 dev 占位（空或含 "todo"）。
@@ -3968,7 +3957,14 @@ func (s CrmChannelConfigService) Create(ctx context.Context, req ChannelConfigRe
 	if err := encryptChannelSecrets(&cfg, req); err != nil {
 		return toChannelConfigVO(cfg), err
 	}
-	if err := createCRM(models.DB, &cfg); err != nil {
+	if err := models.DB.Transaction(func(tx *gorm.DB) error {
+		if cfg.Channel == constants.ChannelWecom {
+			if err := models.EnsureWecomTenantLink(tx, tenantID, cfg.CorpID); err != nil {
+				return err
+			}
+		}
+		return createCRM(tx, &cfg)
+	}); err != nil {
 		log.Sugar.Errorw("crm channel config create failed", "err", err)
 		return toChannelConfigVO(cfg), err
 	}
@@ -4000,6 +3996,9 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 	if err := models.MustFor(ctx).Where("id = ?", id).First(&cfg).Error; err != nil {
 		return toChannelConfigVO(cfg), errors.New("渠道配置不存在")
 	}
+	if cfg.Channel == constants.ChannelWecom && ((req.CorpID != "" && req.CorpID != cfg.CorpID) || (req.Channel != "" && req.Channel != cfg.Channel)) {
+		return toChannelConfigVO(cfg), errors.New("企微配置的企业和渠道不可改绑，请新增配置并停用原配置")
+	}
 	if req.CorpID != "" && req.CorpID != cfg.CorpID {
 		var cnt int64
 		if err := models.DB.Model(&models.CrmChannelConfig{}).
@@ -4028,6 +4027,9 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 	}
 	if req.MainAgentID != 0 {
 		cfg.MainAgentID = req.MainAgentID
+	}
+	if err := validateChannelConfig(&cfg); err != nil {
+		return toChannelConfigVO(cfg), err
 	}
 	// secrets：空串不改；否则重新加密覆盖
 	var err error
@@ -4078,16 +4080,23 @@ func (s CrmChannelConfigService) Update(ctx context.Context, id string, req Chan
 	case constants.ChannelDouyin:
 		cfg.DouyinAppID = cfg.CorpID
 	}
-	if err := models.DB.Model(&models.CrmChannelConfig{}).Where("id = ?", id).Updates(map[string]any{
-		"channel": cfg.Channel, "corp_id": cfg.CorpID, "name": cfg.Name,
-		"contact_secret": cfg.ContactSecret, "customer_secret": cfg.CustomerSecret,
-		"main_agent_id": cfg.MainAgentID, "main_agent_secret": cfg.MainAgentSecret,
-		"callback_token": cfg.CallbackToken, "callback_aes_key": cfg.CallbackAesKey,
-		"callback_url": cfg.CallbackURL, "enabled": cfg.Enabled, "remark": cfg.Remark,
-		"xhs_app_secret": cfg.XhsAppSecret,
-		"gzh_app_id":     cfg.GzhAppID, "gzh_app_secret": cfg.GzhAppSecret,
-		"douyin_app_id": cfg.DouyinAppID, "douyin_app_secret": cfg.DouyinAppSecret,
-	}).Error; err != nil {
+	if err := models.DB.Transaction(func(tx *gorm.DB) error {
+		if cfg.Channel == constants.ChannelWecom {
+			if err := models.EnsureWecomTenantLink(tx, cfg.TenantID, cfg.CorpID); err != nil {
+				return err
+			}
+		}
+		return tx.Model(&models.CrmChannelConfig{}).Where("id = ? AND tenant_id = ?", id, cfg.TenantID).Updates(map[string]any{
+			"channel": cfg.Channel, "corp_id": cfg.CorpID, "name": cfg.Name,
+			"contact_secret": cfg.ContactSecret, "customer_secret": cfg.CustomerSecret,
+			"main_agent_id": cfg.MainAgentID, "main_agent_secret": cfg.MainAgentSecret,
+			"callback_token": cfg.CallbackToken, "callback_aes_key": cfg.CallbackAesKey,
+			"callback_url": cfg.CallbackURL, "enabled": cfg.Enabled, "remark": cfg.Remark,
+			"xhs_app_secret": cfg.XhsAppSecret,
+			"gzh_app_id":     cfg.GzhAppID, "gzh_app_secret": cfg.GzhAppSecret,
+			"douyin_app_id": cfg.DouyinAppID, "douyin_app_secret": cfg.DouyinAppSecret,
+		}).Error
+	}); err != nil {
 		return toChannelConfigVO(cfg), err
 	}
 	if cfg.Channel == constants.ChannelWecom {
@@ -4207,6 +4216,7 @@ type WecomCallbackCred struct {
 
 // validateChannelConfig 基础校验（纯函数，可单测）。
 func validateChannelConfig(cfg *models.CrmChannelConfig) error {
+	cfg.CorpID = strings.TrimSpace(cfg.CorpID)
 	if cfg.CorpID == "" {
 		return errors.New("corp_id 不能为空")
 	}

@@ -1,18 +1,20 @@
 package models
 
 import (
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
 	"core/app/requests"
 	"core/common/app"
 	"core/conf"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"strings"
 	"time"
 )
 
 type GroupChat struct {
 	ExtCorpModel
+	LegacyTenant
 	ExtChatID          string                     `gorm:"uniqueIndex;type:char(64);comment:群聊id" json:"ext_chat_id"`
 	Name               string                     `gorm:"type:varchar(255);index;comment:群名字" json:"name"`
 	Owner              string                     `gorm:"type:char(64);index;comment:群主ExtID" json:"owner"`
@@ -48,20 +50,35 @@ func (g GroupChat) TableName() string {
 }
 
 func (g GroupChat) Upsert(chat GroupChat) error {
-	err := DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_chat_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"name", "owner", "create_time", "notice", "admin_list", "total"})},
-	).Create(&chat).Error
-	if err != nil {
-		return err
-	}
-	return GroupChatMember{}.Upsert(chat.MemberList)
+	return DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "ext_chat_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"name", "owner", "create_time", "notice", "admin_list", "total"}),
+			Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "group_chat.ext_corp_id = excluded.ext_corp_id"}}},
+		}).Omit(clause.Associations).Create(&chat)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errors.New("群聊外部 ID 已属于其他企业")
+		}
+		for i := range chat.MemberList {
+			member := &chat.MemberList[i]
+			if (member.ExtCorpID != "" && strings.TrimSpace(member.ExtCorpID) != strings.TrimSpace(chat.ExtCorpID)) || (member.ExtChatID != "" && strings.TrimSpace(member.ExtChatID) != strings.TrimSpace(chat.ExtChatID)) {
+				return errors.New("群成员与所属企业或群聊不匹配")
+			}
+			member.ExtCorpID, member.ExtChatID = chat.ExtCorpID, chat.ExtChatID
+		}
+		return upsertGroupChatMembers(tx, chat.MemberList)
+	})
 }
 
 func (g GroupChat) Query(req requests.QueryGroupChatReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) (gc []GroupChat, total int64, err error) {
 	gc = make([]GroupChat, 0)
 
-	db := DB.Table("group_chat").Joins("left join staff on staff.ext_id = group_chat.owner")
+	db := DB.Table("group_chat").
+		Where("group_chat.ext_corp_id = ? AND group_chat.deleted_at IS NULL", extCorpID).
+		Joins("left join staff on staff.ext_id = group_chat.owner AND staff.ext_corp_id = group_chat.ext_corp_id AND staff.deleted_at IS NULL")
 
 	if len(req.Owners) != 0 {
 		db = db.Where("owner in (?)", req.Owners)

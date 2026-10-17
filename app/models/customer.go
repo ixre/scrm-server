@@ -1,11 +1,11 @@
 package models
 
 import (
+	"core/app/requests"
+	app "core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"core/app/requests"
-	app "core/common/app"
 	"time"
 )
 
@@ -28,6 +28,7 @@ type CustomerExportItem struct {
 
 type Customer struct {
 	ExtCorpModel
+	LegacyTenant
 	// 微信定义的客户ID
 	ExtID string `gorm:"type:char(64);uniqueIndex:idx_ext_customer_id;comment:微信定义的userID" json:"ext_customer_id"`
 	// 微信用户对应微信昵称；企业微信用户，则为联系人或管理员设置的昵称、认证的实名和账号名称
@@ -65,15 +66,23 @@ func (o *Customer) BeforeCreate(tx *gorm.DB) (err error) {
 }
 
 func (o Customer) BatchUpsert(customers []Customer) (err error) {
-	err = DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "ext_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"position", "name", "corp_name", "avatar", "type", "gender", "unionid", "external_profile"}),
-	}).Omit("Staffs").CreateInBatches(&customers, 100).Error
-	if err != nil {
-		err = errors.WithStack(err)
-		return
+	if len(customers) == 0 {
+		return nil
 	}
-	return
+	return DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "ext_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"position", "name", "corp_name", "avatar", "type", "gender", "unionid", "external_profile"}),
+			Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "customer.ext_corp_id = excluded.ext_corp_id"}}},
+		}).Omit("Staffs").CreateInBatches(&customers, 100)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != int64(len(customers)) {
+			return errors.New("客户外部 ID 已属于其他企业")
+		}
+		return nil
+	})
 }
 
 func (o Customer) Upsert(customer Customer) error {
@@ -87,10 +96,18 @@ func (o Customer) Upsert(customer Customer) error {
 		"unionid":          customer.Unionid,
 		"external_profile": customer.ExternalProfile,
 	}
-	return DB.Clauses(clause.OnConflict{
+	result := DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "ext_id"}},
 		DoUpdates: clause.Assignments(updateFields),
-	}).Omit("Staffs").Create(&customer).Error
+		Where:     clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "customer.ext_corp_id = excluded.ext_corp_id"}}},
+	}).Omit("Staffs").Create(&customer)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("客户外部 ID 已属于其他企业")
+	}
+	return nil
 }
 
 func (o Customer) Get(ID string, extCorpID string, withStaffRelation bool) (*Customer, error) {

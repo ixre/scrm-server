@@ -3,11 +3,10 @@
 -- 关联表查询通过 JOIN 实体表带 tenant_id 过滤。
 --
 -- 列类型：bigint（与 crm_* 表、tenant.ID 保持一致；ID 在 GORM 层用 string 存储）。
--- 不加 NOT NULL：存量数据需 0005 回填，确认 100% 回填后再在 0006 收口 NOT NULL。
+-- 不加 NOT NULL：0005 仅为已有映射回填，旧渠道写入允许尚未映射到本地租户。
 --
 -- 索引：单列 B-tree 索引，支撑 WHERE tenant_id = ? 高频查询。
--- 唯一性约束重建（idx_ext_customer_id 等全表唯一 → (tenant_id, ext_id) 复合唯一）放到 0006 收口阶段，
--- 因重建唯一索引期间需短锁表，且需先解决存量跨租户重复数据。
+-- 0006/0014 保留与旧模型 ON CONFLICT 一致的业务唯一键，不将此可空映射作为业务键。
 
 ALTER TABLE customer         ADD COLUMN IF NOT EXISTS tenant_id bigint;
 ALTER TABLE staff            ADD COLUMN IF NOT EXISTS tenant_id bigint;

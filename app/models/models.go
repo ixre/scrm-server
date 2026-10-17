@@ -27,6 +27,12 @@ type Model struct {
 	ID string `gorm:"primaryKey;type:bigint;comment:'ID'" json:"id" validate:"int64"`
 }
 
+// LegacyTenant is populated by the database from the enterprise mapping.
+// Versioned migrations own the column and its NOT NULL constraint.
+type LegacyTenant struct {
+	TenantID string `json:"tenant_id" gorm:"->;type:bigint;-:migration"`
+}
+
 type ExtCorpModel struct {
 	// ID
 	ID string `json:"id" gorm:"primaryKey;type:bigint;comment:'ID'" validate:"int64"`

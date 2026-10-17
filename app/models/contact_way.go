@@ -23,6 +23,7 @@ import (
 // ContactWay 渠道码
 type ContactWay struct {
 	ExtCorpModel
+	LegacyTenant
 	Name string `gorm:"type:varchar(255);index;comment:'渠道码名称'" json:"name"`
 	// ConfigID 渠道码配置ID
 	ConfigID string `json:"config_id" gorm:"index;comment:渠道码配置ID" validate:"alpha"`

@@ -1,5 +1,5 @@
 -- Run from psql with -X -v ON_ERROR_STOP=1 -f scripts/migrate_model_refactor.sql.
--- Applies only the model refactor, leaving the incompatible legacy 0006 pending.
+-- Applies only 0011-0013. Use cmd/migrate -schema-only to apply all pending versions.
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL lock_timeout = '5s';
