@@ -6,6 +6,28 @@ import (
 	"encoding/json"
 )
 
+func crmCustomerOptions(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req services.ObjectOptionsRequest
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmCustomer().Options(ctx, req)
+}
+
+func crmOrderOptions(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req services.ObjectOptionsRequest
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmOrder().Options(ctx, req)
+}
+
 func crmLeadSetSchedule(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err

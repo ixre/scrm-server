@@ -12,6 +12,20 @@ import (
 //go:embed *.sql
 var Files embed.FS
 
+func BusinessOptionIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0025_business_object_options.sql")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
 func LeadFollowupIndexStatements() ([]string, error) {
 	content, err := Files.ReadFile("0024_lead_followup_workflow.sql")
 	if err != nil {

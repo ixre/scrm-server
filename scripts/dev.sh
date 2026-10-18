@@ -13,9 +13,9 @@ GATEWAY_BIN="$ROOT/.dev/gateway"
 mkdir -p "$ROOT/.dev"
 
 start() {
-  local gateway_secret="${GATEWAY_JWT_SECRET:-}"
-  if [ "${#gateway_secret}" -lt 32 ]; then
-    echo "请先设置至少 32 字节的 GATEWAY_JWT_SECRET" >&2
+  local jwt_secret="${JWT_SECRET:-}"
+  if [ "${#jwt_secret}" -lt 32 ]; then
+    echo "请先设置至少 32 字节的 JWT_SECRET" >&2
     return 1
   fi
   stop 2>/dev/null || true

@@ -92,6 +92,7 @@ func init() {
 	Reg.Register("crm_customer", "Get", crmCustomerGet)
 	Reg.Register("crm_customer", "GetDetail", crmCustomerGetDetail)
 	Reg.Register("crm_customer", "History", crmCustomerHistory)
+	Reg.Register("crm_customer", "Options", crmCustomerOptions)
 	Reg.Register("crm_customer", "BusinessSummary", crmCustomerBusinessSummary)
 	Reg.Register("crm_customer", "BusinessRecords", crmCustomerBusinessRecords)
 	Reg.Register("crm_customer", "Query", crmCustomerQuery)
@@ -134,6 +135,7 @@ func init() {
 	Reg.Register("crm_order", "Update", crmOrderUpdate)
 	Reg.Register("crm_order", "Delete", crmOrderDelete)
 	Reg.Register("crm_order", "Query", crmOrderQuery)
+	Reg.Register("crm_order", "Options", crmOrderOptions)
 	Reg.Register("crm_order", "Get", crmOrderGet)
 	Reg.Register("crm_order", "Sign", crmOrderSign)
 
