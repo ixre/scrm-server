@@ -182,6 +182,7 @@ func crmReceivablesList(ctx context.Context, _, _ string, params json.RawMessage
 		return nil, err
 	}
 	var req struct {
+		Keyword       string `json:"keyword"`
 		OrderID       string `json:"order_id"`
 		CustomerID    string `json:"customer_id"`
 		PlanID        string `json:"plan_id"`
@@ -192,7 +193,7 @@ func crmReceivablesList(ctx context.Context, _, _ string, params json.RawMessage
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.RecvQueryReq{Page: req.Page, PageSize: req.PageSize, OrderID: req.OrderID, CustomerID: req.CustomerID, PlanID: req.PlanID, Status: req.Status, ApproveStatus: req.ApproveStatus}
+	q := services.RecvQueryReq{Keyword: req.Keyword, Page: req.Page, PageSize: req.PageSize, OrderID: req.OrderID, CustomerID: req.CustomerID, PlanID: req.PlanID, Status: req.Status, ApproveStatus: req.ApproveStatus}
 	items, total, err := services.NewCrmReceivables().Query(ctx, q)
 	if err != nil {
 		return nil, err

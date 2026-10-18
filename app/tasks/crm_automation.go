@@ -289,6 +289,13 @@ func (CrmAutomation) GenerateReminders() {
 			cancel()
 			bounded, cancel = context.WithTimeout(ctx, 30*time.Second)
 			tenantCtx = identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
+			if err := services.NewCrmTodo().GenerateLeadTodos(tenantCtx); err != nil {
+				log.Sugar.Errorw("lead followup reminders failed", "tenant", tenant.ID, "err", err)
+			}
+			cancel()
+
+			bounded, cancel = context.WithTimeout(ctx, 30*time.Second)
+			tenantCtx = identity.WithIdentity(bounded, identity.Identity{TenantID: tenant.ID})
 			if err := services.NewCrmTodo().GenerateExpireTodos(tenantCtx); err != nil {
 				log.Sugar.Errorw("receivables reminders failed", "tenant", tenant.ID, "err", err)
 			}

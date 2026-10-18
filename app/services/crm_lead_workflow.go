@@ -21,6 +21,10 @@ func mutableLead(lead models.CrmLead) error {
 	return nil
 }
 func validateLead(ctx context.Context, tx *gorm.DB, lead *models.CrmLead) error {
+	lead.NextAction = strings.TrimSpace(lead.NextAction)
+	if err := validateLeadAppointment(lead.NextFollowupAt, lead.NextAction); err != nil {
+		return err
+	}
 	lead.Title, lead.Name, lead.Mobile = strings.TrimSpace(lead.Title), strings.TrimSpace(lead.Name), strings.TrimSpace(lead.Mobile)
 	if lead.Title == "" {
 		lead.Title = lead.Name
@@ -85,10 +89,15 @@ func changeLeadStatus(ctx context.Context, userID, id, status, content string, r
 				return nil
 			}
 		}
-		if err := tx.Model(lead).Update("status", status).Error; err != nil {
+		changes := map[string]any{"status": status}
+		if status == "lost" {
+			changes["next_followup_at"], changes["next_action"] = nil, ""
+			lead.NextFollowupAt, lead.NextAction = nil, ""
+		}
+		if err := tx.Model(lead).Updates(changes).Error; err != nil {
 			return err
 		}
-		f := models.CrmFollowup{Model: models.Model{ID: id_generator.StringID()}, TenantID: lead.TenantID, LeadID: lead.ID, CustomerID: lead.CustomerID, UserID: userID, Type: "other", Content: content}
+		f := models.CrmFollowup{Model: models.Model{ID: id_generator.StringID()}, TenantID: lead.TenantID, LeadID: lead.ID, CustomerID: lead.CustomerID, UserID: userID, Type: "other", Content: content, NextFollowupAt: lead.NextFollowupAt, NextAction: lead.NextAction}
 		return createCRM(tx, &f)
 	})
 	return err

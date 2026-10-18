@@ -385,13 +385,14 @@ func crmReceivablesListExpiring(ctx context.Context, _, _ string, params json.Ra
 		return nil, err
 	}
 	var req struct {
-		Days int `json:"days"`
+		Days    int    `json:"days"`
+		OrderID string `json:"order_id"`
 		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.DuePlanQuery{PageReq: services.PageReq{Page: req.Page, PageSize: req.PageSize}, OrderID: req.OrderID}
 	items, total, err := services.NewCrmReceivablesExt().ListExpiring(ctx, req.Days, q)
 	if err != nil {
 		return nil, err
@@ -405,12 +406,13 @@ func crmReceivablesListOverdue(ctx context.Context, _, _ string, params json.Raw
 		return nil, err
 	}
 	var req struct {
+		OrderID string `json:"order_id"`
 		app.Pager
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
-	q := services.PageReq{Page: req.Page, PageSize: req.PageSize}
+	q := services.DuePlanQuery{PageReq: services.PageReq{Page: req.Page, PageSize: req.PageSize}, OrderID: req.OrderID}
 	items, total, err := services.NewCrmReceivablesExt().ListOverdue(ctx, q)
 	if err != nil {
 		return nil, err

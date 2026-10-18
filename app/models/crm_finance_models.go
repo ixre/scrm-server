@@ -24,23 +24,25 @@ type CrmReceivablesPlan struct {
 type CrmReceivables struct {
 	Model
 	Timestamp
-	TenantID      string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
-	OrderID       string                     `gorm:"type:bigint;index;comment:关联合同订单ID" json:"order_id"`
-	CustomerID    string                     `gorm:"type:bigint;index;comment:关联客户ID" json:"customer_id"`
-	PlanID        string                     `gorm:"type:bigint;index;comment:关联回款计划ID(可空)" json:"plan_id"`
-	Amount        float64                    `gorm:"type:decimal(16,2);comment:回款金额" json:"amount"`
-	ReceivedAt    *time.Time                 `gorm:"comment:实际回款日期" json:"received_at"`
-	PayMethod     string                     `gorm:"type:varchar(32);comment:收款方式 cash/transfer/wechat/alipay" json:"pay_method"`
-	PayAccount    string                     `gorm:"type:varchar(128);comment:收款账户" json:"pay_account"`
-	VoucherNo     string                     `gorm:"type:varchar(64);comment:凭证号" json:"voucher_no"`
-	Attachments   constants.StringArrayField `gorm:"type:jsonb;comment:附件URL列表" json:"attachments"`
-	Status        string                     `gorm:"type:varchar(16);index;default:confirmed;comment:pending(待确认)/confirmed(已确认)/void(已作废)" json:"status"`
-	Remark        string                     `gorm:"type:varchar(512);comment:备注" json:"remark"`
-	ReceivablesNo string                     `gorm:"type:varchar(32);index;comment:回款单号" json:"receivables_no"`
-	ApproverID    string                     `gorm:"type:bigint;comment:审批人ID" json:"approver_id"`
-	ApproveStatus string                     `gorm:"type:varchar(16);default:none;comment:none(无需审批)/pending(待审)/approved(通过)/rejected(驳回)" json:"approve_status"`
-	ApproveAt     *time.Time                 `gorm:"comment:审批时间" json:"approve_at"`
-	ApproveRemark string                     `gorm:"type:varchar(512);comment:审批意见" json:"approve_remark"`
+	TenantID        string                     `gorm:"type:bigint;index;comment:归属租户ID" json:"tenant_id"`
+	OrderID         string                     `gorm:"type:bigint;index;comment:关联合同订单ID" json:"order_id"`
+	CustomerID      string                     `gorm:"type:bigint;index;comment:关联客户ID" json:"customer_id"`
+	PlanID          string                     `gorm:"type:bigint;index;comment:关联回款计划ID(可空)" json:"plan_id"`
+	Amount          float64                    `gorm:"type:decimal(16,2);comment:回款金额" json:"amount"`
+	ReceivedAt      *time.Time                 `gorm:"comment:实际回款日期" json:"received_at"`
+	PayMethod       string                     `gorm:"type:varchar(32);comment:收款方式 cash/transfer/wechat/alipay" json:"pay_method"`
+	PayAccount      string                     `gorm:"type:varchar(128);comment:收款账户" json:"pay_account"`
+	VoucherNo       string                     `gorm:"type:varchar(64);comment:凭证号" json:"voucher_no"`
+	Attachments     constants.StringArrayField `gorm:"type:jsonb;comment:附件URL列表" json:"attachments"`
+	Status          string                     `gorm:"type:varchar(16);index;default:confirmed;comment:pending(待确认)/confirmed(已确认)/void(已作废)" json:"status"`
+	Remark          string                     `gorm:"type:varchar(512);comment:备注" json:"remark"`
+	ReceivablesNo   string                     `gorm:"type:varchar(32);index;comment:回款单号" json:"receivables_no"`
+	ClientRequestID string                     `gorm:"type:varchar(64);comment:客户端登记请求标识" json:"client_request_id,omitempty"`
+	RequestDigest   string                     `gorm:"type:varchar(64);comment:首次登记请求摘要" json:"-"`
+	ApproverID      string                     `gorm:"type:bigint;comment:审批人ID" json:"approver_id"`
+	ApproveStatus   string                     `gorm:"type:varchar(16);default:none;comment:none(无需审批)/pending(待审)/approved(通过)/rejected(驳回)" json:"approve_status"`
+	ApproveAt       *time.Time                 `gorm:"comment:审批时间" json:"approve_at"`
+	ApproveRemark   string                     `gorm:"type:varchar(512);comment:审批意见" json:"approve_remark"`
 }
 
 // CrmConsume 客户消费记录。

@@ -143,6 +143,11 @@ func reconcileReminders(ctx context.Context, db *gorm.DB, tenantID, userID strin
   SELECT 1 FROM crm_customer c JOIN "user" u ON u.id = c.owner_user_id AND u.tenant_id = c.tenant_id AND u.status = 1 AND u.deleted_at IS NULL
   WHERE c.tenant_id = crm_todo.tenant_id AND c.id = crm_todo.source_id AND c.owner_user_id = crm_todo.user_id
   AND c.deleted_at IS NULL AND c.pool_status = 0 AND c.is_blacklist = false AND c.reassign_status = 0 AND c.next_followup_at = crm_todo.due_at
+ ))) OR (type = 'lead_followup' AND (event_key = '' OR NOT EXISTS (
+  SELECT 1 FROM crm_lead l JOIN "user" u ON u.id = l.owner_user_id AND u.tenant_id = l.tenant_id AND u.status = 1 AND u.deleted_at IS NULL
+  WHERE l.tenant_id = crm_todo.tenant_id AND l.id = crm_todo.source_id AND l.id = crm_todo.ref_id AND l.owner_user_id = crm_todo.user_id
+  AND l.deleted_at IS NULL AND l.pool_status = 0 AND l.convert_customer_id IS NULL
+  AND (l.status IN ('new','contacted','') OR l.status IS NULL) AND l.next_followup_at = crm_todo.due_at
  ))) OR (type = 'receivables_expire' AND (event_key = '' OR NOT EXISTS (
   SELECT 1 FROM crm_receivables_plan p JOIN crm_order o ON o.id = p.order_id AND o.tenant_id = p.tenant_id
   JOIN "user" u ON u.id = o.user_id AND u.tenant_id = o.tenant_id AND u.status = 1 AND u.deleted_at IS NULL
@@ -247,5 +252,43 @@ func (s CrmTodoService) GenerateExpireTodos(ctx context.Context) error {
 			return err
 		}
 		cursor, lastID = *rows[len(rows)-1].PlanDate, rows[len(rows)-1].ID
+	}
+}
+
+// GenerateLeadTodos covers actionable lead appointments with bounded source scans.
+func (s CrmTodoService) GenerateLeadTodos(ctx context.Context) error {
+	tid := identity.TenantID(ctx)
+	if err := reconcileReminders(ctx, models.DB, tid, ""); err != nil {
+		return err
+	}
+	_, tomorrow := followupDay(time.Now())
+	var cursor time.Time
+	lastID := "0"
+	event := reminderEventSQL("lead_followup", "s.id", "s.owner_user_id", "s.next_followup_at")
+	for {
+		var rows []models.CrmLead
+		q := models.DB.WithContext(ctx).Table("crm_lead s").Select("s.*").Where("s.tenant_id = ? AND s.deleted_at IS NULL AND s.pool_status = 0 AND s.convert_customer_id IS NULL AND (s.status IN ('new','contacted','') OR s.status IS NULL) AND s.next_followup_at < ?", tid, tomorrow).
+			Where(`EXISTS (SELECT 1 FROM "user" u WHERE u.id = s.owner_user_id AND u.tenant_id = s.tenant_id AND u.status = 1 AND u.deleted_at IS NULL)`).Where(missingReminderSQL(event))
+		if !cursor.IsZero() {
+			q = q.Where("(s.next_followup_at,s.id) > (?,?)", cursor, lastID)
+		}
+		if err := q.Order("s.next_followup_at,s.id").Limit(reminderBatchSize).Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		todos := make([]models.CrmTodo, 0, len(rows))
+		for _, lead := range rows {
+			content := lead.NextAction
+			if content == "" {
+				content = "请按预约联系线索并记录跟进结果。"
+			}
+			todos = append(todos, models.CrmTodo{Model: models.Model{ID: id_generator.StringID()}, TenantID: tid, UserID: lead.OwnerUserID, Type: "lead_followup", Title: "跟进线索：" + lead.Title, Content: content, RefType: "lead", RefID: lead.ID, SourceID: lead.ID, DueAt: lead.NextFollowupAt, Status: "pending", EventKey: reminderEventKey("lead_followup", lead.ID, lead.OwnerUserID, *lead.NextFollowupAt)})
+		}
+		if err := insertReminders(models.DB.WithContext(ctx), todos); err != nil {
+			return err
+		}
+		cursor, lastID = *rows[len(rows)-1].NextFollowupAt, rows[len(rows)-1].ID
 	}
 }

@@ -100,36 +100,15 @@ func reconcilePayments(tx *gorm.DB, order *models.CrmOrder, baseline int64) erro
 	if total > due {
 		return errors.New("累计回款不能超过合同应收金额")
 	}
+	if err := validatePlanCollections(tx, *order); err != nil {
+		return err
+	}
 	order.PaidAmount = float64(total) / 100
 	order.PayStatus = paymentStatus(total, due)
 	if err = tx.Model(order).Updates(map[string]any{"paid_amount": order.PaidAmount, "pay_status": order.PayStatus}).Error; err != nil {
 		return err
 	}
-	var plans []models.CrmReceivablesPlan
-	if err = tx.Where("tenant_id = ? AND order_id = ?", order.TenantID, order.ID).Find(&plans).Error; err != nil {
-		return err
-	}
-	for _, plan := range plans {
-		paid, err := receiptSum(confirmedReceipts(tx, order.TenantID, order.ID).Where("plan_id = ?", plan.ID))
-		if err != nil {
-			return err
-		}
-		amount, err := moneyCents(plan.Amount)
-		if err != nil {
-			return err
-		}
-		if paid > amount {
-			return errors.New("本期累计回款不能超过计划金额")
-		}
-		status := planStatus(plan, paid)
-		if order.Status == "cancelled" {
-			status = "cancelled"
-		}
-		if err = tx.Model(&plan).Update("status", status).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+	return reconcilePlanStatuses(tx, *order)
 }
 
 // All receipt and plan writers lock the parent order first, so concurrent amounts cannot overshoot.
@@ -179,26 +158,36 @@ func validateReceipt(tx *gorm.DB, order models.CrmOrder, r *models.CrmReceivable
 	}
 	return nil
 }
-func validatePlan(tx *gorm.DB, order models.CrmOrder, p *models.CrmReceivablesPlan, exclude string) error {
+
+// validatePlanFields is shared by single-plan updates and batch creation.
+func validatePlanFields(order models.CrmOrder, p *models.CrmReceivablesPlan) (int64, error) {
 	if order.Status == "cancelled" {
-		return errors.New("已作废合同不能维护回款计划")
+		return 0, errors.New("已作废合同不能维护回款计划")
 	}
 	if p.CustomerID != "" && p.CustomerID != order.CustomerID {
-		return errors.New("计划客户与合同客户不一致")
+		return 0, errors.New("计划客户与合同客户不一致")
 	}
 	p.CustomerID = order.CustomerID
 	amount, err := moneyCents(p.Amount)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if amount <= 0 {
-		return errors.New("计划金额必须大于零")
+		return 0, errors.New("计划金额必须大于零")
 	}
-	if p.PeriodNo <= 0 {
-		return errors.New("期次必须大于零")
+	if p.PeriodNo <= 0 || p.PeriodNo > math.MaxInt32 {
+		return 0, errors.New("期次必须为有效正整数")
 	}
 	if p.PlanDate == nil {
-		return errors.New("请选择计划回款日期")
+		return 0, errors.New("请选择计划回款日期")
+	}
+	return amount, nil
+}
+
+func validatePlan(tx *gorm.DB, order models.CrmOrder, p *models.CrmReceivablesPlan, exclude string) error {
+	amount, err := validatePlanFields(order, p)
+	if err != nil {
+		return err
 	}
 	var count int64
 	if err = tx.Model(&models.CrmReceivablesPlan{}).Where("tenant_id = ? AND order_id = ? AND period_no = ? AND id <> ?", order.TenantID, order.ID, p.PeriodNo, zeroID(exclude)).Count(&count).Error; err != nil {

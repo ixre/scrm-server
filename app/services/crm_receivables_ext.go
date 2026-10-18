@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"core/app/constants"
 	"core/app/models"
 
 	"gorm.io/gorm"
@@ -26,6 +27,9 @@ func NewCrmReceivablesExt() *CrmReceivablesExtService { return &CrmReceivablesEx
 
 // GeneratePlan 按合同生成回款计划：批量创建 CrmReceivablesPlan，CustomerID 取自合同。
 func (s CrmReceivablesExtService) GeneratePlan(ctx context.Context, orderID string, periods []PlanPeriod) error {
+	if len(periods) > maxPaymentPlanBatch {
+		return errors.New("单次最多创建1000期回款计划，请分批提交")
+	}
 	if len(periods) == 0 {
 		return errors.New("请至少添加一期回款计划")
 	}
@@ -40,62 +44,16 @@ func (s CrmReceivablesExtService) GeneratePlan(ctx context.Context, orderID stri
 	return NewCrmReceivablesPlan().BatchCreate(ctx, plans)
 }
 
-// parsePlanDate 解析 yyyy-MM-dd 为 *time.Time（零时本地）。
+// parsePlanDate uses the CRM business timezone regardless of the host timezone.
 func parsePlanDate(s string) (*time.Time, error) {
 	if s == "" {
 		return nil, errors.New("plan_date 不能为空")
 	}
-	t, err := time.ParseInLocation("2006-01-02", s, time.Local)
+	t, err := time.ParseInLocation("2006-01-02", s, constants.PRCLocation)
 	if err != nil {
 		return nil, err
 	}
 	return &t, nil
-}
-
-// ListExpiring 即将到期的回款计划：PlanDate 在未来 days 天内且 Status 未完成（pending）。
-func (s CrmReceivablesExtService) ListExpiring(ctx context.Context, days int, req PageReq) ([]models.CrmReceivablesPlan, int64, error) {
-
-	if days <= 0 {
-		days = 7
-	}
-	p := req.pager()
-	now := time.Now()
-	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	end := start.AddDate(0, 0, days)
-	db, err := receiptScope(ctx, models.DB)
-	if err != nil {
-		return nil, 0, err
-	}
-	db = db.Where("status = ? AND plan_date >= ? AND plan_date <= ?", "pending", start, end)
-	var total int64
-	if err := db.Model(&models.CrmReceivablesPlan{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var items []models.CrmReceivablesPlan
-	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).
-		Order("plan_date asc, id desc").Find(&items).Error
-	return items, total, err
-}
-
-// ListOverdue 已逾期计划：PlanDate < today 且 Status 未完成（pending/overdue）。
-func (s CrmReceivablesExtService) ListOverdue(ctx context.Context, req PageReq) ([]models.CrmReceivablesPlan, int64, error) {
-
-	p := req.pager()
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	db, err := receiptScope(ctx, models.DB)
-	if err != nil {
-		return nil, 0, err
-	}
-	db = db.Where("status IN ? AND plan_date < ?", []string{"pending", "overdue"}, today)
-	var total int64
-	if err := db.Model(&models.CrmReceivablesPlan{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-	var items []models.CrmReceivablesPlan
-	err = db.Offset(p.GetOffset()).Limit(p.GetLimit()).
-		Order("plan_date asc, id desc").Find(&items).Error
-	return items, total, err
 }
 
 // Approve 回款审批通过：ApproveStatus=approved, ApproverID, ApproveAt=now, Status=confirmed。

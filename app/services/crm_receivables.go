@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"core/app/models"
+	"core/common/app"
 	"core/common/id_generator"
 	"core/common/log"
 
@@ -130,12 +131,11 @@ func (s CrmReceivablesPlanService) Get(ctx context.Context, id string) (*models.
 // Query 分页查询回款计划，支持按 order_id/customer_id/status 筛选。
 func (s CrmReceivablesPlanService) Query(ctx context.Context, req PlanQueryReq) ([]models.CrmReceivablesPlan, int64, error) {
 
-	if req.Page <= 0 {
-		req.Page = 1
-	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
+	pager := (&app.Pager{Page: req.Page, PageSize: req.PageSize}).SetDefault()
+	req.Page, req.PageSize = pager.Page, pager.PageSize
 	db, scopeErr := receiptScope(ctx, models.DB)
 	if scopeErr != nil {
 		return nil, 0, scopeErr
@@ -164,6 +164,9 @@ func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []mode
 	if len(plans) == 0 {
 		return errors.New("请至少添加一期回款计划")
 	}
+	if len(plans) > maxPaymentPlanBatch {
+		return errors.New("单次最多创建1000期回款计划，请分批提交")
+	}
 	orderIDs := make([]string, 0, len(plans))
 	for _, p := range plans {
 		orderIDs = append(orderIDs, p.OrderID)
@@ -181,14 +184,52 @@ func (s CrmReceivablesPlanService) BatchCreate(ctx context.Context, plans []mode
 			}
 			orders[id] = order
 		}
+		groups := map[string][]*models.CrmReceivablesPlan{}
 		for i := range plans {
-			p := &plans[i]
-			p.ID = id_generator.StringID()
-			p.TenantID = identity.TenantID(ctx)
-			if err := validatePlan(tx, orders[p.OrderID], p, ""); err != nil {
+			groups[plans[i].OrderID] = append(groups[plans[i].OrderID], &plans[i])
+		}
+		for _, id := range ids {
+			order, group := orders[id], groups[id]
+			periods := make([]int, 0, len(group))
+			seen := map[int]bool{}
+			var added int64
+			for _, p := range group {
+				amount, err := validatePlanFields(order, p)
+				if err != nil {
+					return err
+				}
+				if seen[p.PeriodNo] {
+					return errors.New("该合同已有相同期次的回款计划")
+				}
+				seen[p.PeriodNo] = true
+				periods = append(periods, p.PeriodNo)
+				added += amount
+				p.ID, p.TenantID, p.OrderID = id_generator.StringID(), order.TenantID, order.ID
+				p.Status = planStatus(*p, 0)
+			}
+			var count int64
+			if err := tx.Model(&models.CrmReceivablesPlan{}).Where("tenant_id = ? AND order_id = ? AND period_no IN ?", order.TenantID, order.ID, periods).Count(&count).Error; err != nil {
 				return err
 			}
-			if err := createCRM(tx, p); err != nil {
+			if count > 0 {
+				return errors.New("该合同已有相同期次的回款计划")
+			}
+			total, err := receiptSum(tx.Model(&models.CrmReceivablesPlan{}).Where("tenant_id = ? AND order_id = ?", order.TenantID, order.ID))
+			if err != nil {
+				return err
+			}
+			due, err := orderDue(order)
+			if err != nil {
+				return err
+			}
+			if total+added > due {
+				return errors.New("计划总金额不能超过合同应收金额")
+			}
+			insert := tx
+			if order.CustomerID == "" {
+				insert = tx.Omit("CustomerID") // Preserve NULL for legacy contracts without a customer.
+			}
+			if err := insert.CreateInBatches(group, 200).Error; err != nil {
 				return err
 			}
 		}
@@ -217,6 +258,7 @@ func (s CrmReceivablesPlanService) MarkOverdue(ctx context.Context) error {
 
 // RecvQueryReq 回款登记查询参数。
 type RecvQueryReq struct {
+	Keyword       string
 	Page          int
 	PageSize      int
 	OrderID       string
@@ -230,11 +272,17 @@ type CrmReceivablesService struct{}
 
 func NewCrmReceivables() *CrmReceivablesService { return &CrmReceivablesService{} }
 
-// Create 创建回款登记。若指定 PlanID，事务内将计划状态置为 received。
+// Create 创建回款登记，并在事务内按有效回款重新核对合同余额和计划状态。
 func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivables) error {
 	if r == nil {
 		return errors.New("回款登记不能为空")
 	}
+	r.OrderID, r.PlanID = strings.TrimSpace(r.OrderID), strings.TrimSpace(r.PlanID)
+	if err := validateReceiptRequestID(r.ClientRequestID); err != nil {
+		return err
+	}
+	suppliedNumber := r.ReceivablesNo
+	r.RequestDigest = ""
 	r.ID = id_generator.StringID()
 	r.TenantID = identity.TenantID(ctx)
 	if r.Status == "" {
@@ -255,10 +303,36 @@ func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivab
 	if r.ReceivablesNo == "" {
 		r.ReceivablesNo = "RC" + r.ID
 	}
+	created := false
 	err := models.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		order, err := lockPaymentOrder(ctx, tx, r.OrderID)
 		if err != nil {
 			return err
+		}
+		if r.CustomerID != "" && r.CustomerID != order.CustomerID {
+			return errors.New("回款客户与合同客户不一致")
+		}
+		if r.ClientRequestID != "" {
+			digest, err := receiptRequestDigest(*r, order.CustomerID, suppliedNumber)
+			if err != nil {
+				return err
+			}
+			var existing models.CrmReceivables
+			err = tx.Unscoped().Where("tenant_id = ? AND order_id = ? AND client_request_id = ?", order.TenantID, order.ID, r.ClientRequestID).First(&existing).Error
+			if err == nil {
+				if existing.RequestDigest != digest {
+					return errors.New("该请求已用于其他登记内容，请先核对原记录")
+				}
+				if existing.DeletedAt.Valid || existing.Status == "void" {
+					return errors.New("原回款已删除或作废，不能通过重试恢复；请核对后新建登记")
+				}
+				*r = existing
+				return nil
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			r.RequestDigest = digest
 		}
 		if err = validateReceipt(tx, order, r); err != nil {
 			return err
@@ -270,9 +344,13 @@ func (s CrmReceivablesService) Create(ctx context.Context, r *models.CrmReceivab
 		if err = createCRM(tx, r); err != nil {
 			return err
 		}
-		return reconcilePayments(tx, &order, baseline)
+		if err := reconcilePayments(tx, &order, baseline); err != nil {
+			return err
+		}
+		created = true
+		return nil
 	})
-	if err == nil {
+	if err == nil && created {
 		paymentEvent(ctx, *r)
 	}
 	return err
@@ -372,16 +450,24 @@ func (s CrmReceivablesService) Get(ctx context.Context, id string) (*models.CrmR
 
 // Query 分页查询回款登记，支持按 order_id/customer_id/plan_id/status 筛选。
 func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]models.CrmReceivables, int64, error) {
-
-	if req.Page <= 0 {
-		req.Page = 1
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	keyword := strings.TrimSpace(req.Keyword)
+	if len(keyword) > 64 {
+		return nil, 0, errors.New("回款单号检索词不能超过64字节")
 	}
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
+	pager := (&app.Pager{Page: req.Page, PageSize: req.PageSize}).SetDefault()
+	req.Page, req.PageSize = pager.Page, pager.PageSize
 	db, scopeErr := receiptScope(ctx, models.DB)
 	if scopeErr != nil {
 		return nil, 0, scopeErr
+	}
+	if keyword != "" {
+		prefix := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(keyword))
+		db = db.Where("lower(receivables_no) LIKE ?", prefix+"%")
 	}
 	if req.OrderID != "" {
 		db = db.Where("order_id = ?", req.OrderID)
@@ -391,6 +477,9 @@ func (s CrmReceivablesService) Query(ctx context.Context, req RecvQueryReq) ([]m
 	}
 	if req.ApproveStatus != "" {
 		db = db.Where("approve_status = ?", req.ApproveStatus)
+		if req.ApproveStatus == "pending" && strings.TrimSpace(req.Status) == "" {
+			db = db.Where("status <> ?", "void")
+		}
 	}
 	if req.PlanID != "" {
 		db = db.Where("plan_id = ?", req.PlanID)

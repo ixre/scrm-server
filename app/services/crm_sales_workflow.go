@@ -44,6 +44,10 @@ func lockSalesRecord[T any](ctx context.Context, tx *gorm.DB, id string, include
 }
 
 func activeSalesCustomer(ctx context.Context, tx *gorm.DB, id string) (models.CrmCustomer, error) {
+	return activeSalesCustomerLock(ctx, tx, id, "SHARE")
+}
+
+func activeSalesCustomerLock(ctx context.Context, tx *gorm.DB, id, strength string) (models.CrmCustomer, error) {
 	var c models.CrmCustomer
 	if id == "" {
 		return c, errors.New("请选择关联客户")
@@ -52,7 +56,7 @@ func activeSalesCustomer(ctx context.Context, tx *gorm.DB, id string) (models.Cr
 	if err != nil {
 		return c, err
 	}
-	if err = db.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", id).First(&c).Error; err != nil {
+	if err = db.Clauses(clause.Locking{Strength: strength}).Where("id = ?", id).First(&c).Error; err != nil {
 		return c, ErrCustomerAccess
 	}
 	if c.PoolStatus == 1 || c.OwnerUserID == "" {

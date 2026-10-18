@@ -12,6 +12,39 @@ import (
 //go:embed *.sql
 var Files embed.FS
 
+func LeadFollowupIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0024_lead_followup_workflow.sql")
+	if err != nil {
+		return nil, err
+	}
+	_, ddl, ok := strings.Cut(string(content), "-- Lead followup indexes.\n")
+	if !ok {
+		return nil, fmt.Errorf("lead followup index marker missing")
+	}
+	var result []string
+	for _, statement := range strings.Split(ddl, ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
+// FinanceReadIndexStatements shares the finance workbench indexes with AutoMigrate.
+func FinanceReadIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0023_finance_workbench_reads.sql")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
 // ModelIndexStatements shares the same index definitions between new databases
 // created by AutoMigrate and installations upgraded with manual migrations.
 func ModelIndexStatements() ([]string, error) {
@@ -123,6 +156,25 @@ func CustomerBusinessIndexStatements() ([]string, error) {
 	}
 	var result []string
 	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
+// ReceiptRequestIndexStatements shares only index DDL with AutoMigrate.
+func ReceiptRequestIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0022_receipt_requests.sql")
+	if err != nil {
+		return nil, err
+	}
+	_, ddl, ok := strings.Cut(string(content), "-- Receipt request indexes.\n")
+	if !ok {
+		return nil, fmt.Errorf("receipt request index marker missing")
+	}
+	var result []string
+	for _, statement := range strings.Split(ddl, ";") {
 		if statement = strings.TrimSpace(statement); statement != "" {
 			result = append(result, statement)
 		}

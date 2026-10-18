@@ -325,6 +325,21 @@ func AutoMigrate(db *gorm.DB) error {
 		return err
 	}
 	indexes = append(indexes, businessIndexes...)
+	receiptIndexes, err := migrations.ReceiptRequestIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, receiptIndexes...)
+	financeIndexes, err := migrations.FinanceReadIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, financeIndexes...)
+	leadIndexes, err := migrations.LeadFollowupIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, leadIndexes...)
 	for _, statement := range indexes {
 		if err := db.Exec(statement).Error; err != nil {
 			return fmt.Errorf("create model index: %w", err)

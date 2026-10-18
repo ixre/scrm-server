@@ -101,6 +101,8 @@ func init() {
 	Reg.Register("crm_lead", "Update", crmLeadUpdate)
 	Reg.Register("crm_lead", "Delete", crmLeadDelete)
 	Reg.Register("crm_lead", "Get", crmLeadGet)
+	Reg.Register("crm_lead", "SetSchedule", crmLeadSetSchedule)
+	Reg.Register("crm_lead", "History", crmLeadHistory)
 	Reg.Register("crm_lead", "Query", crmLeadQuery)
 	Reg.Register("crm_lead", "BatchImport", crmLeadBatchImport)
 	Reg.Register("crm_lead", "Export", crmLeadExport)
@@ -367,6 +369,7 @@ func init() {
 
 	// P1: 回款计划
 	Reg.Register("crm_receivables_plan", "List", crmReceivablesPlanList)
+	Reg.Register("crm_receivables_plan", "Options", crmReceivablesPlanOptions)
 	Reg.Register("crm_receivables_plan", "Create", crmReceivablesPlanCreate)
 	Reg.Register("crm_receivables_plan", "Update", crmReceivablesPlanUpdate)
 	Reg.Register("crm_receivables_plan", "Delete", crmReceivablesPlanDelete)

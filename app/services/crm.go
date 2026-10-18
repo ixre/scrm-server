@@ -1909,6 +1909,7 @@ func (s CrmLeadService) Create(ctx context.Context, userID string, req models.Cr
 	req.ConvertCustomerID, req.ConvertAt, req.ConvertRemark = "", nil, ""
 	if req.PoolStatus == 1 {
 		req.OwnerUserID = ""
+		req.NextFollowupAt, req.NextAction = nil, ""
 		now := time.Now()
 		req.PoolAt = &now
 	} else {
@@ -1983,6 +1984,16 @@ func (s CrmLeadService) Delete(ctx context.Context, ids []string) (int64, error)
 // BatchImport 批量导入线索。rows 为解析后的行列映射。
 // 导入的线索默认 status=new，source=import；无归属人时进入线索池。
 func (s CrmLeadService) BatchImport(ctx context.Context, userID string, rows []map[string]string) (int, int, error) {
+	actor, _, err := customerActor(ctx, models.DB)
+	if err != nil {
+		return 0, 0, err
+	}
+	if actor.ID != userID {
+		return 0, 0, ErrCustomerAccess
+	}
+	if len(rows) > 1000 {
+		return 0, 0, errors.New("单次最多导入1000条线索，请分批提交")
+	}
 	tenantID := identity.TenantID(ctx)
 
 	success, fail := 0, 0
@@ -2413,6 +2424,16 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 				return errors.New("跟进客户与线索客户不一致")
 			}
 			req.CustomerID = l.CustomerID
+			if err = validateLeadAppointment(req.NextFollowupAt, req.NextAction); err != nil {
+				return err
+			}
+			changes := map[string]any{"next_followup_at": req.NextFollowupAt, "next_action": strings.TrimSpace(req.NextAction)}
+			if l.Status == "new" || l.Status == "" {
+				changes["status"] = "contacted"
+			}
+			if err = tx.Model(&l).Updates(changes).Error; err != nil {
+				return err
+			}
 		}
 		if req.ContactID != "" && req.CustomerID == "" {
 			return errors.New("请选择联系人所属客户")
@@ -2442,8 +2463,10 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 				}
 			}
 			// A new follow-up supersedes the previous reminder, including clearing a completed reminder.
-			if err = tx.Model(&customer).Update("next_followup_at", req.NextFollowupAt).Error; err != nil {
-				return err
+			if req.LeadID == "" {
+				if err = tx.Model(&customer).Update("next_followup_at", req.NextFollowupAt).Error; err != nil {
+					return err
+				}
 			}
 		}
 		return createCRM(tx, &req)
@@ -2480,12 +2503,20 @@ func (s CrmFollowupService) Delete(ctx context.Context, ids []string) (int64, er
 			return err
 		}
 		customerIDs := []string{}
+		customerScheduleChanged := map[string]bool{}
+		convertedLeads := map[string]string{}
+		for _, lead := range leads {
+			convertedLeads[lead.ID] = lead.ConvertCustomerID
+		}
 		for _, row := range rows {
 			if !manager && row.UserID != actor.ID {
 				return ErrCustomerAccess
 			}
 			if row.CustomerID != "" {
 				customerIDs = append(customerIDs, row.CustomerID)
+				if row.LeadID == "" || convertedLeads[row.LeadID] == row.CustomerID {
+					customerScheduleChanged[row.CustomerID] = true
+				}
 			}
 		}
 		var customers []models.CrmCustomer
@@ -2519,9 +2550,26 @@ func (s CrmFollowupService) Delete(ctx context.Context, ids []string) (int64, er
 		if res.RowsAffected != int64(len(ids)) {
 			return errors.New("跟进记录已变化，请刷新后重试")
 		}
-		for _, c := range customers {
+		for _, lead := range leads {
+			if lead.PoolStatus == 1 || mutableLead(lead) != nil {
+				continue
+			}
 			var latest models.CrmFollowup
-			err = tx.Where("tenant_id = ? AND customer_id = ?", actor.TenantID, c.ID).Order("created_at desc, id desc").First(&latest).Error
+			err = tx.Where("tenant_id = ? AND lead_id = ?", actor.TenantID, lead.ID).Order("id DESC").First(&latest).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			if err = tx.Model(&lead).Updates(map[string]any{"next_followup_at": latest.NextFollowupAt, "next_action": latest.NextAction}).Error; err != nil {
+				return err
+			}
+		}
+
+		for _, c := range customers {
+			if !customerScheduleChanged[c.ID] {
+				continue
+			}
+			var latest models.CrmFollowup
+			err = tx.Where("tenant_id = ? AND customer_id = ? AND (lead_id IS NULL OR EXISTS (SELECT 1 FROM crm_lead l WHERE l.id = crm_followup.lead_id AND l.tenant_id = crm_followup.tenant_id AND l.convert_customer_id = crm_followup.customer_id))", actor.TenantID, c.ID).Order("created_at desc, id desc").First(&latest).Error
 			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
@@ -2563,7 +2611,10 @@ func (s CrmFollowupService) ListByLead(ctx context.Context, leadID string) ([]mo
 		return nil, err
 	}
 	var rows []models.CrmFollowup
-	err := models.MustFor(ctx).Where("lead_id = ?", leadID).Order("created_at desc, id desc").Find(&rows).Error
+	err := models.MustFor(ctx).Where("lead_id = ?", leadID).Order("id DESC").Limit(1001).Find(&rows).Error
+	if err == nil && len(rows) > 1000 {
+		return nil, errors.New("线索跟进超过1000条，请使用 crm_lead.History 分页查询")
+	}
 	return rows, err
 }
 

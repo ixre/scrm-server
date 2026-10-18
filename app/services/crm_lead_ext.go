@@ -41,7 +41,7 @@ func (s CrmLeadExtService) MoveToPool(ctx context.Context, ids []string) error {
 		if err := mutableLead(*lead); err != nil {
 			return err
 		}
-		return tx.Model(lead).Updates(map[string]any{"pool_status": 1, "pool_at": time.Now(), "owner_user_id": nil}).Error
+		return tx.Model(lead).Updates(map[string]any{"pool_status": 1, "pool_at": time.Now(), "owner_user_id": nil, "next_followup_at": nil, "next_action": ""}).Error
 	})
 	return err
 }
@@ -128,8 +128,14 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 		if err = validateCustomerOwner(ctx, tx, owner); err != nil {
 			return err
 		}
+		mobile := strings.TrimSpace(lead.Mobile)
+		if mobile != "" {
+			if err = lockSalesKey(ctx, tx, "lead-conversion-mobile", mobile); err != nil {
+				return err
+			}
+		}
 		if lead.CustomerID != "" {
-			customer, err = activeSalesCustomer(ctx, tx, lead.CustomerID)
+			customer, err = activeSalesCustomerLock(ctx, tx, lead.CustomerID, "UPDATE")
 			if err != nil {
 				return err
 			}
@@ -137,11 +143,7 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 				return errors.New("关联客户负责人不同，请先完成客户交接")
 			}
 		}
-		mobile := strings.TrimSpace(lead.Mobile)
 		if mobile != "" {
-			if err = lockSalesKey(ctx, tx, "lead-conversion-mobile", mobile); err != nil {
-				return err
-			}
 			var matches []models.CrmCustomer
 			if err = tx.Where("tenant_id = ? AND mobile = ?", lead.TenantID, mobile).Limit(2).Find(&matches).Error; err != nil {
 				return err
@@ -153,7 +155,7 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 				if customer.ID != "" && customer.ID != matches[0].ID {
 					return errors.New("关联客户与手机号匹配客户不同，请核对线索")
 				}
-				customer, err = activeSalesCustomer(ctx, tx, matches[0].ID)
+				customer, err = activeSalesCustomerLock(ctx, tx, matches[0].ID, "UPDATE")
 				if err != nil {
 					return errors.New("该手机号已有客户，请联系负责人或先领取公海客户")
 				}
@@ -174,15 +176,32 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 			if name == "" && mobile == "" {
 				return errors.New("线索需要联系人、公司、标题或手机号才能转客户")
 			}
-			customer = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: lead.TenantID, Name: name, Company: lead.Company, Mobile: mobile, Email: lead.Email, Position: lead.Position, Address: lead.Address, Province: lead.Province, City: lead.City, District: lead.District, Source: lead.Source, OwnerUserID: owner, Level: 1, ClaimedAt: &now}
+			customer = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: lead.TenantID, Name: name, Company: lead.Company, Mobile: mobile, Email: lead.Email, Position: lead.Position, Address: lead.Address, Province: lead.Province, City: lead.City, District: lead.District, Source: lead.Source, OwnerUserID: owner, Level: 1, ClaimedAt: &now, NextFollowupAt: lead.NextFollowupAt}
 			if err = createCRM(tx, &customer); err != nil {
 				return err
 			}
 			created = true
 		}
+		if !created && lead.NextFollowupAt != nil && (customer.NextFollowupAt == nil || lead.NextFollowupAt.Before(*customer.NextFollowupAt)) {
+			if err = tx.Model(&customer).Update("next_followup_at", lead.NextFollowupAt).Error; err != nil {
+				return err
+			}
+			customer.NextFollowupAt = lead.NextFollowupAt
+		}
+
 		claimed = lead.PoolStatus == 1
-		if err = tx.Model(&lead).Updates(map[string]any{"customer_id": customer.ID, "convert_customer_id": customer.ID, "convert_at": now, "status": "qualified", "convert_remark": remark, "pool_status": 0, "pool_at": nil, "owner_user_id": owner}).Error; err != nil {
+		if err = tx.Model(&lead).Updates(map[string]any{"customer_id": customer.ID, "convert_customer_id": customer.ID, "convert_at": now, "status": "qualified", "convert_remark": remark, "pool_status": 0, "pool_at": nil, "owner_user_id": owner, "next_followup_at": nil, "next_action": ""}).Error; err != nil {
 			return err
+		}
+		if lead.NextFollowupAt != nil || lead.NextAction != "" {
+			action := "按客户原预约继续跟进"
+			if lead.NextFollowupAt != nil && customer.NextFollowupAt != nil && lead.NextFollowupAt.Equal(*customer.NextFollowupAt) {
+				action = lead.NextAction
+			}
+			entry := models.CrmFollowup{Model: models.Model{ID: id_generator.StringID()}, TenantID: lead.TenantID, LeadID: lead.ID, CustomerID: customer.ID, UserID: userID, Type: "other", Content: "线索转客户，延续较早预约；线索原下一步：" + lead.NextAction, NextFollowupAt: customer.NextFollowupAt, NextAction: action}
+			if err = createCRM(tx, &entry); err != nil {
+				return err
+			}
 		}
 		// Keep the lead's followup history visible on the new customer's timeline.
 		return tx.Model(&models.CrmFollowup{}).Where("tenant_id = ? AND lead_id = ? AND customer_id IS NULL", lead.TenantID, lead.ID).Update("customer_id", customer.ID).Error

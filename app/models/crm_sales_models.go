@@ -30,6 +30,8 @@ type CrmLead struct {
 	Province          string     `gorm:"type:varchar(32);comment:省" json:"province"`
 	City              string     `gorm:"type:varchar(32);comment:市" json:"city"`
 	District          string     `gorm:"type:varchar(32);comment:区/县" json:"district"`
+	NextFollowupAt    *time.Time `gorm:"comment:线索下次跟进时间" json:"next_followup_at"`
+	NextAction        string     `gorm:"type:varchar(512);comment:线索下一步行动" json:"next_action"`
 }
 
 // CrmPipelineStage 销售阶段定义。
