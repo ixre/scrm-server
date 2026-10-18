@@ -12,6 +12,20 @@ import (
 //go:embed *.sql
 var Files embed.FS
 
+func OpportunityReadIndexStatements() ([]string, error) {
+	content, err := Files.ReadFile("0026_opportunity_bounded_reads.sql")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, statement := range strings.Split(string(content), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" {
+			result = append(result, statement)
+		}
+	}
+	return result, nil
+}
+
 func BusinessOptionIndexStatements() ([]string, error) {
 	content, err := Files.ReadFile("0025_business_object_options.sql")
 	if err != nil {

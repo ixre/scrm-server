@@ -18,11 +18,12 @@ import (
 // Purpose limits new associations. ID resolution still uses read access so a
 // historical selection can be displayed without becoming selectable again.
 type ObjectOptionsRequest struct {
-	Purpose  string   `json:"purpose"`
-	Keyword  string   `json:"keyword"`
-	Cursor   string   `json:"cursor"`
-	PageSize int      `json:"page_size"`
-	IDs      []string `json:"ids"`
+	CustomerID string   `json:"customer_id"`
+	Purpose    string   `json:"purpose"`
+	Keyword    string   `json:"keyword"`
+	Cursor     string   `json:"cursor"`
+	PageSize   int      `json:"page_size"`
+	IDs        []string `json:"ids"`
 }
 type ObjectOption struct {
 	ID         string `json:"id"`
@@ -35,13 +36,17 @@ type ObjectOptionsPage struct {
 	HasMore    bool           `json:"has_more"`
 	NextCursor string         `json:"next_cursor"`
 }
-type objectOptionCursor struct{ Tenant, Actor, Kind, Purpose, Keyword, ID string }
+type objectOptionCursor struct{ Tenant, Actor, Kind, Purpose, Keyword, Customer, ID string }
 
 func (s CrmCustomerService) Options(ctx context.Context, req ObjectOptionsRequest) (ObjectOptionsPage, error) {
 	return objectOptions(ctx, "customer", req)
 }
 func (s CrmOrderService) Options(ctx context.Context, req ObjectOptionsRequest) (ObjectOptionsPage, error) {
 	return objectOptions(ctx, "order", req)
+}
+
+func (s CrmOpportunityService) Options(ctx context.Context, req ObjectOptionsRequest) (ObjectOptionsPage, error) {
+	return objectOptions(ctx, "opportunity", req)
 }
 
 func validOptionID(id string) bool {
@@ -54,8 +59,15 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 	if req.Purpose == "" {
 		req.Purpose = "read"
 	}
-	if req.Purpose != "read" && !(kind == "customer" && req.Purpose == "sales") && !(kind == "order" && req.Purpose == "plan") {
+	if req.Purpose != "read" && !(kind == "customer" && req.Purpose == "sales") && !(kind == "order" && req.Purpose == "plan") && !(kind == "opportunity" && req.Purpose == "quote") {
 		return page, errors.New("选项用途无效")
+	}
+	if kind == "opportunity" {
+		if !validOptionID(req.CustomerID) {
+			return page, errors.New("请先选择有效客户")
+		}
+	} else if req.CustomerID != "" {
+		return page, errors.New("该选项不支持客户范围")
 	}
 	req.Keyword = strings.ToLower(strings.TrimSpace(req.Keyword))
 	if !utf8.ValidString(req.Keyword) || utf8.RuneCountInString(req.Keyword) > 128 || strings.ContainsRune(req.Keyword, 0) {
@@ -81,7 +93,7 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 			return page, errors.New("选项游标无效")
 		}
 		raw, err := base64.RawURLEncoding.DecodeString(req.Cursor)
-		if err != nil || json.Unmarshal(raw, &cursor) != nil || !validOptionID(cursor.ID) || cursor.Kind != kind || cursor.Purpose != req.Purpose || cursor.Keyword != req.Keyword {
+		if err != nil || json.Unmarshal(raw, &cursor) != nil || !validOptionID(cursor.ID) || cursor.Kind != kind || cursor.Purpose != req.Purpose || cursor.Keyword != req.Keyword || cursor.Customer != req.CustomerID {
 			return page, errors.New("选项游标范围不匹配，请重新查询")
 		}
 	}
@@ -95,11 +107,28 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 		if req.Cursor != "" && (cursor.Tenant != actor.TenantID || cursor.Actor != actor.ID) {
 			return errors.New("选项游标范围不匹配，请重新查询")
 		}
+		customerEligible := true
+		if kind == "opportunity" && req.Purpose == "quote" {
+			var customer models.CrmCustomer
+			err := customerAccessForActor(ctx, tx, actor, manager, true).Select("id").Where("id = ? AND pool_status = 0 AND reassign_status = 0 AND owner_user_id IS NOT NULL", req.CustomerID).First(&customer).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			customerEligible = err == nil
+		}
 		q := tx.WithContext(ctx)
 		if kind == "customer" {
 			q = customerAccessForActor(ctx, tx, actor, manager, len(req.IDs) == 0 && req.Purpose == "sales").Model(&models.CrmCustomer{})
 			if len(req.IDs) == 0 && req.Purpose == "sales" {
 				q = q.Where("pool_status = 0 AND reassign_status = 0 AND owner_user_id IS NOT NULL")
+			}
+		} else if kind == "opportunity" {
+			q = q.Model(&models.CrmOpportunity{}).Where("tenant_id = ? AND customer_id = ?", actor.TenantID, req.CustomerID)
+			if !manager {
+				q = q.Where("owner_user_id = ?", actor.ID)
+			}
+			if len(req.IDs) == 0 && !customerEligible {
+				return nil
 			}
 		} else {
 			q = q.Model(&models.CrmOrder{}).Where("tenant_id = ?", actor.TenantID)
@@ -120,6 +149,9 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 				args := []any{prefix, prefix, prefix}
 				if kind == "order" {
 					filter, args = "(lower(title) LIKE ? OR lower(order_no) LIKE ?", []any{prefix, prefix}
+				}
+				if kind == "opportunity" {
+					filter, args = "(lower(title) LIKE ?", []any{prefix}
 				}
 				if validOptionID(req.Keyword) {
 					filter += " OR id = ?"
@@ -152,6 +184,22 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 				disabled := req.Purpose == "sales" && (row.PoolStatus != 0 || row.ReassignStatus != 0 || row.OwnerUserID == "" || (!manager && row.OwnerUserID != actor.ID))
 				page.Items = append(page.Items, ObjectOption{ID: row.ID, Label: label, Disabled: disabled})
 			}
+		} else if kind == "opportunity" {
+			var rows []models.CrmOpportunity
+			if err := q.Select("id,title,status").Find(&rows).Error; err != nil {
+				return err
+			}
+			for _, row := range rows {
+				label := strings.TrimSpace(row.Title)
+				if label == "" {
+					label = row.ID
+				}
+				status := map[string]string{"open": "进行中", "won": "赢单", "lost": "输单"}[row.Status]
+				if status != "" {
+					label += " · " + status
+				}
+				page.Items = append(page.Items, ObjectOption{ID: row.ID, Label: label, Disabled: !customerEligible, CustomerID: req.CustomerID})
+			}
 		} else {
 			var rows []models.CrmOrder
 			if err := q.Select("id,title,order_no,customer_id,status").Find(&rows).Error; err != nil {
@@ -172,7 +220,7 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 		if len(req.IDs) == 0 && len(page.Items) > req.PageSize {
 			page.Items = page.Items[:req.PageSize]
 			page.HasMore = true
-			raw, err := json.Marshal(objectOptionCursor{actor.TenantID, actor.ID, kind, req.Purpose, req.Keyword, page.Items[len(page.Items)-1].ID})
+			raw, err := json.Marshal(objectOptionCursor{Tenant: actor.TenantID, Actor: actor.ID, Kind: kind, Purpose: req.Purpose, Keyword: req.Keyword, Customer: req.CustomerID, ID: page.Items[len(page.Items)-1].ID})
 			if err != nil {
 				return err
 			}

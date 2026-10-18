@@ -121,6 +121,9 @@ func init() {
 	Reg.Register("crm_opportunity", "Delete", crmOpportunityDelete)
 	Reg.Register("crm_opportunity", "Get", crmOpportunityGet)
 	Reg.Register("crm_opportunity", "Query", crmOpportunityQuery)
+	Reg.Register("crm_opportunity", "Options", crmOpportunityOptions)
+	Reg.Register("crm_opportunity", "Board", crmOpportunityBoard)
+	Reg.Register("crm_opportunity", "BoardPage", crmOpportunityBoardPage)
 	Reg.Register("crm_opportunity", "MoveStage", crmOpportunityMoveStage)
 
 	// followup

@@ -373,6 +373,24 @@ func TestOpportunityWorkflowRegression(t *testing.T) {
 	if o.Status != "open" || o.Probability != 50 || o.ExpectedRevenue != 500 {
 		t.Fatal("stage metrics diverged")
 	}
+	terminalEdit := o
+	terminalEdit.StageID = "702"
+	for name, operation := range map[string]func() error{
+		"move":       func() error { _, err := svc.MoveStage(ctx, o.ID, "702"); return err },
+		"change":     func() error { return ext.ChangeStage(ctx, o.ID, "703") },
+		"batch":      func() error { return ext.BatchChangeStage(ctx, []string{o.ID}, "702") },
+		"edit":       func() error { _, err := svc.Update(ctx, o.ID, terminalEdit); return err },
+		"empty win":  func() error { return ext.Win(ctx, o.ID, "", 900) },
+		"empty loss": func() error { return ext.Lose(ctx, o.ID, "") },
+	} {
+		if operation() == nil {
+			t.Errorf("%s closed a deal without a reason", name)
+		}
+	}
+	o, _ = svc.Get(ctx, o.ID)
+	if o.Status != "open" || o.StageID != "701" {
+		t.Fatal("rejected close modified the deal")
+	}
 	if err = ext.Win(ctx, o.ID, "采购签约", 900); err != nil {
 		t.Fatal(err)
 	}

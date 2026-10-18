@@ -6,6 +6,37 @@ import (
 	"encoding/json"
 )
 
+func crmOpportunityOptions(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req services.ObjectOptionsRequest
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmOpportunity().Options(ctx, req)
+}
+func crmOpportunityBoard(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req services.PipelineFilter
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmOpportunity().Board(ctx, req)
+}
+func crmOpportunityBoardPage(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	if _, err := requireIdentity(ctx); err != nil {
+		return nil, err
+	}
+	var req services.PipelinePageRequest
+	if err := Bind(params, &req); err != nil {
+		return nil, err
+	}
+	return services.NewCrmOpportunity().BoardPage(ctx, req)
+}
+
 func crmCustomerOptions(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	if _, err := requireIdentity(ctx); err != nil {
 		return nil, err

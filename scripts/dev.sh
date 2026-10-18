@@ -13,11 +13,21 @@ GATEWAY_BIN="$ROOT/.dev/gateway"
 mkdir -p "$ROOT/.dev"
 
 start() {
-  local jwt_secret="${JWT_SECRET:-}"
-  if [ "${#jwt_secret}" -lt 32 ]; then
-    echo "请先设置至少 32 字节的 JWT_SECRET" >&2
+  # 未显式配置时，在 .dev/jwt_secret 初始化并复用一个随机开发密钥（已被 .gitignore 忽略）。
+  if [ -z "${CRM_JWT_SECRET:-}" ]; then
+    local secret_file="$ROOT/.dev/jwt_secret"
+    if [ ! -f "$secret_file" ]; then
+      openssl rand -hex 32 > "$secret_file"
+      chmod 600 "$secret_file"
+      echo "[dev] 已生成开发密钥: $secret_file"
+    fi
+    CRM_JWT_SECRET="$(cat "$secret_file")"
+  fi
+  if [ "${#CRM_JWT_SECRET}" -lt 32 ]; then
+    echo "请先设置至少 32 字节的 CRM_JWT_SECRET" >&2
     return 1
   fi
+  export CRM_JWT_SECRET
   stop 2>/dev/null || true
 
   echo "[dev] building core…"

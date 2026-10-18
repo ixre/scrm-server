@@ -69,6 +69,9 @@ func saveOpportunityState(tx *gorm.DB, o *models.CrmOpportunity) error {
 	return tx.Model(o).Updates(map[string]any{"stage_id": nullableSalesID(o.StageID), "status": o.Status, "probability": o.Probability, "expected_revenue": o.ExpectedRevenue, "won_at": o.WonAt, "lost_at": o.LostAt, "won_reason": o.WonReason, "lost_reason": o.LostReason, "actual_amount": o.ActualAmount}).Error
 }
 func moveOpportunity(ctx context.Context, tx *gorm.DB, o *models.CrmOpportunity, stage models.CrmPipelineStage) error {
+	if stage.IsWon || stage.IsLost {
+		return errors.New("请使用赢单或输单操作并填写原因")
+	}
 	if o.StageID == stage.ID {
 		return nil
 	}

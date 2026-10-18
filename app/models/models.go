@@ -345,6 +345,11 @@ func AutoMigrate(db *gorm.DB) error {
 		return err
 	}
 	indexes = append(indexes, optionIndexes...)
+	opportunityIndexes, err := migrations.OpportunityReadIndexStatements()
+	if err != nil {
+		return err
+	}
+	indexes = append(indexes, opportunityIndexes...)
 	for _, statement := range indexes {
 		if err := db.Exec(statement).Error; err != nil {
 			return fmt.Errorf("create model index: %w", err)
