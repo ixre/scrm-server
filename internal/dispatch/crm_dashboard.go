@@ -9,44 +9,77 @@ import (
 
 // ---------- 仪表盘 ----------
 
-func crmDashboardBriefing(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	_, err := requireIdentity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return services.NewCrmDashboard().Briefing(ctx)
+// DashboardReq 仪表盘请求参数：year_month 为 "YYYY-MM"，空则默认当月。
+type DashboardReq struct {
+	YearMonth string `json:"year_month"`
 }
 
-func crmDashboardSummary(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
-	_, err := requireIdentity(ctx)
-	if err != nil {
-		return nil, err
+func bindDashboardReq(params json.RawMessage) (string, error) {
+	var req DashboardReq
+	if err := Bind(params, &req); err != nil {
+		return "", err
 	}
-	return services.NewCrmDashboard().Summary(ctx)
+	return req.YearMonth, nil
 }
 
-func crmDashboardTrend(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+func crmDashboardBriefing(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Trend(ctx)
+	ym, err := bindDashboardReq(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmDashboard().Briefing(ctx, ym)
 }
 
-func crmDashboardRanking(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+func crmDashboardSummary(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Ranking(ctx)
+	ym, err := bindDashboardReq(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmDashboard().Summary(ctx, ym)
 }
 
-func crmDashboardAchievement(ctx context.Context, _, _ string, _ json.RawMessage) (any, error) {
+func crmDashboardTrend(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
 	_, err := requireIdentity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return services.NewCrmDashboard().Achievement(ctx)
+	ym, err := bindDashboardReq(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmDashboard().Trend(ctx, ym)
+}
+
+func crmDashboardRanking(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ym, err := bindDashboardReq(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmDashboard().Ranking(ctx, ym)
+}
+
+func crmDashboardAchievement(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
+	_, err := requireIdentity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ym, err := bindDashboardReq(params)
+	if err != nil {
+		return nil, err
+	}
+	return services.NewCrmDashboard().Achievement(ctx, ym)
 }
 
 // ---------- 统计报表 ----------

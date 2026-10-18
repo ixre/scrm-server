@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"fmt"
 	"time"
 
@@ -24,6 +24,18 @@ func monthBounds(now time.Time) (time.Time, time.Time, time.Time, time.Time) {
 	prevStart := start.AddDate(0, -1, 0)
 	prevEnd := start
 	return start, end, prevStart, prevEnd
+}
+
+// resolveYearMonth 解析 "YYYY-MM" 月份参数；为空或非法时返回当前时间。
+func resolveYearMonth(yearMonth string, loc *time.Location) time.Time {
+	if yearMonth == "" {
+		return time.Now()
+	}
+	t, err := time.ParseInLocation("2006-01", yearMonth, loc)
+	if err != nil {
+		return time.Now()
+	}
+	return t
 }
 
 // ratio 环比：(cur-prev)/prev*100。prev<=0 时：cur>0 返回 100，否则 0。
@@ -60,11 +72,10 @@ func sumRange(m any, tenantID, field string, start, end time.Time, extra string)
 }
 
 // Briefing 本月关键指标卡 + 环比。
-func (s CrmDashboardService) Briefing(ctx context.Context) (map[string]any, error) {
+func (s CrmDashboardService) Briefing(ctx context.Context, yearMonth string) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
 
-
-	now := time.Now()
+	now := resolveYearMonth(yearMonth, time.Local)
 	start, end, prevStart, prevEnd := monthBounds(now)
 
 	newCustomers := countRange(&models.CrmCustomer{}, tenantID, start, end)
@@ -107,11 +118,10 @@ func (s CrmDashboardService) Briefing(ctx context.Context) (map[string]any, erro
 }
 
 // Summary 汇总Tab：客户/商机/合同/跟进/回款等汇总计数。
-func (s CrmDashboardService) Summary(ctx context.Context) (map[string]any, error) {
+func (s CrmDashboardService) Summary(ctx context.Context, yearMonth string) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
 
-
-	now := time.Now()
+	now := resolveYearMonth(yearMonth, time.Local)
 	start, end, _, _ := monthBounds(now)
 	monthEnd := end.AddDate(0, 0, -1)
 
@@ -160,11 +170,10 @@ func (s CrmDashboardService) Summary(ctx context.Context) (map[string]any, error
 }
 
 // Trend 近6个月趋势：客户/订单/商机/跟进/回款按月计数。
-func (s CrmDashboardService) Trend(ctx context.Context) (map[string]any, error) {
+func (s CrmDashboardService) Trend(ctx context.Context, yearMonth string) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
 
-
-	now := time.Now()
+	now := resolveYearMonth(yearMonth, time.Local)
 	months := make([]string, 6)
 	labels := make([]time.Time, 6)
 	for i := 0; i < 6; i++ {
@@ -224,11 +233,10 @@ type rankRow struct {
 }
 
 // Ranking 排行榜：合同金额/回款金额/新增客户/跟进次数，取前10。
-func (s CrmDashboardService) Ranking(ctx context.Context) (map[string]any, error) {
+func (s CrmDashboardService) Ranking(ctx context.Context, yearMonth string) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
 
-
-	now := time.Now()
+	now := resolveYearMonth(yearMonth, time.Local)
 	start, end, _, _ := monthBounds(now)
 
 	// 合同金额排行
@@ -269,12 +277,11 @@ func (s CrmDashboardService) Ranking(ctx context.Context) (map[string]any, error
 }
 
 // Achievement 业绩达成：本月各销售目标 vs 实际回款。
-func (s CrmDashboardService) Achievement(ctx context.Context) (map[string]any, error) {
+func (s CrmDashboardService) Achievement(ctx context.Context, yearMonth string) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
 
-
-	now := time.Now()
-	yearMonth := fmt.Sprintf("%04d-%02d", now.Year(), int(now.Month()))
+	now := resolveYearMonth(yearMonth, time.Local)
+	yearMonthKey := fmt.Sprintf("%04d-%02d", now.Year(), int(now.Month()))
 	start, end, _, _ := monthBounds(now)
 
 	type achRow struct {
@@ -288,7 +295,7 @@ func (s CrmDashboardService) Achievement(ctx context.Context) (map[string]any, e
 	models.DB.Table("crm_quota AS q").
 		Select("q.user_id, u.name AS name, q.target_amount, COALESCE(a.actual_amount,0) AS actual_amount").
 		Joins("LEFT JOIN \"user\" u ON u.id = q.user_id").
-		Joins("LEFT JOIN (SELECT o.user_id, COALESCE(SUM(r.amount),0) AS actual_amount FROM crm_receivables r JOIN crm_order o ON o.id = r.order_id WHERE r.tenant_id = ? AND r.status = ? AND r.received_at >= ? AND r.received_at < ? GROUP BY o.user_id) a ON a.user_id = q.user_id", tenantID, "confirmed", start, end).Scopes(models.TenantScope(tenantID)).Where("q.year_month = ?", yearMonth).
+		Joins("LEFT JOIN (SELECT o.user_id, COALESCE(SUM(r.amount),0) AS actual_amount FROM crm_receivables r JOIN crm_order o ON o.id = r.order_id WHERE r.tenant_id = ? AND r.status = ? AND r.received_at >= ? AND r.received_at < ? GROUP BY o.user_id) a ON a.user_id = q.user_id", tenantID, "confirmed", start, end).Scopes(models.TenantScope(tenantID)).Where("q.year_month = ?", yearMonthKey).
 		Scan(&rows)
 
 	out := make([]map[string]any, 0, len(rows))
