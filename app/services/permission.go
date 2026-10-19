@@ -3,7 +3,7 @@ package services
 import (
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
 	"core/common/app"
 )
@@ -20,7 +20,7 @@ func NewPermission(m models.Permission) *Permission {
 	return &Permission{model: m}
 }
 
-func (o *Permission) Query(req entities.QueryPermissionReq, sorter *app.Sorter, pager *app.Pager) (items []models.Permission, total int64, err error) {
+func (o *Permission) Query(req dto.QueryPermissionReq, sorter *app.Sorter, pager *app.Pager) (items []models.Permission, total int64, err error) {
 	param := models.Permission{}
 	err = copier.Copy(&param, req)
 	if err != nil {

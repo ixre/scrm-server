@@ -2,11 +2,11 @@ package services
 
 import (
 	"context"
+	"core/app/dto"
+	"core/app/models"
+	"core/common/id_generator"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
-	"core/app/models"
-	"core/app/requests"
-	"core/common/id_generator"
 )
 
 type Material struct {
@@ -22,7 +22,7 @@ func NewMaterial() *Material {
 	}
 }
 
-func (m Material) Create(ctx context.Context, req requests.UploadMaterialReq, extCorpID string, staffID string) (material models.Material, err error) {
+func (m Material) Create(ctx context.Context, req dto.UploadMaterialReq, extCorpID string, staffID string) (material models.Material, err error) {
 	material = models.Material{
 		ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID, ExtCreatorID: staffID},
 	}
@@ -39,7 +39,7 @@ func (m Material) Create(ctx context.Context, req requests.UploadMaterialReq, ex
 	return
 }
 
-func (m Material) Update(ctx context.Context, id string, req requests.UpdateMaterialReq, extCorpID string) error {
+func (m Material) Update(ctx context.Context, id string, req dto.UpdateMaterialReq, extCorpID string) error {
 	material := models.Material{ExtCorpModel: models.ExtCorpModel{ID: id, ExtCorpID: extCorpID}}
 	err := copier.CopyWithOption(&material, req, copier.Option{IgnoreEmpty: true, DeepCopy: true})
 	if err != nil {
@@ -53,7 +53,7 @@ func (m Material) Delete(ctx context.Context, ids []string, extCorpID string) (i
 	return m.materialRepo.Delete(ids, extCorpID)
 }
 
-func (m Material) Query(ctx context.Context, req requests.QueryMaterialReq, extCorpID string) (res []models.MaterialWithTags, total int64, err error) {
+func (m Material) Query(ctx context.Context, req dto.QueryMaterialReq, extCorpID string) (res []models.MaterialWithTags, total int64, err error) {
 	param := models.Material{}
 	err = copier.Copy(&param, req)
 	if err != nil {
@@ -89,9 +89,9 @@ func (m Material) Query(ctx context.Context, req requests.QueryMaterialReq, extC
 
 // GetSidebarStatus
 // Description: 素材库侧边栏使用状态
-func (m Material) GetSidebarStatus(ctx context.Context, extCorpID string) (requests.GetSidebarStatusResp, error) {
+func (m Material) GetSidebarStatus(ctx context.Context, extCorpID string) (dto.GetSidebarStatusResp, error) {
 
-	var resp requests.GetSidebarStatusResp
+	var resp dto.GetSidebarStatusResp
 	corpSetting, err := m.corpSettingRepo.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -101,7 +101,7 @@ func (m Material) GetSidebarStatus(ctx context.Context, extCorpID string) (reque
 	return resp, nil
 }
 
-func (m Material) UpdateGetSidebarStatus(ctx context.Context, req requests.UpdateGetSidebarStatusReq, extCorpID string) error {
+func (m Material) UpdateGetSidebarStatus(ctx context.Context, req dto.UpdateGetSidebarStatusReq, extCorpID string) error {
 	return m.corpSettingRepo.Update(models.CorpSetting{
 		ID:             id_generator.StringID(),
 		ExtCorpID:      extCorpID,

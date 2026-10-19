@@ -3,7 +3,7 @@ package controller
 import (
 	"net/http"
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/requests"
 	"core/app/models"
 	"core/app/services"
 	"core/common/app"
@@ -33,13 +33,13 @@ func NewLogin() *Login {
 // @Description 同时支持get和post请求，get可自动跳转，post可获取详细信息
 // @Produce  json
 // @Accept json
-// @Param params body entities.ConsoleLoginReq true "企业普通管理员登录请求"
-// @Success 200 {object} app.JSONResult{data=entities.ConsoleLoginResp} "成功"
+// @Param params body requests.ConsoleLoginReq true "企业普通管理员登录请求"
+// @Success 200 {object} app.JSONResult{data=dto.ConsoleLoginResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/action/login [get]
 func (o *Login) ConsoleLogin(c *gin.Context) {
-	req := entities.ConsoleLoginReq{}
+	req := requests.ConsoleLoginReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -81,13 +81,13 @@ func (o *Login) ConsoleLogin(c *gin.Context) {
 // @Summary 企业微信扫码登录回调
 // @Produce  json
 // @Accept json
-// @Param params body entities.ConsoleLoginCallbackReq true "企业普通管理员登录请求"
+// @Param params body requests.ConsoleLoginCallbackReq true "企业普通管理员登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/action/login_callback [post]
 func (o *Login) ConsoleLoginCallback(c *gin.Context) {
-	req := entities.ConsoleLoginCallbackReq{}
+	req := requests.ConsoleLoginCallbackReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -132,13 +132,13 @@ func (o *Login) ConsoleLoginCallback(c *gin.Context) {
 // @Description 仅开发和测试环境可用
 // @Produce  json
 // @Accept json
-// @Param params body entities.ConsoleForceLoginReq true "指定用户强制登录请求"
+// @Param params body requests.ConsoleForceLoginReq true "指定用户强制登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/action/force_login [post]
 func (o *Login) ConsoleForceLogin(c *gin.Context) {
-	req := entities.ConsoleForceLoginReq{}
+	req := requests.ConsoleForceLoginReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -207,13 +207,13 @@ func (o *Login) ConsoleForceLogin(c *gin.Context) {
 // @Description 同时支持get和post请求，get可自动跳转，post可获取详细信息
 // @Produce  json
 // @Accept json
-// @Param params body entities.StaffLoginReq true "员工H5登录请求"
-// @Success 200 {object} app.JSONResult{data=entities.StaffLoginResp} "成功"
+// @Param params body requests.StaffLoginReq true "员工H5登录请求"
+// @Success 200 {object} app.JSONResult{data=dto.StaffLoginResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_frontend/action/login [get]
 func (o *Login) StaffLogin(c *gin.Context) {
-	req := entities.StaffLoginReq{}
+	req := requests.StaffLoginReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -255,13 +255,13 @@ func (o *Login) StaffLogin(c *gin.Context) {
 // @Summary 员工H5登录回调
 // @Produce  json
 // @Accept json
-// @Param params body entities.StaffLoginCallbackReq true "员工H5登录请求"
+// @Param params body requests.StaffLoginCallbackReq true "员工H5登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_frontend/action/login_callback [post]
 func (o *Login) StaffLoginCallback(c *gin.Context) {
-	req := entities.StaffLoginCallbackReq{}
+	req := requests.StaffLoginCallbackReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -309,13 +309,13 @@ func (o *Login) StaffLoginCallback(c *gin.Context) {
 // @Description 仅开发和测试环境可用
 // @Produce  json
 // @Accept json
-// @Param params body entities.ConsoleForceLoginReq true "指定用户强制登录请求"
+// @Param params body requests.ConsoleForceLoginReq true "指定用户强制登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Staff} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/action/force_login [post]
 func (o *Login) StaffForceLogin(c *gin.Context) {
-	req := entities.StaffForceLoginReq{}
+	req := requests.StaffForceLoginReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -359,13 +359,13 @@ func (o *Login) StaffForceLogin(c *gin.Context) {
 //// @Description 同时支持get和post请求，get可自动跳转，post可获取详细信息
 //// @Produce  json
 //// @Accept json
-//// @Param params body entities.CustomerLoginReq true "客户H5登录请求"
-//// @Success 200 {object} app.JSONResult{data=entities.CustomerLoginResp} "成功"
+//// @Param params body requests.CustomerLoginReq true "客户H5登录请求"
+//// @Success 200 {object} app.JSONResult{data=dto.CustomerLoginResp} "成功"
 //// @Failure 400 {object} app.JSONResult{} "非法请求"
 //// @Failure 500 {object} app.JSONResult{} "内部错误"
 //// @Router /api/v1/customer_frontend/action/login [get]
 //func (o *Login) CustomerLogin(c *gin.Context) {
-//	req := entities.CustomerLoginReq{}
+//	req := requests.CustomerLoginReq{}
 //	handler := app.NewHandler(c)
 //	ok, err := handler.BindAndValidateReq(&req)
 //	if !ok {
@@ -402,13 +402,13 @@ func (o *Login) StaffForceLogin(c *gin.Context) {
 // @Summary 客户H5登录回调
 // @Produce  json
 // @Accept json
-// @Param params body entities.CustomerLoginCallbackReq true "客户H5登录请求"
+// @Param params body requests.CustomerLoginCallbackReq true "客户H5登录请求"
 // @Success 200 {object} app.JSONResult{data=models.Customer} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/customer_frontend/action/login_callback [post]
 func (o *Login) CustomerLoginCallback(c *gin.Context) {
-	req := entities.CustomerLoginCallbackReq{}
+	req := requests.CustomerLoginCallbackReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

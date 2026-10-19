@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/delay_queue"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -84,7 +84,7 @@ type ContactWay struct {
 	Timestamp
 }
 
-func (o ContactWay) Query(param requests.QueryContactWayReq, extCorpID string) (items []ContactWay, total int64, err error) {
+func (o ContactWay) Query(param dto.QueryContactWayReq, extCorpID string) (items []ContactWay, total int64, err error) {
 	items = make([]ContactWay, 0)
 	db := DB.Model(&ContactWay{}).Where("ext_corp_id = ?", extCorpID)
 

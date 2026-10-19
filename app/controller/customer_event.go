@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
@@ -23,13 +23,13 @@ func NewCustomerEvent() *CustomerEvent {
 // @Summary 客户动态列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryEventListReq true "查询客户动态列表请求"
+// @Param params body dto.QueryEventListReq true "查询客户动态列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.CustomerEvent}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/events [get]
 func (o CustomerEvent) Query(c *gin.Context) {
-	req := requests.QueryEventListReq{}
+	req := dto.QueryEventListReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

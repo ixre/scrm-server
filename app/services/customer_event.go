@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"core/app/models"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 )
 
@@ -18,7 +18,7 @@ func NewCustomerEvent() *CustomerEvent {
 
 // Query
 // Description: 查客户动态列表
-func (e CustomerEvent) Query(req requests.QueryEventListReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (res []models.CustomerEvent, total int64, err error) {
+func (e CustomerEvent) Query(req dto.QueryEventListReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (res []models.CustomerEvent, total int64, err error) {
 
 	res = make([]models.CustomerEvent, 0)
 	customerEvent := models.CustomerEvent{ExtCorpModel: models.ExtCorpModel{ExtCorpID: extCorpID}}

@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -22,13 +23,13 @@ func NewGroupChatTagGroup() *CustomerGroupTagGroup {
 // @Summary 客户群标签组新增
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateGroupChatTagGroupReq true "客户群标签组新增请求"
+// @Param params body dto.CreateGroupChatTagGroupReq true "客户群标签组新增请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/tag-group [post]
 func (o CustomerGroupTagGroup) Create(c *gin.Context) {
-	req := &requests.CreateGroupChatTagGroupReq{}
+	req := &dto.CreateGroupChatTagGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -54,13 +55,13 @@ func (o CustomerGroupTagGroup) Create(c *gin.Context) {
 // @Summary 客户群标签组更新
 // @Produce  json
 // @Accept json
-// @Param params body requests.UpdateGroupChatTagGroupReq true "客户群标签组更新请求"
+// @Param params body dto.UpdateGroupChatTagGroupReq true "客户群标签组更新请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/tag-group [put]
 func (o CustomerGroupTagGroup) Update(c *gin.Context) {
-	req := &requests.UpdateGroupChatTagGroupReq{}
+	req := &dto.UpdateGroupChatTagGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

@@ -44,7 +44,7 @@ func (s CrmLeadService) SetSchedule(ctx context.Context, req LeadScheduleRequest
 		if err := mutableLead(*lead); err != nil {
 			return err
 		}
-		if lead.PoolStatus == 1 {
+		if lead.InPool() {
 			return errors.New("请先领取线索再预约")
 		}
 		same := lead.NextFollowupAt == nil && req.NextFollowupAt == nil

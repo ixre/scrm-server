@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
@@ -45,13 +45,13 @@ func (t Tag) Sync(c *gin.Context) {
 
 // Create
 // @tags 客户标签
-// @Param params body requests.CreateTagReq true "添加标签"
+// @Param params body dto.CreateTagReq true "添加标签"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/tag [post]
 func (t Tag) Create(c *gin.Context) {
-	req := &requests.CreateTagReq{}
+	req := &dto.CreateTagReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

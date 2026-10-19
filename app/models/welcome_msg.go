@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -59,7 +59,7 @@ func (w WelcomeMsg) Update(tx *gorm.DB, msg WelcomeMsg) error {
 	return updateWelcomeMsg(tx, msg)
 }
 
-func (w WelcomeMsg) Query(req requests.QueryWelcomeMsgReq, id string, sorter *app.Sorter, pager *app.Pager) (msgs []WelcomeMsg, total int64, err error) {
+func (w WelcomeMsg) Query(req dto.QueryWelcomeMsgReq, id string, sorter *app.Sorter, pager *app.Pager) (msgs []WelcomeMsg, total int64, err error) {
 	if len(req.ExtStaffIDs) > 0 {
 		rawSQL := `select * from welcome_msg
 where id in (

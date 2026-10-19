@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"net/http"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -28,14 +29,14 @@ func NewDefaultMassMsg() *MassMsg {
 // Create
 // @tags 客户群发
 // @Summary 创建群发消息
-// @Param pet body requests.SendMassMsgReq true "创建待发消息"
+// @Param pet body dto.SendMassMsgReq true "创建待发消息"
 // @Produce json
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/mass-msg [post]
 func (ch MassMsg) Create(c *gin.Context) {
-	req := requests.SendMassMsgReq{}
+	req := dto.SendMassMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -95,7 +96,7 @@ func (ch MassMsg) Get(c *gin.Context) {
 // @tags 客户群发
 // @Summary 获取创建群发消息的结果
 // @Produce json
-// @Success 200 {object} app.JSONResult{data=requests.SendMassMsgResp} "成功"
+// @Success 200 {object} app.JSONResult{data=dto.SendMassMsgResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/mass-msg/result/{id} [get]
@@ -294,13 +295,13 @@ func (ch MassMsg) GetUploadUrl(c *gin.Context) {
 // @Summary 消息群发-修改
 // @Produce json
 // @Accept json
-// @Param params body requests.UpdateMassMsgReq true "消息群发-修改请求"
+// @Param params body dto.UpdateMassMsgReq true "消息群发-修改请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/mass-msg/:id [get]
 func (ch MassMsg) Update(c *gin.Context) {
-	req := requests.UpdateMassMsgReq{}
+	req := dto.UpdateMassMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

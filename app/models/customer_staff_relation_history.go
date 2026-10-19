@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"core/common/id_generator"
 	"time"
@@ -36,8 +36,10 @@ type CustomerStaffRelationHistory struct {
 // Description: 员工删除客户
 // Detail: 删除关系记录,新增关系流水
 func (o CustomerStaffRelationHistory) CustomerDeleteStaff(extStaffID string, extCustomerID string) (err error) {
-	if o.ExtCorpID == "" { return errors.New("missing enterprise for customer history") }
- return DB.Transaction(func(tx *gorm.DB) error {
+	if o.ExtCorpID == "" {
+		return errors.New("missing enterprise for customer history")
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
 		// 删除客户员工关系
 		var cs CustomerStaff
 		err = tx.Where("ext_corp_id = ? AND ext_staff_id = ? and ext_customer_id = ?", o.ExtCorpID, extStaffID, extCustomerID).First(&cs).Error
@@ -74,8 +76,10 @@ func (o CustomerStaffRelationHistory) CustomerDeleteStaff(extStaffID string, ext
 // Description: 员工删除客户
 // Detail: 删除关系记录,新增关系流水
 func (o CustomerStaffRelationHistory) StaffDeleteCustomer(extStaffID string, extCustomerID string) (err error) {
-	if o.ExtCorpID == "" { return errors.New("missing enterprise for customer history") }
- return DB.Transaction(func(tx *gorm.DB) error {
+	if o.ExtCorpID == "" {
+		return errors.New("missing enterprise for customer history")
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
 		var cs CustomerStaff
 		err = tx.Where("ext_corp_id = ? AND ext_staff_id = ? and ext_customer_id = ?", o.ExtCorpID, extStaffID, extCustomerID).First(&cs).Error
 		if err != nil {
@@ -109,7 +113,7 @@ func (o CustomerStaffRelationHistory) StaffDeleteCustomer(extStaffID string, ext
 }
 
 func (o CustomerStaffRelationHistory) QueryStaffDeleteCustomer(
-	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) ([]StaffDeleteCustomer, int64, error) {
+	req dto.QueryStaffDeleteCustomerHistoryReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) ([]StaffDeleteCustomer, int64, error) {
 	db := DB.Table("customer_staff_relation_history").
 		Joins("join customer_staff on customer_staff.ext_staff_id = customer_staff_relation_history.ext_staff_id and customer_staff.ext_customer_id = customer_staff_relation_history.ext_customer_id AND customer_staff.ext_corp_id = customer_staff_relation_history.ext_corp_id").
 		Joins("join customer  on customer.ext_id = customer_staff.ext_customer_id AND customer.ext_corp_id = customer_staff.ext_corp_id").
@@ -171,7 +175,7 @@ func (o CustomerStaffRelationHistory) QueryStaffDeleteCustomer(
 }
 
 func (o CustomerStaffRelationHistory) QueryCustomerDeleteStaff(
-	req requests.QueryCustomerLossesReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]CustomerLossInfo, int64, error) {
+	req dto.QueryCustomerLossesReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]CustomerLossInfo, int64, error) {
 
 	db := DB.Table("customer_staff_relation_history").
 		Joins("join customer_staff on customer_staff.ext_staff_id = customer_staff_relation_history.ext_staff_id and customer_staff.ext_customer_id = customer_staff_relation_history.ext_customer_id AND customer_staff.ext_corp_id = customer_staff_relation_history.ext_corp_id ").

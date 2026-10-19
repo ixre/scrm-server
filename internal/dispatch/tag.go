@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 )
 
@@ -45,7 +44,7 @@ func init() {
 // -------- tag（标签） --------
 
 func tagCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.CreateTagReq
+	var req dto.CreateTagReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -57,7 +56,7 @@ func tagSync(ctx context.Context, corpID, _ string, _ json.RawMessage) (any, err
 }
 
 func tagDeleteTagGroups(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.DeleteTagGroupsReq
+	var req dto.DeleteTagGroupsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -67,7 +66,7 @@ func tagDeleteTagGroups(ctx context.Context, corpID, _ string, params json.RawMe
 // -------- tag_group（标签组） --------
 
 func tagGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.TagListReq]
+	var p QueryParams[dto.TagListReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -80,7 +79,7 @@ func tagGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage
 }
 
 func tagGroupCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.CreateTagGroupReq
+	var req dto.CreateTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -88,7 +87,7 @@ func tagGroupCreate(ctx context.Context, corpID, _ string, params json.RawMessag
 }
 
 func tagGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateTagGroupReq
+	var req dto.UpdateTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -96,7 +95,7 @@ func tagGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessag
 }
 
 func tagGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.DeleteTagGroupsReq
+	var req dto.DeleteTagGroupsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -104,7 +103,7 @@ func tagGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessag
 }
 
 func tagGroupExchangeOrder(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.ExchangeOrderReq
+	var req dto.ExchangeOrderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -114,7 +113,7 @@ func tagGroupExchangeOrder(ctx context.Context, corpID, _ string, params json.Ra
 // -------- material_lib（素材库） --------
 
 func materialQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryMaterialReq]
+	var p QueryParams[dto.QueryMaterialReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -128,7 +127,7 @@ func materialQuery(ctx context.Context, corpID, _ string, params json.RawMessage
 }
 
 func materialCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.UploadMaterialReq
+	var req dto.UploadMaterialReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -138,8 +137,8 @@ func materialCreate(ctx context.Context, corpID, staffID string, params json.Raw
 
 func materialUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                     `json:"id"`
-		Req requests.UpdateMaterialReq `json:"req"`
+		ID  string                `json:"id"`
+		Req dto.UpdateMaterialReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -165,7 +164,7 @@ func materialGetSidebarStatus(ctx context.Context, corpID, _ string, _ json.RawM
 }
 
 func materialUpdateGetSidebarStatus(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateGetSidebarStatusReq
+	var req dto.UpdateGetSidebarStatusReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -231,7 +230,7 @@ func materialLibTagFrontendQuery(ctx context.Context, corpID, staffID string, pa
 // -------- temp_material（临时素材） --------
 
 func tempMaterialUploadMedia(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.UploadMaterialReq
+	var req dto.UploadTempMaterialReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}

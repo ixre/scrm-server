@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/id_generator"
 	"gorm.io/gorm"
@@ -25,11 +25,11 @@ func strictTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	for _, sql := range []string{
- "CREATE UNIQUE INDEX IF NOT EXISTS old_customer_external ON customer(ext_id)",
- "CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_corp_external ON customer(ext_corp_id,ext_id)",
- "CREATE UNIQUE INDEX IF NOT EXISTS old_group_chat_external ON group_chat(ext_chat_id)",
- "CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_corp_external ON group_chat(ext_corp_id,ext_chat_id)",
- "CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_member_corp_external ON group_chat_member(ext_corp_id,ext_chat_id,userid)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS old_customer_external ON customer(ext_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_corp_external ON customer(ext_corp_id,ext_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS old_group_chat_external ON group_chat(ext_chat_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_corp_external ON group_chat(ext_corp_id,ext_chat_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_member_corp_external ON group_chat_member(ext_corp_id,ext_chat_id,userid)",
 		"INSERT INTO tenant(id,code) VALUES(41,'tenant-a'),(42,'tenant-b')",
 		"INSERT INTO channel_link(id,tenant_id,channel,entity_type,entity_id,ext_id,ext_corp_id) VALUES (1,41,'wecom','tenant',41,'legacy-corp',''),(2,42,'wecom','tenant',42,'mapped-corp',''),(3,41,'wecom','tenant',41,'corp-a','')",
 	} {
@@ -97,7 +97,7 @@ func TestStrictTenantMigrationAndWrites(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	groups, total, err := (models.GroupChat{}).Query(requests.QueryGroupChatReq{Name: "query-only"}, "corp-a", &app.Pager{Page: 1, PageSize: 20}, &app.Sorter{})
+	groups, total, err := (models.GroupChat{}).Query(dto.QueryGroupChatReq{Name: "query-only"}, "corp-a", &app.Pager{Page: 1, PageSize: 20}, &app.Sorter{})
 	if err != nil || total != 1 || len(groups) != 1 || groups[0].OwnerAvatarURL != "own-avatar" {
 		t.Fatalf("group query crossed enterprises: count=%d groups=%+v err=%v", total, groups, err)
 	}

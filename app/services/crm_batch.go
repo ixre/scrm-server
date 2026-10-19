@@ -6,10 +6,11 @@ import (
 	"context"
 
 	"errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"strconv"
 	"strings"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"core/app/models"
 	"core/common/id_generator"
@@ -206,7 +207,7 @@ func batchUpdateField(ctx context.Context, entityType string, ids []string, fiel
 			return ErrCustomerAccess
 		}
 		for _, row := range rows {
-			if row.PoolStatus == 1 || row.ReassignStatus == 1 {
+			if row.InPool() || row.IsReassigning() {
 				return errors.New("请先领取或接收客户再编辑")
 			}
 		}

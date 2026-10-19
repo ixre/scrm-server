@@ -2,9 +2,8 @@ package services
 
 import (
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/dbutil"
 	"core/common/ecode"
@@ -23,7 +22,7 @@ func NewQuickReplyGroup() *QuickReplyGroup {
 	return &QuickReplyGroup{QuickReplyGroupRepo: models.QuickReplyGroup{}, QuickReplyRepo: models.QuickReply{}}
 }
 
-func (o QuickReplyGroup) Create(req entities.CreateQuickReplyGroupReq, extCorpID, extCreatorID string) (models.QuickReplyGroup, error) {
+func (o QuickReplyGroup) Create(req dto.CreateQuickReplyGroupReq, extCorpID, extCreatorID string) (models.QuickReplyGroup, error) {
 	topGroupID := id_generator.StringID()
 	groups := make([]models.QuickReplyGroup, 0)
 	for i, subGroup := range req.SubGroups {
@@ -74,7 +73,7 @@ func (o QuickReplyGroup) Delete(ids []string, extCorpID string) error {
 	})
 }
 
-func (o QuickReplyGroup) Update(req entities.UpdateQuickReplyGroupReq, extCorpID string) (models.QuickReplyGroup, error) {
+func (o QuickReplyGroup) Update(req dto.UpdateQuickReplyGroupReq, extCorpID string) (models.QuickReplyGroup, error) {
 	group := models.QuickReplyGroup{
 		ExtCorpModel: models.ExtCorpModel{ID: req.ID, ExtCorpID: extCorpID},
 		Name:         req.Name,
@@ -140,7 +139,7 @@ func (o QuickReplyGroup) Update(req entities.UpdateQuickReplyGroupReq, extCorpID
 }
 
 func (o QuickReplyGroup) QueryQuickReply(
-	req requests.QueryQuickReplyReq, extCorpID string, pager *app.Pager) (groups []models.QuickReplyGroup, total int64, err error) {
+	req dto.QueryQuickReplyReq, extCorpID string, pager *app.Pager) (groups []models.QuickReplyGroup, total int64, err error) {
 
 	replies, err := o.QuickReplyRepo.QueryByKeyword(req.Keyword, extCorpID)
 	if err != nil {

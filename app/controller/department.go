@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -25,14 +25,14 @@ func NewDepartment() *Department {
 // @Summary 查询部门信息
 // @Produce json
 // @Accept json
-// @Param params body entities.GetSubDepartmentReq true "部门id列表"
+// @Param params body dto.GetSubDepartmentReq true "部门id列表"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Department}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/departments [get]
 func (d *Department) Query(c *gin.Context) {
 	handler := app.NewHandler(c)
-	req := entities.GetSubDepartmentReq{}
+	req := dto.GetSubDepartmentReq{}
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
 		handler.ResponseBadRequestError(errors.WithStack(err))

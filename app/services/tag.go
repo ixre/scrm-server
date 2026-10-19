@@ -5,7 +5,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"core/app/models"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/ecode"
 	"core/common/id_generator"
 	"core/common/log"
@@ -91,7 +91,7 @@ func (t TagService) UpsertTagGroups(tagGroups []workwx.ExternalContactCorpTagGro
 }
 
 // Create tag 已有标签组中添加标签，需判重
-func (t TagService) Create(req *requests.CreateTagReq, extCorpID string) (tagModels []models.Tag, err error) {
+func (t TagService) Create(req *dto.CreateTagReq, extCorpID string) (tagModels []models.Tag, err error) {
  t.TagGroupsRepo.ExtCorpID, t.TagsRepo.ExtCorpID = extCorpID, extCorpID
 	if len(req.Names) > 1 {
 		sort.SliceStable(req.Names, func(i, j int) bool {
@@ -154,7 +154,7 @@ func (t TagService) Create(req *requests.CreateTagReq, extCorpID string) (tagMod
 	return
 }
 
-func (t TagService) DeleteTagGroups(req requests.DeleteTagGroupsReq, extCorpID string) (int64, error) {
+func (t TagService) DeleteTagGroups(req dto.DeleteTagGroupsReq, extCorpID string) (int64, error) {
 	err := we_work.App.DelExternalContactCorpTag(nil, req.ExtIDs)
 	if err != nil {
 		return 0, err

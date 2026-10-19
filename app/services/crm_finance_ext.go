@@ -61,7 +61,7 @@ func (s CrmIncomeCategoryService) Update(ctx context.Context, id string, c *mode
 		"type":   c.Type,
 		"status": c.Status,
 	}
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmIncomeCategory{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -173,7 +173,7 @@ func (s CrmOtherIncomeService) Update(ctx context.Context, id string, r *models.
 		"status":      statusVal,
 	}
 	updatesCRM(m, "category_id", "account_id", "customer_id")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmOtherIncome{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -319,7 +319,7 @@ func (s CrmOtherExpenseService) Update(ctx context.Context, id string, r *models
 		"status":      statusVal,
 	}
 	updatesCRM(m, "category_id", "account_id", "customer_id")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmOtherExpense{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -464,7 +464,7 @@ func (s CrmFundTransferService) Update(ctx context.Context, id string, r *models
 		"status":       statusVal,
 	}
 	updatesCRM(m, "from_account", "to_account")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmFundTransfer{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil

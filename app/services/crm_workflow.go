@@ -49,7 +49,7 @@ func poolLog(tx *gorm.DB, tenant string, c models.CrmCustomer, action string, ac
 }
 
 func recycledCustomerChanges(c models.CrmCustomer, now time.Time) map[string]any {
-	return map[string]any{"pool_status": 1, "pool_at": now, "owner_user_id": nil, "prev_owner_user_id": c.OwnerUserID, "claimed_at": nil, "reassign_status": 0, "reassign_from": nil, "shared_staff_ids": constants.StringArrayField{}}
+	return map[string]any{"pool_status": models.CustomerPoolIn, "pool_at": now, "owner_user_id": nil, "prev_owner_user_id": c.OwnerUserID, "claimed_at": nil, "reassign_status": models.CustomerReassignNone, "reassign_from": nil, "shared_staff_ids": constants.StringArrayField{}}
 }
 
 func (s CrmPoolService) takePool(ctx context.Context, target string, ids []string, assign bool) (int64, error) {
@@ -92,7 +92,7 @@ func (s CrmPoolService) takePool(ctx context.Context, target string, ids []strin
 		}
 		now := time.Now()
 		for _, c := range customers {
-			if c.PoolStatus != 1 && !(c.PoolStatus == 0 && c.OwnerUserID == "" && c.ReassignStatus == 0) {
+			if !c.InPool() && !(!c.InPool() && c.OwnerUserID == "" && !c.IsReassigning()) {
 				return errors.New("所选客户已被领取，请刷新后重试")
 			}
 			if c.IsBlacklist {
@@ -109,7 +109,7 @@ func (s CrmPoolService) takePool(ctx context.Context, target string, ids []strin
 				return err
 			}
 		}
-		return tx.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND id IN ?", tenant, ids).Updates(map[string]any{"pool_status": 0, "pool_at": nil, "owner_user_id": target, "claimed_at": now, "reassign_status": 0, "reassign_from": nil}).Error
+		return tx.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND id IN ?", tenant, ids).Updates(map[string]any{"pool_status": models.CustomerPoolNone, "pool_at": nil, "owner_user_id": target, "claimed_at": now, "reassign_status": models.CustomerReassignNone, "reassign_from": nil}).Error
 	})
 	if err != nil {
 		return 0, err

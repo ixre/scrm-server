@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type CorpRiskMgr struct {
@@ -19,13 +19,13 @@ type CorpRiskMgr struct {
 // @Summary 设置员工删除客户的通知开关
 // @Produce  json
 // @Accept json
-// @Param params body requests.UpdateStaffDeleteCustomerNotifierReq true "设置提醒开关请求"
+// @Param params body dto.UpdateStaffDeleteCustomerNotifierReq true "设置提醒开关请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/notify/delete-customer/status [put]
 func (m CorpRiskMgr) Update(c *gin.Context) {
-	req := requests.UpdateStaffDeleteCustomerNotifierReq{}
+	req := dto.UpdateStaffDeleteCustomerNotifierReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -52,13 +52,13 @@ func (m CorpRiskMgr) Update(c *gin.Context) {
 // @Summary 员工删人记录
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryStaffDeleteCustomerHistoryReq true "查询删人记录请求"
+// @Param params body dto.QueryStaffDeleteCustomerHistoryReq true "查询删人记录请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.StaffDeleteCustomer}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/action/notify/delete-customer [get]
 func (m CorpRiskMgr) Query(c *gin.Context) {
-	req := requests.QueryStaffDeleteCustomerHistoryReq{}
+	req := dto.QueryStaffDeleteCustomerHistoryReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

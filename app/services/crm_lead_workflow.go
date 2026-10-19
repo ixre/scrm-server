@@ -8,14 +8,15 @@ import (
 	"core/app/models"
 	"core/common/id_generator"
 	"core/common/identity"
+
 	"gorm.io/gorm"
 )
 
 func mutableLead(lead models.CrmLead) error {
-	if lead.ConvertCustomerID != "" || lead.Status == "qualified" {
+	if lead.IsConverted() {
 		return errors.New("线索已转客户，请在客户中继续跟进")
 	}
-	if lead.Status == "lost" {
+	if lead.IsLost() {
 		return errors.New("请先恢复流失线索")
 	}
 	return nil
@@ -71,14 +72,14 @@ func changeLeadStatus(ctx context.Context, userID, id, status, content string, r
 		return ErrCustomerAccess
 	}
 	_, err := mutateLeads(ctx, []string{id}, func(tx *gorm.DB, lead *models.CrmLead) error {
-		if lead.PoolStatus == 1 {
+		if lead.InPool() {
 			return errors.New("请先领取线索再跟进")
 		}
-		if lead.ConvertCustomerID != "" || lead.Status == "qualified" {
+		if lead.IsConverted() {
 			return errors.New("线索已转客户")
 		}
 		if reopen {
-			if lead.Status != "lost" {
+			if !lead.IsLost() {
 				return errors.New("仅流失线索可恢复")
 			}
 		} else {
@@ -90,7 +91,7 @@ func changeLeadStatus(ctx context.Context, userID, id, status, content string, r
 			}
 		}
 		changes := map[string]any{"status": status}
-		if status == "lost" {
+		if status == models.LeadStatusLost {
 			changes["next_followup_at"], changes["next_action"] = nil, ""
 			lead.NextFollowupAt, lead.NextAction = nil, ""
 		}

@@ -1,15 +1,16 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/log"
 	"core/conf"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type WelComeMsg struct {
@@ -26,13 +27,13 @@ func NewWelComeMsg() *WelComeMsg {
 // @Summary 创建欢迎语
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateWelcomeMsgReq true "创建欢迎语请求"
+// @Param params body dto.CreateWelcomeMsgReq true "创建欢迎语请求"
 // @Success 200 {object} app.JSONResult{data=models.WelcomeMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/customer/welcome-msg [post]
 func (o WelComeMsg) Create(c *gin.Context) {
-	req := requests.CreateWelcomeMsgReq{}
+	req := dto.CreateWelcomeMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -60,14 +61,14 @@ func (o WelComeMsg) Create(c *gin.Context) {
 // @Summary 查询欢迎语
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryWelcomeMsgReq true "查询欢迎语列表请求"
+// @Param params body dto.QueryWelcomeMsgReq true "查询欢迎语列表请求"
 // @Success 200 {object} app.JSONResult{data=models.WelcomeMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/welcome-msg [get]
 func (o WelComeMsg) Query(c *gin.Context) {
 	handler := app.NewHandler(c)
-	req := requests.QueryWelcomeMsgReq{}
+	req := dto.QueryWelcomeMsgReq{}
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
 		handler.ResponseBadRequestError(errors.WithStack(err))
@@ -93,13 +94,13 @@ func (o WelComeMsg) Query(c *gin.Context) {
 // @Summary 更新欢迎语
 // @Produce  json
 // @Accept json
-// @Param params body requests.UpdateWelcomeMsgReq true "更新欢迎语请求"
+// @Param params body dto.UpdateWelcomeMsgReq true "更新欢迎语请求"
 // @Success 200 {object} app.JSONResult{data=models.WelcomeMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/welcome-msg/{id} [put]
 func (o WelComeMsg) Update(c *gin.Context) {
-	req := requests.UpdateWelcomeMsgReq{}
+	req := dto.UpdateWelcomeMsgReq{}
 	handler := app.NewHandler(c)
 	ID, err := handler.GetIDParam()
 	if err != nil {

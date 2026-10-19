@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -28,7 +28,7 @@ func NewGroupChatAutoJoin() *GroupChatAutoJoin {
 }
 
 func (o *GroupChatAutoJoin) Create(
-	req requests.CreateGroupChatAutoJoinCodeReq, extCorpID string) (autoCreateCode models.GroupChatAutoJoinCode, err error) {
+	req dto.CreateGroupChatAutoJoinCodeReq, extCorpID string) (autoCreateCode models.GroupChatAutoJoinCode, err error) {
 
 	err = copier.Copy(&autoCreateCode, req)
 	if err != nil {
@@ -93,7 +93,7 @@ func (o *GroupChatAutoJoin) Delete(ids []string, extCorpID string) (total int64,
 }
 
 func (o *GroupChatAutoJoin) Query(
-	req requests.QueryGroupChatAutoJoinReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]models.GroupChatAutoJoinCode, int64, error) {
+	req dto.QueryGroupChatAutoJoinReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]models.GroupChatAutoJoinCode, int64, error) {
 
 	param := models.GroupChatAutoJoinCode{}
 	err := copier.Copy(&param, req)
@@ -107,7 +107,7 @@ func (o *GroupChatAutoJoin) Query(
 }
 
 func (o *GroupChatAutoJoin) Update(
-	id string, req requests.UpdateGroupChatAutoJoinQrCodeReq, extCorpID string) (autoJoinCode models.GroupChatAutoJoinCode, err error) {
+	id string, req dto.UpdateGroupChatAutoJoinQrCodeReq, extCorpID string) (autoJoinCode models.GroupChatAutoJoinCode, err error) {
 
 	err = copier.Copy(&autoJoinCode, req)
 	if err != nil {
@@ -168,11 +168,11 @@ func (o *GroupChatAutoJoin) Update(
 }
 
 func (o *GroupChatAutoJoin) genAutoJoinCodeStaffs(
-	autoJoinQRCodeID string, req []requests.GroupChatAutoJoinCodeStaffParam, extCorpID string) ([]models.GroupChatAutoJoinCodeStaff, error) {
+	autoJoinQRCodeID string, req []dto.GroupChatAutoJoinCodeStaffParam, extCorpID string) ([]models.GroupChatAutoJoinCodeStaff, error) {
 	// 处理绑定员工
 	staffs := make([]models.Staff, 0)
 	extStaffIDs := make([]string, 0)
-	paramMap := make(map[string]requests.GroupChatAutoJoinCodeStaffParam, 0)
+	paramMap := make(map[string]dto.GroupChatAutoJoinCodeStaffParam, 0)
 	for _, param := range req {
 		extStaffIDs = append(extStaffIDs, param.ExtStaffID)
 		paramMap[param.ExtStaffID] = param
@@ -214,7 +214,7 @@ func (o *GroupChatAutoJoin) genAutoJoinCodeStaffs(
 }
 
 func (o *GroupChatAutoJoin) genAutoJoinCodeBackupStaffs(
-	autoJoinQRCodeID string, params []requests.GroupChatAutoJoinCodeStaffParam, extCorpID string) (items []models.GroupChatAutoJoinBackupStaff, err error) {
+	autoJoinQRCodeID string, params []dto.GroupChatAutoJoinCodeStaffParam, extCorpID string) (items []models.GroupChatAutoJoinBackupStaff, err error) {
 	contactWayStaffs, err := o.genAutoJoinCodeStaffs(autoJoinQRCodeID, params, extCorpID)
 	if err != nil {
 		err = errors.Wrap(err, "makeRefStaffs failed")
@@ -230,7 +230,7 @@ func (o *GroupChatAutoJoin) genAutoJoinCodeBackupStaffs(
 	return
 }
 
-func (o *GroupChatAutoJoin) BatchRegroup(req requests.BatchRegroupReq, extCorpID string) error {
+func (o *GroupChatAutoJoin) BatchRegroup(req dto.BatchRegroupReq, extCorpID string) error {
 	_, err := o.groupChatGroupRepo.Get(req.NewGroupID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

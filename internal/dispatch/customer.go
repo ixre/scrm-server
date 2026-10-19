@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"core/app/entities"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 )
 
@@ -68,7 +67,7 @@ func customerGetFullCustomerInfo(ctx context.Context, corpID, _ string, params j
 }
 
 func customerGetCustomerLosses(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryCustomerLossesReq]
+	var p QueryParams[dto.QueryCustomerLossesReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -81,7 +80,7 @@ func customerGetCustomerLosses(ctx context.Context, corpID, _ string, params jso
 }
 
 func customerStatistic(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.QueryCustomerStatisticReq
+	var req dto.QueryCustomerStatisticReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -90,7 +89,7 @@ func customerStatistic(ctx context.Context, corpID, _ string, params json.RawMes
 }
 
 func customerUpdateDeleteEventNotify(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.UpdateCustomerDeleteStaffNotifierReq
+	var req dto.UpdateCustomerDeleteStaffNotifierReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -128,7 +127,7 @@ func customerSyncSingleCustomerData(ctx context.Context, _, _ string, params jso
 // ---------- customer_event ----------
 
 func customerEventQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryEventListReq]
+	var p QueryParams[dto.QueryEventListReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -142,7 +141,7 @@ func customerEventQuery(ctx context.Context, corpID, _ string, params json.RawMe
 // ---------- customer_info ----------
 
 func customerInfoGet(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.GetCustomerInfoReq
+	var req dto.GetCustomerInfoReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -150,7 +149,7 @@ func customerInfoGet(ctx context.Context, corpID, _ string, params json.RawMessa
 }
 
 func customerInfoUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.UpdateCustomerInfoReq
+	var req dto.UpdateCustomerInfoReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -164,7 +163,7 @@ func customerInfoDisplayRulesGet(ctx context.Context, corpID, _ string, _ json.R
 }
 
 func customerInfoDisplayRulesUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.UpdateCustomerInfoDisplayRulesReq
+	var req dto.UpdateCustomerInfoDisplayRulesReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -178,7 +177,7 @@ func customerRemarkGet(ctx context.Context, corpID, _ string, _ json.RawMessage)
 }
 
 func customerRemarkCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.AddCustomerRemarkReq
+	var req dto.AddCustomerRemarkReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -186,7 +185,7 @@ func customerRemarkCreate(ctx context.Context, corpID, _ string, params json.Raw
 }
 
 func customerRemarkUpdate(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateRemarkReq
+	var req dto.UpdateRemarkReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -204,7 +203,7 @@ func customerRemarkDelete(ctx context.Context, corpID, _ string, params json.Raw
 }
 
 func customerRemarkAddOption(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var req requests.AddRemarkOptionReq
+	var req dto.AddRemarkOptionReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -212,7 +211,7 @@ func customerRemarkAddOption(ctx context.Context, _, _ string, params json.RawMe
 }
 
 func customerRemarkUpdateOption(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateRemarkOptionReq
+	var req dto.UpdateRemarkOptionReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -230,7 +229,7 @@ func customerRemarkDeleteOption(ctx context.Context, _, _ string, params json.Ra
 }
 
 func customerRemarkExchangeOrder(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var req requests.ExchangeOrderReq
+	var req dto.ExchangeOrderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -240,7 +239,7 @@ func customerRemarkExchangeOrder(ctx context.Context, _, _ string, params json.R
 // ---------- clue_manual ----------
 
 func clueManualCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.CreateClueManualReq
+	var req dto.CreateClueManualReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -249,8 +248,8 @@ func clueManualCreate(ctx context.Context, corpID, staffID string, params json.R
 
 func clueManualUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                       `json:"id"`
-		Req requests.UpdateClueManualReq `json:"req"`
+		ID  string                  `json:"id"`
+		Req dto.UpdateClueManualReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -271,7 +270,7 @@ func clueManualDelete(ctx context.Context, corpID, _ string, params json.RawMess
 // ---------- remainder ----------
 
 func remainderCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.CreateRemainderReq
+	var req dto.CreateRemainderReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -280,8 +279,8 @@ func remainderCreate(ctx context.Context, corpID, staffID string, params json.Ra
 
 func remainderUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                      `json:"id"`
-		Req requests.UpdateRemainderReq `json:"req"`
+		ID  string                 `json:"id"`
+		Req dto.UpdateRemainderReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err

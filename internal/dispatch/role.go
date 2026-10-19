@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 )
 
@@ -20,7 +20,7 @@ func init() {
 }
 
 func roleCreate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.CreateRoleReq
+	var req dto.CreateRoleReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -29,8 +29,8 @@ func roleCreate(_ context.Context, corpID, _ string, params json.RawMessage) (an
 
 func roleUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                 `json:"id"`
-		Req requests.UpdateRoleReq `json:"req"`
+		ID  string            `json:"id"`
+		Req dto.UpdateRoleReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func roleUpdate(_ context.Context, corpID, _ string, params json.RawMessage) (an
 }
 
 func roleQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryRoleReq]
+	var p QueryParams[dto.QueryRoleReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func roleQuery(_ context.Context, corpID, _ string, params json.RawMessage) (any
 }
 
 func roleQueryStaffs(_ context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryRoleStaffsReq]
+	var p QueryParams[dto.QueryRoleStaffsReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}

@@ -12,9 +12,10 @@ import (
 	"core/app/models"
 	"core/common/id_generator"
 	"core/common/identity"
+	"strconv"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"strconv"
 )
 
 func validateAllocationExecution(r models.CrmAutoAllocation) error {
@@ -46,7 +47,7 @@ func validateAllocationExecution(r models.CrmAutoAllocation) error {
 // Lock order: rule, sales sorted by ID, then newly inserted customer (not visible
 // to other transactions). Existing-customer assignment must keep its own lock order.
 func allocateNewCustomer(ctx context.Context, tx *gorm.DB, c *models.CrmCustomer) error {
-	if c.OwnerUserID != "" || c.PoolStatus != 1 || c.IsLocked || c.IsBlacklist || c.ReassignStatus != 0 {
+	if c.OwnerUserID != "" || !c.InPool() || c.IsLocked || c.IsBlacklist || c.IsReassigning() {
 		return nil
 	}
 	source, _ := json.Marshal([]string{c.Source})
@@ -115,7 +116,7 @@ func allocateNewCustomer(ctx context.Context, tx *gorm.DB, c *models.CrmCustomer
 			}
 		}
 		now := time.Now()
-		if err := tx.Model(c).Updates(map[string]any{"owner_user_id": target, "pool_status": 0, "pool_at": nil, "claimed_at": now}).Error; err != nil {
+		if err := tx.Model(c).Updates(map[string]any{"owner_user_id": target, "pool_status": models.CustomerPoolNone, "pool_at": nil, "claimed_at": now}).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(&rule).Update("last_target_id", target).Error; err != nil {
@@ -124,7 +125,7 @@ func allocateNewCustomer(ctx context.Context, tx *gorm.DB, c *models.CrmCustomer
 		if err := poolLog(tx, c.TenantID, *c, "assign", models.User{Name: "系统自动分配"}, target, "新获客规则："+rule.Name); err != nil {
 			return err
 		}
-		c.OwnerUserID, c.PoolStatus, c.PoolAt, c.ClaimedAt = target, 0, nil, &now
+		c.OwnerUserID, c.PoolStatus, c.PoolAt, c.ClaimedAt = target, models.CustomerPoolNone, nil, &now
 		entry.TargetUserID, entry.Outcome, entry.Reason = target, "assigned", "已按规则分配"
 		break
 	}

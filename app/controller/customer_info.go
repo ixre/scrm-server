@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
@@ -22,13 +22,13 @@ func NewCustomerInfoHandler() *CustomerInfoHandler {
 // @tags 客户管理
 // @Summary 更新客户基本信息
 // @Produce  json
-// @Param params body entities.UpdateCustomerInfoReq true "客户基本信息更新请求"
+// @Param params body dto.UpdateCustomerInfoReq true "客户基本信息更新请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/info [put]
 func (ch CustomerInfoHandler) Update(c *gin.Context) {
-	req := entities.UpdateCustomerInfoReq{}
+	req := dto.UpdateCustomerInfoReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -56,13 +56,13 @@ func (ch CustomerInfoHandler) Update(c *gin.Context) {
 // @tags 客户管理
 // @Summary 获取客户的基本信息
 // @Produce  json
-// @Param params body entities.GetCustomerInfoReq true "获取客户的基本信息请求"
+// @Param params body dto.GetCustomerInfoReq true "获取客户的基本信息请求"
 // @Success 200 {object} app.JSONResult{}"成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/info [get]
 func (ch CustomerInfoHandler) Get(c *gin.Context) {
-	req := entities.GetCustomerInfoReq{}
+	req := dto.GetCustomerInfoReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

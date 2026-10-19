@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/we_work"
 	"core/migrations"
 )
@@ -101,7 +101,7 @@ func TestWecomRolesStayWithinEnterprise(t *testing.T) {
 	if _, err := NewRole().Get("800", "corp-b"); err == nil {
 		t.Fatal("foreign role read")
 	}
-	if _, err := NewRole().Update("800", requests.UpdateRoleReq{}, "corp-b"); err == nil {
+	if _, err := NewRole().Update("800", dto.UpdateRoleReq{}, "corp-b"); err == nil {
 		t.Fatal("foreign role updated")
 	}
 	if _, err := NewRole().AssignToStaffs([]string{"same-staff"}, "800", "corp-b"); err == nil {

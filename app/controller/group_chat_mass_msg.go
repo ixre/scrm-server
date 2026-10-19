@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -21,14 +22,14 @@ func NewDefaultGroupChatMassMsg() *GroupChatMassMsg {
 // Create
 // @tags 客户群群发
 // @Summary 创建客户群群发消息
-// @Param pet body requests.SendGroupChatMassMsgReq true "创建客户群群发消息请求"
+// @Param pet body dto.SendGroupChatMassMsgReq true "创建客户群群发消息请求"
 // @Produce json
 // @Success 200 {object} app.JSONResult{data=models.GroupChatMassMsg} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/group-chat/mass-msg [post]
 func (ch GroupChatMassMsg) Create(c *gin.Context) {
-	req := requests.SendGroupChatMassMsgReq{}
+	req := dto.SendGroupChatMassMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -87,7 +88,7 @@ func (ch GroupChatMassMsg) Get(c *gin.Context) {
 //// @tags 客户管理-客户群群发
 //// @Summary 获取创建群发消息的结果
 //// @Produce json
-//// @Success 200 {object} app.JSONResult{data=requests.SendMassMsgResp} "成功"
+//// @Success 200 {object} app.JSONResult{data=dto.SendMassMsgResp} "成功"
 //// @Failure 400 {object} app.JSONResult{} "请求错误"
 //// @Failure 500 {object} app.JSONResult{} "内部错误"
 //// @Router /api/v1/console/customer/mass-msg/result/{id} [get]

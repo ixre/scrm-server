@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 
@@ -30,7 +30,6 @@ func NewCrmKnowledgeType() *CrmKnowledgeTypeService { return &CrmKnowledgeTypeSe
 func (s CrmKnowledgeTypeService) Create(ctx context.Context, t *models.CrmKnowledgeType) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if t == nil {
 		return errors.New("分类不能为空")
 	}
@@ -46,7 +45,6 @@ func (s CrmKnowledgeTypeService) Create(ctx context.Context, t *models.CrmKnowle
 // Update 更新知识库分类。
 func (s CrmKnowledgeTypeService) Update(ctx context.Context, id string, t *models.CrmKnowledgeType) error {
 
-
 	if t == nil {
 		return errors.New("分类不能为空")
 	}
@@ -54,23 +52,21 @@ func (s CrmKnowledgeTypeService) Update(ctx context.Context, id string, t *model
 		"name": strings.TrimSpace(t.Name),
 		"sort": t.Sort,
 	}
-	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmKnowledgeType{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除知识库分类。
 func (s CrmKnowledgeTypeService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmKnowledgeType{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmKnowledgeType{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询知识库分类。
 func (s CrmKnowledgeTypeService) Query(ctx context.Context, req KnowledgeTypeQueryReq) ([]models.CrmKnowledgeType, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -102,7 +98,6 @@ func NewCrmWorkReportComment() *CrmWorkReportCommentService { return &CrmWorkRep
 func (s CrmWorkReportCommentService) Create(ctx context.Context, reportID, userID, content string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if reportID == "" {
 		return errors.New("报告ID不能为空")
 	}
@@ -125,9 +120,8 @@ func (s CrmWorkReportCommentService) Create(ctx context.Context, reportID, userI
 // ListByReport 按报告列出评论。
 func (s CrmWorkReportCommentService) ListByReport(ctx context.Context, reportID string) ([]models.CrmWorkReportComment, error) {
 
-
 	var items []models.CrmWorkReportComment
-	err := models.MustFor(ctx).Where("report_id = ?",  reportID).
+	err := models.MustFor(ctx).Where("report_id = ?", reportID).
 		Order("id desc").Find(&items).Error
 	return items, err
 }
@@ -135,8 +129,7 @@ func (s CrmWorkReportCommentService) ListByReport(ctx context.Context, reportID 
 // Delete 删除工作报告评论。
 func (s CrmWorkReportCommentService) Delete(ctx context.Context, id string) error {
 
-
-	res := models.MustFor(ctx).Where("id = ?",  id).Delete(&models.CrmWorkReportComment{})
+	res := models.MustFor(ctx).Where("id = ?", id).Delete(&models.CrmWorkReportComment{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -162,7 +155,6 @@ func NewCrmWorkReportStats() *CrmWorkReportStatsService { return &CrmWorkReportS
 // Stats 工作报告统计：按用户/类型/日期范围统计报告数量。
 func (s CrmWorkReportStatsService) Stats(ctx context.Context, req ReportStatsReq) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
-
 
 	db := models.DB.Model(&models.CrmWorkReport{}).Scopes(models.TenantScope(tenantID))
 	if req.StartDate != "" {

@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 )
@@ -56,7 +55,7 @@ func init() {
 }
 
 func groupChatQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryGroupChatReq]
+	var p QueryParams[dto.QueryGroupChatReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -69,7 +68,7 @@ func groupChatQuery(ctx context.Context, corpID, _ string, params json.RawMessag
 }
 
 func groupChatUpdateTags(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateCustomerGroupReq
+	var req dto.UpdateCustomerGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -82,7 +81,7 @@ func groupChatGetAllOwners(ctx context.Context, corpID, _ string, _ json.RawMess
 }
 
 func groupChatGetAll(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryGroupChatReq]
+	var p QueryParams[dto.QueryGroupChatReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -96,7 +95,7 @@ func groupChatGetAll(ctx context.Context, corpID, _ string, params json.RawMessa
 }
 
 func groupChatGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[entities.QueryGroupChatGroupReq]
+	var p QueryParams[dto.QueryGroupChatGroupReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -108,7 +107,7 @@ func groupChatGroupQuery(ctx context.Context, corpID, _ string, params json.RawM
 }
 
 func groupChatGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req entities.CreateGroupChatGroupReq
+	var req dto.CreateGroupChatGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -117,8 +116,8 @@ func groupChatGroupCreate(ctx context.Context, corpID, staffID string, params js
 
 func groupChatGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                           `json:"id"`
-		Req entities.UpdateGroupChatGroupReq `json:"req"`
+		ID  string                      `json:"id"`
+		Req dto.UpdateGroupChatGroupReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -127,7 +126,7 @@ func groupChatGroupUpdate(ctx context.Context, corpID, _ string, params json.Raw
 }
 
 func groupChatGroupDelete(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.DeleteGroupChatGroupReq
+	var req dto.DeleteGroupChatGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -135,7 +134,7 @@ func groupChatGroupDelete(ctx context.Context, corpID, _ string, params json.Raw
 }
 
 func groupChatTagCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.CreateGroupChatTagsReq
+	var req dto.CreateGroupChatTagsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -143,7 +142,7 @@ func groupChatTagCreate(ctx context.Context, corpID, staffID string, params json
 }
 
 func groupChatTagUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateGroupChatTagReq
+	var req dto.UpdateGroupChatTagReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -173,7 +172,7 @@ func groupChatTagGroupQuery(ctx context.Context, corpID, _ string, params json.R
 }
 
 func groupChatTagGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.CreateGroupChatTagGroupReq
+	var req dto.CreateGroupChatTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -181,7 +180,7 @@ func groupChatTagGroupCreate(ctx context.Context, corpID, staffID string, params
 }
 
 func groupChatTagGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateGroupChatTagGroupReq
+	var req dto.UpdateGroupChatTagGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -209,7 +208,7 @@ func groupChatAutoJoinDelete(ctx context.Context, corpID, _ string, params json.
 }
 
 func groupChatAutoJoinBatchRegroup(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.BatchRegroupReq
+	var req dto.BatchRegroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -217,7 +216,7 @@ func groupChatAutoJoinBatchRegroup(ctx context.Context, corpID, _ string, params
 }
 
 func groupChatAutoJoinCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.CreateGroupChatAutoJoinCodeReq
+	var req dto.CreateGroupChatAutoJoinCodeReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -225,7 +224,7 @@ func groupChatAutoJoinCreate(ctx context.Context, corpID, _ string, params json.
 }
 
 func groupChatAutoJoinQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryGroupChatAutoJoinReq]
+	var p QueryParams[dto.QueryGroupChatAutoJoinReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -238,8 +237,8 @@ func groupChatAutoJoinQuery(ctx context.Context, corpID, _ string, params json.R
 
 func groupChatAutoJoinUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                                    `json:"id"`
-		Req requests.UpdateGroupChatAutoJoinQrCodeReq `json:"req"`
+		ID  string                               `json:"id"`
+		Req dto.UpdateGroupChatAutoJoinQrCodeReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -270,7 +269,7 @@ func groupChatMassMsgGet(ctx context.Context, _, _ string, params json.RawMessag
 }
 
 func groupChatMassMsgSendAsync(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.SendGroupChatMassMsgReq
+	var req dto.SendGroupChatMassMsgReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -288,7 +287,7 @@ func groupChatMassMsgDelete(ctx context.Context, _, _ string, params json.RawMes
 }
 
 func groupChatWelcomeMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryGroupChatWelcomeMsgReq]
+	var p QueryParams[dto.QueryGroupChatWelcomeMsgReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -303,8 +302,8 @@ func groupChatWelcomeMsgQuery(ctx context.Context, corpID, _ string, params json
 
 func groupChatWelcomeMsgCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        requests.CreateGroupChatWelcomeMsgReq `json:"req"`
-		ExtStaffID string                                `json:"ext_staff_id"`
+		Req        dto.CreateGroupChatWelcomeMsgReq `json:"req"`
+		ExtStaffID string                           `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -315,8 +314,8 @@ func groupChatWelcomeMsgCreate(ctx context.Context, corpID, _ string, params jso
 
 func groupChatWelcomeMsgUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                                `json:"id"`
-		Req requests.UpdateGroupChatWelcomeMsgReq `json:"req"`
+		ID  string                           `json:"id"`
+		Req dto.UpdateGroupChatWelcomeMsgReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err

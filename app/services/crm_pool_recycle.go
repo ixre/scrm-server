@@ -107,7 +107,7 @@ func (s CrmPoolService) AutoRecycle(ctx context.Context) (int64, error) {
 				selected = append(selected, c.ID)
 				logs = append(logs, models.CrmPoolLog{Model: models.Model{ID: id_generator.StringID()}, TenantID: tenant, CustomerID: c.ID, CustomerName: c.Name, Action: "recycle", OperatorName: "系统自动回收", Remark: "按公海规则自动回收"})
 			}
-			res := tx.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND id IN ?", tenant, selected).Updates(map[string]any{"pool_status": 1, "pool_at": now, "prev_owner_user_id": gorm.Expr("owner_user_id"), "owner_user_id": nil, "claimed_at": nil, "reassign_status": 0, "reassign_from": nil, "shared_staff_ids": constants.StringArrayField{}})
+			res := tx.Model(&models.CrmCustomer{}).Where("tenant_id = ? AND id IN ?", tenant, selected).Updates(map[string]any{"pool_status": models.CustomerPoolIn, "pool_at": now, "prev_owner_user_id": gorm.Expr("owner_user_id"), "owner_user_id": nil, "claimed_at": nil, "reassign_status": models.CustomerReassignNone, "reassign_from": nil, "shared_staff_ids": constants.StringArrayField{}})
 			if res.Error != nil {
 				return res.Error
 			}

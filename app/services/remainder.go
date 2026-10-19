@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"core/app/constants"
 	"core/app/models"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/delay_queue"
 	"core/common/id_generator"
 	"core/common/log"
@@ -29,7 +29,7 @@ func NewRemainder() *Remainder {
 }
 
 // Create todo 添加到日历
-func (o Remainder) Create(req requests.CreateRemainderReq, extCorpID string, extStaffID string) (models.CustomerEvent, error) {
+func (o Remainder) Create(req dto.CreateRemainderReq, extCorpID string, extStaffID string) (models.CustomerEvent, error) {
 
 	ce := models.CustomerEvent{
 		ExtCorpModel:  models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID},
@@ -74,7 +74,7 @@ func (o Remainder) Create(req requests.CreateRemainderReq, extCorpID string, ext
 }
 
 // Update 只更新内容
-func (o Remainder) Update(id string, req requests.UpdateRemainderReq, extCorpID string) (models.CustomerEvent, error) {
+func (o Remainder) Update(id string, req dto.UpdateRemainderReq, extCorpID string) (models.CustomerEvent, error) {
 	r := models.CustomerEvent{
 		ExtCorpModel: models.ExtCorpModel{ID: id, ExtCorpID: extCorpID},
 		Content:      req.Content,
@@ -113,7 +113,7 @@ func (o Remainder) SendRemainderMsg(job delay_queue.Job) error {
 		return err
 	}
 	recipient := &gowx.Recipient{UserIDs: []string{remainder.ExtStaffID}}
-	req := requests.CreateRemainderReq{}
+	req := dto.CreateRemainderReq{}
 	err = json.Unmarshal([]byte(job.Body), &req)
 	if err != nil {
 		return err

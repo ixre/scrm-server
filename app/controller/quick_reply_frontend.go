@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type QuickReplyFrontend struct {
@@ -28,7 +28,7 @@ func NewQuickReplyFrontend() *QuickReplyFrontend {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/quick-replies [get]
 func (r *QuickReplyFrontend) Query(c *gin.Context) {
-	req := requests.QueryQuickReplyReq{}
+	req := dto.QueryQuickReplyReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

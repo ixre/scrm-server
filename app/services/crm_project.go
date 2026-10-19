@@ -89,7 +89,7 @@ func (s CrmProjectService) Update(ctx context.Context, id string, p *models.CrmP
 		"remark":      p.Remark,
 	}
 	updatesCRM(m, "customer_id", "order_id", "manager_id")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmProject{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -206,7 +206,7 @@ func (s CrmProjectTaskService) Update(ctx context.Context, id string, t *models.
 		"sort":        t.Sort,
 	}
 	updatesCRM(m, "assignee_id")
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmProjectTask{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil

@@ -2,8 +2,8 @@ package services
 
 import (
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/delay_queue"
@@ -33,7 +33,7 @@ func NewGroupChatMassMsg() *GroupChatMassMsg {
 	}
 }
 
-func (o GroupChatMassMsg) SendMassMsgAsync(req requests.SendGroupChatMassMsgReq, extStaffID string, extCorpID string) (msg models.GroupChatMassMsg, err error) {
+func (o GroupChatMassMsg) SendMassMsgAsync(req dto.SendGroupChatMassMsgReq, extStaffID string, extCorpID string) (msg models.GroupChatMassMsg, err error) {
 	// 发送时间校验
 	if req.SendType == constants.Timed {
 		if req.SendAt.ToInt64() < time.Now().Unix() {
@@ -137,7 +137,7 @@ func (o GroupChatMassMsg) UpdateGroupMsgSentStatus(extCorpID string) (err error)
 func (o GroupChatMassMsg) DoSendGroupChatMassMsg(jobBody, JobID string) (extMsgID string, err error) {
 	log.Sugar.Debug(jobBody)
 
-	req := requests.SendGroupChatMassMsgReq{}
+	req := dto.SendGroupChatMassMsgReq{}
 	err = json.Unmarshal([]byte(jobBody), &req)
 	if err != nil {
 		log.Sugar.Error("unmarshal group msg failed", err)

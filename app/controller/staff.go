@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // Staff staff controller
@@ -66,7 +66,7 @@ func (s Staff) Get(c *gin.Context) {
 		return
 	}
 
-	staff, err := s.staffService.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID,consoleStaff.ExtCorpID)
+	staff, err := s.staffService.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		handler.ResponseError(err)
@@ -84,7 +84,7 @@ func (s Staff) Get(c *gin.Context) {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/staff [put]
 func (s Staff) Update(c *gin.Context) {
-	req := requests.EnableStaffs{}
+	req := dto.EnableStaffs{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -122,7 +122,7 @@ func (s Staff) GetCurrent(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), consoleStaff.ExtID,consoleStaff.ExtCorpID)
+	item, err := s.staffService.GetDetail(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), consoleStaff.ExtID, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		handler.ResponseError(err)
@@ -135,14 +135,14 @@ func (s Staff) GetCurrent(c *gin.Context) {
 // Query
 // @tags 员工管理
 // @Summary  员工列表
-// @Param params body requests.QueryStaffReq true "查询员工列表请求"
+// @Param params body dto.QueryStaffReq true "查询员工列表请求"
 // @Produce json
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Staff}} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/staffs [get]
 func (s Staff) Query(c *gin.Context) {
-	req := requests.QueryStaffReq{}
+	req := dto.QueryStaffReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -156,7 +156,7 @@ func (s Staff) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := s.staffService.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), 
+	items, total, err := s.staffService.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID),
 		req, consoleStaff.ExtCorpID, &req.Sorter, &req.Pager)
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -188,7 +188,7 @@ func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	staff, err := s.staffService.StaffInfoStatistics(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID,consoleStaff.ExtCorpID)
+	staff, err := s.staffService.StaffInfoStatistics(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), extStaffID, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		handler.ResponseError(err)
@@ -200,13 +200,13 @@ func (s Staff) GetStaffStaticsInfo(c *gin.Context) {
 // UpdateCustomerTag
 // @tags 客户管理
 // @Summary 更新客户标签
-// @Param params body requests.UpdateCustomerTagsReq true "更新客户标签请求"
+// @Param params body dto.UpdateCustomerTagsReq true "更新客户标签请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/action/update-tags [post]
 func (s Staff) UpdateCustomerTag(c *gin.Context) {
-	req := requests.UpdateCustomerTagsReq{}
+	req := dto.UpdateCustomerTagsReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -236,13 +236,13 @@ func (s Staff) UpdateCustomerTag(c *gin.Context) {
 // UpdateCustomerInternalTag
 // @tags 客户管理
 // @Summary 更新对客户的个人标签
-// @Param params body requests.UpdateCustomerInternalTagsReq true "更新对客户的个人标签请求"
+// @Param params body dto.UpdateCustomerInternalTagsReq true "更新对客户的个人标签请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/action/update-internal-tags [post]
 func (s Staff) UpdateCustomerInternalTag(c *gin.Context) {
-	req := requests.UpdateCustomerInternalTagsReq{}
+	req := dto.UpdateCustomerInternalTagsReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -274,7 +274,7 @@ func (s Staff) UpdateCustomerInternalTag(c *gin.Context) {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/staff/action/get-all [get]
 func (s Staff) QueryMainInfo(c *gin.Context) {
-	req := requests.QueryMainStaffInfoReq{}
+	req := dto.QueryMainStaffInfoReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -306,7 +306,7 @@ func (s Staff) QueryMainInfo(c *gin.Context) {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/staff/action/delete-customers-data-export [get]
 func (s Staff) ExportDeleteCustomers(c *gin.Context) {
-	req := requests.QueryStaffDeleteCustomerHistoryReq{}
+	req := dto.QueryStaffDeleteCustomerHistoryReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -319,7 +319,7 @@ func (s Staff) ExportDeleteCustomers(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	file, fileName, err := s.staffService.ExportDeleteCustomerList(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	file, fileName, err := s.staffService.ExportDeleteCustomerList(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -346,7 +346,7 @@ func (s Staff) GetCurrentFrontendStaff(c *gin.Context) {
 		log.TracedError("GetStaffInfo failed", err)
 		return
 	}
-	item, err := s.staffService.GetDetail(services.SyncTenantCtx(context.Background(), staff.ExtCorpID), staff.ExtID,staff.ExtCorpID)
+	item, err := s.staffService.GetDetail(services.SyncTenantCtx(context.Background(), staff.ExtCorpID), staff.ExtID, staff.ExtCorpID)
 
 	if err != nil {
 		handler.ResponseError(err)

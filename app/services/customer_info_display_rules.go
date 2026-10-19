@@ -2,7 +2,7 @@ package services
 
 import (
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
 	"core/common/ecode"
 )
@@ -20,7 +20,7 @@ func (cs CustomerInfoDisplayRules) Get(extCorpID string) (*models.CustomerInfoDi
 	return cs.model.Get(&rules)
 }
 
-func (cs CustomerInfoDisplayRules) Update(extCorpID string, req *entities.UpdateCustomerInfoDisplayRulesReq) error {
+func (cs CustomerInfoDisplayRules) Update(extCorpID string, req *dto.UpdateCustomerInfoDisplayRulesReq) error {
 	m := map[string]interface{}{}
 	for _, filed := range req.DisplayFieldList {
 		m[filed] = constants.True

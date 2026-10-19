@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 )
 
@@ -23,8 +22,8 @@ func init() {
 
 func massMsgCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        requests.SendMassMsgReq `json:"req"`
-		ExtStaffID string                  `json:"ext_staff_id"`
+		Req        dto.SendMassMsgReq `json:"req"`
+		ExtStaffID string             `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -35,8 +34,8 @@ func massMsgCreate(ctx context.Context, corpID, staffID string, params json.RawM
 
 func massMsgUpdate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                    `json:"id"`
-		Req requests.UpdateMassMsgReq `json:"req"`
+		ID  string               `json:"id"`
+		Req dto.UpdateMassMsgReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -102,8 +101,8 @@ func init() {
 
 func welcomeMsgCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        requests.CreateWelcomeMsgReq `json:"req"`
-		ExtStaffID string                       `json:"ext_staff_id"`
+		Req        dto.CreateWelcomeMsgReq `json:"req"`
+		ExtStaffID string                  `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -113,8 +112,8 @@ func welcomeMsgCreate(ctx context.Context, corpID, staffID string, params json.R
 
 func welcomeMsgUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                       `json:"id"`
-		Req requests.UpdateWelcomeMsgReq `json:"req"`
+		ID  string                  `json:"id"`
+		Req dto.UpdateWelcomeMsgReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -123,7 +122,7 @@ func welcomeMsgUpdate(ctx context.Context, corpID, _ string, params json.RawMess
 }
 
 func welcomeMsgQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryWelcomeMsgReq]
+	var p QueryParams[dto.QueryWelcomeMsgReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -165,8 +164,8 @@ func init() {
 
 func quickReplyCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        entities.CreateQuickReplyReq `json:"req"`
-		ExtStaffID string                       `json:"ext_staff_id"`
+		Req        dto.CreateQuickReplyReq `json:"req"`
+		ExtStaffID string                  `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -177,8 +176,8 @@ func quickReplyCreate(ctx context.Context, corpID, staffID string, params json.R
 
 func quickReplyUpdate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        entities.UpdateQuickReplyReq `json:"req"`
-		ExtStaffID string                       `json:"ext_staff_id"`
+		Req        dto.UpdateQuickReplyReq `json:"req"`
+		ExtStaffID string                  `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -188,7 +187,7 @@ func quickReplyUpdate(ctx context.Context, corpID, staffID string, params json.R
 }
 
 func quickReplyQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryQuickReplyReq]
+	var p QueryParams[dto.QueryQuickReplyReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -232,7 +231,7 @@ func quickReplyGroupQuery(ctx context.Context, corpID, _ string, params json.Raw
 }
 
 func quickReplyGroupQueryQuickReply(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryQuickReplyReq]
+	var p QueryParams[dto.QueryQuickReplyReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -245,8 +244,8 @@ func quickReplyGroupQueryQuickReply(ctx context.Context, corpID, _ string, param
 
 func quickReplyGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        entities.CreateQuickReplyGroupReq `json:"req"`
-		ExtStaffID string                            `json:"ext_staff_id"`
+		Req        dto.CreateQuickReplyGroupReq `json:"req"`
+		ExtStaffID string                       `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -255,7 +254,7 @@ func quickReplyGroupCreate(ctx context.Context, corpID, staffID string, params j
 }
 
 func quickReplyGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req entities.UpdateQuickReplyGroupReq
+	var req dto.UpdateQuickReplyGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -279,7 +278,7 @@ func init() {
 }
 
 func quickReplyFrontendQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryQuickReplyReq]
+	var p QueryParams[dto.QueryQuickReplyReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -299,8 +298,8 @@ func init() {
 
 func quickReplyGroupFrontendUpdate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
 	var req struct {
-		Req        entities.UpdateQuickReplyGroupReq `json:"req"`
-		ExtStaffID string                            `json:"ext_staff_id"`
+		Req        dto.UpdateQuickReplyGroupReq `json:"req"`
+		ExtStaffID string                       `json:"ext_staff_id"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err

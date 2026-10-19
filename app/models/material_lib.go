@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -55,7 +55,7 @@ func (m Material) Delete(ids []string, extCorpID string) (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
-func (m Material) Query(req requests.QueryMaterialReq, extCorpID string) (items []Material, total int64, err error) {
+func (m Material) Query(req dto.QueryMaterialReq, extCorpID string) (items []Material, total int64, err error) {
 	db := DB.Model(&Material{}).Preload(clause.Associations).Where("ext_corp_id = ?", extCorpID)
 	if req.MaterialType != "" {
 		db = db.Where("material_type = ?", req.MaterialType)

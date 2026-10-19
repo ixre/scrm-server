@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -19,13 +20,13 @@ type InternalTag struct {
 // @Summary 创建内部标签
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateInternalTagReq true "创建创建内部标签请求"
+// @Param params body dto.CreateInternalTagReq true "创建创建内部标签请求"
 // @Success 200 {object} app.JSONResult{data=models.InternalTag} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/internal-tag [post]
 func (o InternalTag) Create(c *gin.Context) {
-	req := requests.CreateInternalTagReq{}
+	req := dto.CreateInternalTagReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -91,13 +92,13 @@ func (o *InternalTag) Delete(c *gin.Context) {
 // @Summary 内部标签列表
 // @Produce json
 // @Accept json
-// @Param params body requests.QueryInternalTagReq true "内部标签列表"
+// @Param params body dto.QueryInternalTagReq true "内部标签列表"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.InternalTag}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/internal-tags [get]
 func (o *InternalTag) Query(c *gin.Context) {
-	req := requests.QueryInternalTagReq{}
+	req := dto.QueryInternalTagReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

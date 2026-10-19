@@ -81,13 +81,13 @@ func (s CrmPoolService) Recycle(ctx context.Context, customerIDs []string) (int6
 			return ErrCustomerAccess
 		}
 		for _, c := range customers {
-			if c.PoolStatus != 0 {
+			if c.InPool() {
 				return errors.New("客户已在公海，请刷新后重试")
 			}
 			if c.IsLocked {
 				return errors.New("锁定客户不能回收，请先解锁")
 			}
-			if c.ReassignStatus != 0 {
+			if c.IsReassigning() {
 				return errors.New("客户正在转交，接收完成后才能回收")
 			}
 			if err = tx.Model(&c).Updates(recycledCustomerChanges(c, time.Now())).Error; err != nil {

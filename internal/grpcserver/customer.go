@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"core/api/pb"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 	app "core/common/app"
 	"google.golang.org/grpc/codes"
@@ -32,7 +32,7 @@ func (s *CustomerServer) Get(ctx context.Context, req *pb.GetCustomerRequest) (*
 }
 
 func (s *CustomerServer) Query(ctx context.Context, req *pb.QueryCustomerRequest) (*pb.QueryCustomerResponse, error) {
-	q := requests.QueryCustomerReq{
+	q := dto.QueryCustomerReq{
 		Name:  req.GetKeyword(),
 		Pager: app.Pager{Page: int(req.GetPage()), PageSize: int(req.GetPageSize())},
 	}

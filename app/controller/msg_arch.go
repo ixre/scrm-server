@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
@@ -23,13 +23,13 @@ func NewMsgArch() *MsgArch {
 //@Summary 查询会话列表
 //@Produce  json
 //@Accept json
-//@Param params body requests.QueryChatMsgReq true "查询会话列表请求"
+//@Param params body dto.QueryChatMsgReq true "查询会话列表请求"
 //@Success 200 {object} app.JSONResult{} "成功"
 //@Failure 400 {object} app.JSONResult{} "非法请求"
 //@Failure 500 {object} app.JSONResult{} "内部错误"
 //@Router /api/v1/console/customers/chat-sessions [get]
 func (o MsgArch) QuerySessions(c *gin.Context) {
-	req := requests.QuerySessionReq{}
+	req := dto.QuerySessionReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -82,13 +82,13 @@ func (o MsgArch) Sync(c *gin.Context) {
 //@Summary 会话中的消息列表
 //@Produce  json
 //@Accept json
-//@Param params body requests.QueryChatMsgReq true "查询会话中的消息列表请求"
+//@Param params body dto.QueryChatMsgReq true "查询会话中的消息列表请求"
 //@Success 200 {object} app.JSONResult{} "成功"
 //@Failure 400 {object} app.JSONResult{} "非法请求"
 //@Failure 500 {object} app.JSONResult{} "内部错误"
 //@Router /api/v1/console/customer/sessions-msgs [get]
 func (o MsgArch) QuerySessionMsgs(c *gin.Context) {
-	req := requests.QueryChatMsgReq{}
+	req := dto.QueryChatMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -115,13 +115,13 @@ func (o MsgArch) QuerySessionMsgs(c *gin.Context) {
 //@Summary 搜索消息
 //@Produce  json
 //@Accept json
-//@Param params body requests.QueryChatMsgReq true "搜索消息请求"
+//@Param params body dto.QueryChatMsgReq true "搜索消息请求"
 //@Success 200 {object} app.JSONResult{} "成功"
 //@Failure 400 {object} app.JSONResult{} "非法请求"
 //@Failure 500 {object} app.JSONResult{} "内部错误"
 //@Router /api/v1/console/customer/sessions-msg/action/search [post]
 func (o MsgArch) SearchMsgs(c *gin.Context) {
-	req := requests.SearchMsgReq{}
+	req := dto.SearchMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

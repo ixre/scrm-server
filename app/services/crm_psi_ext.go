@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,7 +65,7 @@ func parseStockCheckItems(items constants.StringArrayField) ([]stockCheckItem, e
 
 // adjustProductStock 调整产品库存（delta 可正可负）。
 func adjustProductStock(tx *gorm.DB, tenantID, productID string, delta int) error {
-	return tx.Model(&models.CrmProduct{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  productID).
+	return tx.Model(&models.CrmProduct{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", productID).
 		UpdateColumn("stock_qty", gorm.Expr("stock_qty + ?", delta)).Error
 }
 
@@ -90,14 +90,13 @@ func genStockInNo(tenantID string) string {
 	day := time.Now().Format("20060102")
 	prefix := "SI" + day
 	var cnt int64
-	models.DB.Model(&models.CrmStockIn{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?",  prefix+"%").Count(&cnt)
+	models.DB.Model(&models.CrmStockIn{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?", prefix+"%").Count(&cnt)
 	return fmt.Sprintf("%s%04d", prefix, cnt+1)
 }
 
 // Create 创建入库单（自动生成 No）。
 func (s CrmStockInService) Create(ctx context.Context, r *models.CrmStockIn) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if r == nil {
 		return errors.New("入库单不能为空")
@@ -117,7 +116,6 @@ func (s CrmStockInService) Create(ctx context.Context, r *models.CrmStockIn) err
 // Update 更新入库单。
 func (s CrmStockInService) Update(ctx context.Context, id string, r *models.CrmStockIn) error {
 
-
 	if r == nil {
 		return errors.New("入库单不能为空")
 	}
@@ -133,7 +131,7 @@ func (s CrmStockInService) Update(ctx context.Context, id string, r *models.CrmS
 		"items":        r.Items,
 	}
 	updatesCRM(m, "warehouse_id", "operator_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmStockIn{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -142,17 +140,15 @@ func (s CrmStockInService) Update(ctx context.Context, id string, r *models.CrmS
 // Delete 删除入库单。
 func (s CrmStockInService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmStockIn{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmStockIn{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询入库单（按 warehouse_id/type/status）。
 func (s CrmStockInService) Query(ctx context.Context, req StockInQueryReq) ([]models.CrmStockIn, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -183,13 +179,12 @@ func (s CrmStockInService) Query(ctx context.Context, req StockInQueryReq) ([]mo
 func (s CrmStockInService) ChangeStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmStockIn
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
+		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
 			return err
 		}
 		if r.Status == status {
@@ -215,7 +210,7 @@ func (s CrmStockInService) ChangeStatus(ctx context.Context, id, status string) 
 				}
 			}
 		}
-		return tx.Model(&models.CrmStockIn{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+		return tx.Model(&models.CrmStockIn{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 			Update("status", status).Error
 	})
 }
@@ -241,14 +236,13 @@ func genStockOutNo(tenantID string) string {
 	day := time.Now().Format("20060102")
 	prefix := "SO" + day
 	var cnt int64
-	models.DB.Model(&models.CrmStockOut{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?",  prefix+"%").Count(&cnt)
+	models.DB.Model(&models.CrmStockOut{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?", prefix+"%").Count(&cnt)
 	return fmt.Sprintf("%s%04d", prefix, cnt+1)
 }
 
 // Create 创建出库单（自动生成 No）。
 func (s CrmStockOutService) Create(ctx context.Context, r *models.CrmStockOut) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if r == nil {
 		return errors.New("出库单不能为空")
@@ -268,7 +262,6 @@ func (s CrmStockOutService) Create(ctx context.Context, r *models.CrmStockOut) e
 // Update 更新出库单。
 func (s CrmStockOutService) Update(ctx context.Context, id string, r *models.CrmStockOut) error {
 
-
 	if r == nil {
 		return errors.New("出库单不能为空")
 	}
@@ -284,7 +277,7 @@ func (s CrmStockOutService) Update(ctx context.Context, id string, r *models.Crm
 		"items":        r.Items,
 	}
 	updatesCRM(m, "warehouse_id", "operator_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmStockOut{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -293,17 +286,15 @@ func (s CrmStockOutService) Update(ctx context.Context, id string, r *models.Crm
 // Delete 删除出库单。
 func (s CrmStockOutService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmStockOut{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmStockOut{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询出库单（按 warehouse_id/type/status）。
 func (s CrmStockOutService) Query(ctx context.Context, req StockOutQueryReq) ([]models.CrmStockOut, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -334,13 +325,12 @@ func (s CrmStockOutService) Query(ctx context.Context, req StockOutQueryReq) ([]
 func (s CrmStockOutService) ChangeStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmStockOut
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
+		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
 			return err
 		}
 		if r.Status == status {
@@ -366,7 +356,7 @@ func (s CrmStockOutService) ChangeStatus(ctx context.Context, id, status string)
 				}
 			}
 		}
-		return tx.Model(&models.CrmStockOut{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+		return tx.Model(&models.CrmStockOut{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 			Update("status", status).Error
 	})
 }
@@ -391,14 +381,13 @@ func genStockCheckNo(tenantID string) string {
 	day := time.Now().Format("20060102")
 	prefix := "SC" + day
 	var cnt int64
-	models.DB.Model(&models.CrmStockCheck{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?",  prefix+"%").Count(&cnt)
+	models.DB.Model(&models.CrmStockCheck{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?", prefix+"%").Count(&cnt)
 	return fmt.Sprintf("%s%04d", prefix, cnt+1)
 }
 
 // Create 创建盘点单（自动生成 No）。
 func (s CrmStockCheckService) Create(ctx context.Context, r *models.CrmStockCheck) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if r == nil {
 		return errors.New("盘点单不能为空")
@@ -418,7 +407,6 @@ func (s CrmStockCheckService) Create(ctx context.Context, r *models.CrmStockChec
 // Update 更新盘点单。
 func (s CrmStockCheckService) Update(ctx context.Context, id string, r *models.CrmStockCheck) error {
 
-
 	if r == nil {
 		return errors.New("盘点单不能为空")
 	}
@@ -431,7 +419,7 @@ func (s CrmStockCheckService) Update(ctx context.Context, id string, r *models.C
 		"items":        r.Items,
 	}
 	updatesCRM(m, "warehouse_id", "operator_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmStockCheck{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -440,17 +428,15 @@ func (s CrmStockCheckService) Update(ctx context.Context, id string, r *models.C
 // Delete 删除盘点单。
 func (s CrmStockCheckService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmStockCheck{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmStockCheck{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询盘点单。
 func (s CrmStockCheckService) Query(ctx context.Context, req StockCheckQueryReq) ([]models.CrmStockCheck, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -478,13 +464,12 @@ func (s CrmStockCheckService) Query(ctx context.Context, req StockCheckQueryReq)
 func (s CrmStockCheckService) ChangeStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmStockCheck
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
+		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
 			return err
 		}
 		if r.Status == status {
@@ -510,7 +495,7 @@ func (s CrmStockCheckService) ChangeStatus(ctx context.Context, id, status strin
 				}
 			}
 		}
-		return tx.Model(&models.CrmStockCheck{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+		return tx.Model(&models.CrmStockCheck{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 			Update("status", status).Error
 	})
 }
@@ -534,14 +519,13 @@ func genStockTransferNo(tenantID string) string {
 	day := time.Now().Format("20060102")
 	prefix := "ST" + day
 	var cnt int64
-	models.DB.Model(&models.CrmStockTransfer{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?",  prefix+"%").Count(&cnt)
+	models.DB.Model(&models.CrmStockTransfer{}).Scopes(models.TenantScope(tenantID)).Where("no LIKE ?", prefix+"%").Count(&cnt)
 	return fmt.Sprintf("%s%04d", prefix, cnt+1)
 }
 
 // Create 创建调拨单（自动生成 No）。
 func (s CrmStockTransferService) Create(ctx context.Context, r *models.CrmStockTransfer) error {
 	tenantID := identity.TenantID(ctx)
-
 
 	if r == nil {
 		return errors.New("调拨单不能为空")
@@ -564,7 +548,6 @@ func (s CrmStockTransferService) Create(ctx context.Context, r *models.CrmStockT
 // Update 更新调拨单。
 func (s CrmStockTransferService) Update(ctx context.Context, id string, r *models.CrmStockTransfer) error {
 
-
 	if r == nil {
 		return errors.New("调拨单不能为空")
 	}
@@ -578,7 +561,7 @@ func (s CrmStockTransferService) Update(ctx context.Context, id string, r *model
 		"items":          r.Items,
 	}
 	updatesCRM(m, "from_warehouse", "to_warehouse", "operator_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmStockTransfer{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -587,17 +570,15 @@ func (s CrmStockTransferService) Update(ctx context.Context, id string, r *model
 // Delete 删除调拨单。
 func (s CrmStockTransferService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmStockTransfer{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmStockTransfer{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询调拨单。
 func (s CrmStockTransferService) Query(ctx context.Context, req StockTransferQueryReq) ([]models.CrmStockTransfer, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -624,13 +605,12 @@ func (s CrmStockTransferService) Query(ctx context.Context, req StockTransferQue
 func (s CrmStockTransferService) ChangeStatus(ctx context.Context, id, status string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if status != "draft" && status != "confirmed" && status != "cancelled" {
 		return errors.New("无效的状态")
 	}
 	return models.DB.Transaction(func(tx *gorm.DB) error {
 		var r models.CrmStockTransfer
-		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).First(&r).Error; err != nil {
+		if err := tx.Scopes(models.TenantScope(tenantID)).Where("id = ?", id).First(&r).Error; err != nil {
 			return err
 		}
 		if r.Status == status {
@@ -677,7 +657,7 @@ func (s CrmStockTransferService) ChangeStatus(ctx context.Context, id, status st
 				}
 			}
 		}
-		return tx.Model(&models.CrmStockTransfer{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+		return tx.Model(&models.CrmStockTransfer{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 			Update("status", status).Error
 	})
 }

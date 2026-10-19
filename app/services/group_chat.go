@@ -1,16 +1,11 @@
 package services
 
 import (
-	"context"
 	"bytes"
-	"fmt"
-	"github.com/gogf/gf/os/gfile"
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"github.com/xuri/excelize/v2"
+	"context"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -18,6 +13,11 @@ import (
 	"core/common/we_work"
 	"core/conf"
 	gowx "core/pkg/easywework"
+	"fmt"
+	"github.com/gogf/gf/os/gfile"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"github.com/xuri/excelize/v2"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -105,8 +105,8 @@ func (o GroupChatService) Syncs(ctx context.Context, chatID string, extCorpID st
 
 // Query
 // Description: 查询客户群列表
-func (o GroupChatService) Query(ctx context.Context, 
-	req requests.QueryGroupChatReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) (res []models.GroupChat, total int64, err error) {
+func (o GroupChatService) Query(ctx context.Context,
+	req dto.QueryGroupChatReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) (res []models.GroupChat, total int64, err error) {
 	res = make([]models.GroupChat, 0)
 	res, total, err = o.GroupChatRepo.Query(req, extCorpID, pager, sorter)
 	return
@@ -162,7 +162,7 @@ func (o GroupChatService) SyncAll(ctx context.Context, extCorpID string) error {
 
 // UpdateTags
 // Description: 群聊批量打标签
-func (o GroupChatService) UpdateTags(ctx context.Context, req requests.UpdateCustomerGroupReq) (err error) {
+func (o GroupChatService) UpdateTags(ctx context.Context, req dto.UpdateCustomerGroupReq) (err error) {
 	for _, groupChatID := range req.GroupChatIDs {
 		err = o.GroupChatRepo.UpdateTags(groupChatID, req.AddTagIDs, req.RemoveTagIDs)
 		if err != nil {
@@ -173,7 +173,7 @@ func (o GroupChatService) UpdateTags(ctx context.Context, req requests.UpdateCus
 	return
 }
 
-func (o GroupChatService) Export(ctx context.Context, req requests.QueryGroupChatReq, extCorpID string) (*bytes.Buffer, string, error) {
+func (o GroupChatService) Export(ctx context.Context, req dto.QueryGroupChatReq, extCorpID string) (*bytes.Buffer, string, error) {
 	log.Sugar.Infow("ExportDeleteStaffWarningList", "req", req)
 	groupChats, err := o.GroupChatRepo.GetAll(req, extCorpID)
 	if err != nil {
@@ -285,8 +285,8 @@ func (o GroupChatService) CreateChatName(ctx context.Context, chatInfo gowx.Grou
 	return
 }
 
-func (o GroupChatService) GetAll(ctx context.Context, 
-	req requests.QueryGroupChatReq, extCorpID string) (items []models.GroupChatMainInfo, total int64, err error) {
+func (o GroupChatService) GetAll(ctx context.Context,
+	req dto.QueryGroupChatReq, extCorpID string) (items []models.GroupChatMainInfo, total int64, err error) {
 
 	return o.GroupChatRepo.GetAllChatsMainInfo(&req.Pager, &req.Sorter, extCorpID)
 }

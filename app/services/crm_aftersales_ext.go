@@ -54,7 +54,7 @@ func (s CrmAftersalesTypeService) Update(ctx context.Context, id string, t *mode
 		"sort":   t.Sort,
 		"status": t.Status,
 	}
-	return models.MustFor(ctx).Where("id = ?", id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmAftersalesType{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除售后类型。

@@ -1,7 +1,7 @@
 package models
 
 import (
-	"core/app/requests"
+	"core/app/dto"
 	app "core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -140,7 +140,7 @@ func (o Customer) Get(ID string, extCorpID string, withStaffRelation bool) (*Cus
 //         join staff s on s.ext_staff_id = customer_staff.ext_staff_id
 //         left join customer_info ci on c.id = ci.ext_customer_id;
 
-func (o Customer) QueryExport(req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]CustomerExportItem, int64, error) {
+func (o Customer) QueryExport(req dto.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]CustomerExportItem, int64, error) {
 
 	db := DB.Table("customer_staff").
 		Joins("join customer c on c.ext_id = customer_staff.ext_customer_id AND c.ext_corp_id = customer_staff.ext_corp_id").
@@ -179,7 +179,7 @@ func (o Customer) QueryExport(req requests.QueryCustomerReq, extCorpID string, p
 // ExportQuery
 // Description: 查询需要导出的客户
 func (o Customer) ExportQuery(
-	req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]*CustomerExportItem, int64, error) {
+	req dto.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]*CustomerExportItem, int64, error) {
 
 	var customers []*CustomerExportItem
 
@@ -236,7 +236,7 @@ func (o Customer) ExportQuery(
 // Query
 // Description: 查询客户
 func (o Customer) Query(
-	req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]*Customer, int64, error) {
+	req dto.QueryCustomerReq, extCorpID string, pager *app.Pager) ([]*Customer, int64, error) {
 
 	var customers []*Customer
 

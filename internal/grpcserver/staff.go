@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"core/api/pb"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 	app "core/common/app"
 	"google.golang.org/grpc/codes"
@@ -31,7 +31,7 @@ func (s *StaffServer) Get(ctx context.Context, req *pb.GetStaffRequest) (*pb.Sta
 }
 
 func (s *StaffServer) Query(ctx context.Context, req *pb.QueryStaffRequest) (*pb.QueryStaffResponse, error) {
-	q := requests.QueryStaffReq{
+	q := dto.QueryStaffReq{
 		Name:  req.GetName(),
 		Pager: app.Pager{Page: int(req.GetPage()), PageSize: int(req.GetPageSize())},
 	}

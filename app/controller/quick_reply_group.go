@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type QuickReplyGroup struct {
@@ -24,13 +24,13 @@ func NewQuickReplyGroup() *QuickReplyGroup {
 // @Summary 创建企业话术库组
 // @Produce  json
 // @Accept json
-// @Param params body entities.CreateQuickReplyGroupReq true "创建企业话术库组"
+// @Param params body dto.CreateQuickReplyGroupReq true "创建企业话术库组"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply-group [post]
 func (rg *QuickReplyGroup) Create(c *gin.Context) {
-	req := entities.CreateQuickReplyGroupReq{}
+	req := dto.CreateQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -90,13 +90,13 @@ func (rg *QuickReplyGroup) Get(c *gin.Context) {
 // @tags 话术库组
 // @Summary 删除话术库分组
 // @Produce  json
-// @Param params body entities.DeleteQuickReplyGroupReq true "删除话术库组请求"
+// @Param params body requests.DeleteQuickReplyGroupReq true "删除话术库组请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply-group/action/delete [post]
 func (rg *QuickReplyGroup) Delete(c *gin.Context) {
-	req := entities.DeleteQuickReplyGroupReq{}
+	req := requests.DeleteQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -123,13 +123,13 @@ func (rg *QuickReplyGroup) Delete(c *gin.Context) {
 // @tags 话术库组
 // @Summary 更新话术分组
 // @Accept json
-// @Param params body entities.CreateQuickReplyGroupReq true "删除话术库组请求"
+// @Param params body dto.CreateQuickReplyGroupReq true "删除话术库组请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply-group/{id} [put]
 func (rg *QuickReplyGroup) Update(c *gin.Context) {
-	req := entities.UpdateQuickReplyGroupReq{}
+	req := dto.UpdateQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

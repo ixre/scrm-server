@@ -1,10 +1,10 @@
 package services
 
 import (
-	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
+	"github.com/pkg/errors"
 )
 
 type QuickReplyFrontend struct {
@@ -17,7 +17,7 @@ func NewQuickReplyFrontend() *QuickReplyFrontend {
 }
 
 func (o QuickReplyFrontend) QueryQuickReply(
-	req requests.QueryQuickReplyReq, extCorpID string, pager *app.Pager) (groups []models.QuickReplyGroup, total int64, err error) {
+	req dto.QueryQuickReplyReq, extCorpID string, pager *app.Pager) (groups []models.QuickReplyGroup, total int64, err error) {
 
 	groups = make([]models.QuickReplyGroup, 0)
 

@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -23,13 +24,13 @@ func NewRemainder() *Remainder {
 // @Summary 创建提醒
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateRemainderReq true "创建提醒请求"
+// @Param params body dto.CreateRemainderReq true "创建提醒请求"
 // @Success 200 {object} app.JSONResult{data=models.Remainder} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remainder [post]
 func (o Remainder) Create(c *gin.Context) {
-	req := requests.CreateRemainderReq{}
+	req := dto.CreateRemainderReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -92,13 +93,13 @@ func (o Remainder) Delete(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "更新客户画像-提醒ID"
-// @Param params body requests.UpdateRemainderReq true "更新客户画像-提醒请求"
+// @Param params body dto.UpdateRemainderReq true "更新客户画像-提醒请求"
 // @Success 200 {object} app.JSONResult{data=models.Remainder} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remainder/{id} [put]
 func (o Remainder) Update(c *gin.Context) {
-	req := requests.UpdateRemainderReq{}
+	req := dto.UpdateRemainderReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

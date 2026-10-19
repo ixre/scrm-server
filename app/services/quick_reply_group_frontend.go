@@ -3,7 +3,7 @@ package services
 import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -19,7 +19,7 @@ func NewQuickReplyGroupFrontend() *QuickReplyGroupFrontend {
 }
 
 func (r QuickReplyGroupFrontend) Update(
-	req entities.UpdateQuickReplyGroupReq, extCorpID, extStaffID string) (g models.QuickReplyGroup, err error) {
+	req dto.UpdateQuickReplyGroupReq, extCorpID, extStaffID string) (g models.QuickReplyGroup, err error) {
 	groups, err := r.QuickReplyGroupRepo.Get(req.ID, extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)

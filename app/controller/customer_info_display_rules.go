@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
@@ -46,14 +46,14 @@ func (ch CustomerInfoDisplayRulesHandler) Get(c *gin.Context) {
 // Update
 // @tags  客户管理
 // @Summary 更新客户基本信息展示规则
-// @Param params body entities.UpdateCustomerInfoDisplayRulesReq true "更新客户基本信息展示规则请求"
+// @Param params body dto.UpdateCustomerInfoDisplayRulesReq true "更新客户基本信息展示规则请求"
 // @Produce json
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/info/displays [put]
 func (ch CustomerInfoDisplayRulesHandler) Update(c *gin.Context) {
-	var req entities.UpdateCustomerInfoDisplayRulesReq
+	var req dto.UpdateCustomerInfoDisplayRulesReq
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
@@ -19,13 +19,13 @@ type GroupChatGroup struct {
 // @Summary 自动拉群分组列表
 // @Produce  json
 // @Accept json
-// @Param params body entities.QueryGroupChatGroupReq true "自动拉群分组列表请求"
+// @Param params body dto.QueryGroupChatGroupReq true "自动拉群分组列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChatGroup}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/auto-join/group [get]
 func (o *GroupChatGroup) Query(c *gin.Context) {
-	req := entities.QueryGroupChatGroupReq{}
+	req := dto.QueryGroupChatGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -53,13 +53,13 @@ func (o *GroupChatGroup) Query(c *gin.Context) {
 // @Summary 创建自动拉群分组
 // @Produce  json
 // @Accept json
-// @Param params body entities.CreateGroupChatGroupReq true "创建自动拉群分组请求"
+// @Param params body dto.CreateGroupChatGroupReq true "创建自动拉群分组请求"
 // @Success 200 {object} app.JSONResult{data=models.GroupChatGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/auto-join/group [post]
 func (o *GroupChatGroup) Create(c *gin.Context) {
-	req := entities.CreateGroupChatGroupReq{}
+	req := dto.CreateGroupChatGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -88,13 +88,13 @@ func (o *GroupChatGroup) Create(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "自动拉群分组ID"
-// @Param params body entities.UpdateGroupChatGroupReq true "自动拉群分组更新请求"
+// @Param params body dto.UpdateGroupChatGroupReq true "自动拉群分组更新请求"
 // @Success 200 {object} app.JSONResult{data=models.GroupChatGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/auto-join/group/{id} [put]
 func (o *GroupChatGroup) Update(c *gin.Context) {
-	req := entities.UpdateGroupChatGroupReq{}
+	req := dto.UpdateGroupChatGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -129,13 +129,13 @@ func (o *GroupChatGroup) Update(c *gin.Context) {
 // @Summary 删除自动拉群分组
 // @Produce  json
 // @Accept json
-// @Param params body entities.DeleteGroupChatGroupReq true "自动拉群分组请求"
+// @Param params body dto.DeleteGroupChatGroupReq true "自动拉群分组请求"
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/auto-join/action/delete [post]
 func (o *GroupChatGroup) Delete(c *gin.Context) {
-	req := entities.DeleteGroupChatGroupReq{}
+	req := dto.DeleteGroupChatGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

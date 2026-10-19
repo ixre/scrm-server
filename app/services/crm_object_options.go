@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"core/app/models"
+
 	"gorm.io/gorm"
 )
 
@@ -181,7 +182,7 @@ func objectOptions(ctx context.Context, kind string, req ObjectOptionsRequest) (
 				if row.Mobile != "" {
 					label += " · " + row.Mobile
 				}
-				disabled := req.Purpose == "sales" && (row.PoolStatus != 0 || row.ReassignStatus != 0 || row.OwnerUserID == "" || (!manager && row.OwnerUserID != actor.ID))
+				disabled := req.Purpose == "sales" && (row.InPool() || row.IsReassigning() || row.OwnerUserID == "" || (!manager && row.OwnerUserID != actor.ID))
 				page.Items = append(page.Items, ObjectOption{ID: row.ID, Label: label, Disabled: disabled})
 			}
 		} else if kind == "opportunity" {

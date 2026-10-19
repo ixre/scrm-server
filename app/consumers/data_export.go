@@ -11,8 +11,8 @@ import (
 
 	//"github.com/tealeg/xlsx"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/delay_queue"
 	"core/common/log"
 	"core/common/storage"
@@ -47,7 +47,7 @@ func (o DataExporter) DataExport(job delay_queue.Job) error {
 	if storage.FileStorage == nil {
 		return fmt.Errorf("export storage is not configured")
 	}
-	exportJob := requests.DataExportJob{}
+	exportJob := dto.DataExportJob{}
 	err := json.Unmarshal([]byte(job.Body), &exportJob)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (o DataExporter) DataExport(job delay_queue.Job) error {
 	return nil
 }
 
-func (o DataExporter) ExportGroupChatList(jobID string, extCorpID string, req requests.QueryGroupChatReq) error {
+func (o DataExporter) ExportGroupChatList(jobID string, extCorpID string, req dto.QueryGroupChatReq) error {
 	groupChats, err := o.groupChatRepo.GetAll(req, extCorpID)
 	if err != nil {
 		log.Sugar.Errorw("groupChatRepo.GetAll", "err", err)
@@ -148,7 +148,7 @@ func (o DataExporter) ExportGroupChatList(jobID string, extCorpID string, req re
 	return o.dataExportRepo.Create(dataExportRes)
 }
 
-func (o DataExporter) ExportDeleteStaffWarningList(jobID string, req requests.DataExportJob) error {
+func (o DataExporter) ExportDeleteStaffWarningList(jobID string, req dto.DataExportJob) error {
 	log.Sugar.Infow("ExportDeleteStaffWarningList", "req", req)
 	customerLossInfos, _, err := o.relationHistory.QueryCustomerDeleteStaff(req.DataFilter.QueryCustomerLossesReq, "", &app.Sorter{}, &app.Pager{})
 	if err != nil {
@@ -221,7 +221,7 @@ func (o DataExporter) ExportDeleteStaffWarningList(jobID string, req requests.Da
 	return o.dataExportRepo.Create(dataExportRes)
 }
 
-func (o DataExporter) ExportDeleteCustomerList(jobID string, req requests.DataExportJob) error {
+func (o DataExporter) ExportDeleteCustomerList(jobID string, req dto.DataExportJob) error {
 	log.Sugar.Infow("ExportDeleteCustomerList", "req", req)
 	customerLossInfos, _, err := o.relationHistory.QueryStaffDeleteCustomer(req.DataFilter.QueryStaffDeleteCustomerHistoryReq, "", &app.Pager{}, &app.Sorter{})
 	if err != nil {

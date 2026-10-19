@@ -6,6 +6,7 @@ import (
 
 	"core/app/models"
 	"core/common/identity"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -59,10 +60,10 @@ func activeSalesCustomerLock(ctx context.Context, tx *gorm.DB, id, strength stri
 	if err = db.Clauses(clause.Locking{Strength: strength}).Where("id = ?", id).First(&c).Error; err != nil {
 		return c, ErrCustomerAccess
 	}
-	if c.PoolStatus == 1 || c.OwnerUserID == "" {
+	if c.InPool() || c.OwnerUserID == "" {
 		return c, errors.New("请先领取客户")
 	}
-	if c.ReassignStatus == 1 {
+	if c.IsReassigning() {
 		return c, errors.New("请先接收转交客户")
 	}
 	return c, nil

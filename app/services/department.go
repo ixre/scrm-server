@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
 	"core/common/id_generator"
 	"core/common/identity"
@@ -18,7 +18,7 @@ type Department struct {
 
 // Query
 // Description: 查部门列表
-func (d Department) Query(ctx context.Context, req entities.GetSubDepartmentReq, extCorpID string) (res []models.Department, total int64, err error) {
+func (d Department) Query(ctx context.Context, req dto.GetSubDepartmentReq, extCorpID string) (res []models.Department, total int64, err error) {
 	res = make([]models.Department, 0)
 	_ = identity.TenantID(ctx) // 2D 后续：legacy 查询补 TenantScope
 	res, total, err = d.model.Query(req.ExtParentId, extCorpID, req.ExtIDs, &req.Sorter, &req.Pager)

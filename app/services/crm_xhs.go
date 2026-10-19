@@ -111,7 +111,7 @@ func (s CrmCustomerService) syncXhsEvent(ctx context.Context, appID, extID, nick
 				c = matches[0]
 			} else {
 				now := time.Now()
-				c = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: tid, Name: nickname, Mobile: mobile, Source: constants.ChannelXiaohongshu, ExtCorpID: appID, ExtCustomerID: extID, AccountType: "小红书", PoolStatus: 1, PoolAt: &now}
+				c = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: tid, Name: nickname, Mobile: mobile, Source: constants.ChannelXiaohongshu, ExtCorpID: appID, ExtCustomerID: extID, AccountType: "小红书", PoolStatus: models.CustomerPoolIn, PoolAt: &now}
 				if err := createCRM(tx, &c); err != nil {
 					return err
 				}

@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type MaterialLib struct {
@@ -24,13 +25,13 @@ func NewMaterialLib() *MaterialLib {
 // @Summary 创建素材库素材
 // @Produce  json
 // @Accept json
-// @Param params body requests.UploadMaterialReq true "创建素材库素材请求"
+// @Param params body dto.UploadMaterialReq true "创建素材库素材请求"
 // @Success 200 {object} app.JSONResult{data=models.Material} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/material/lib [post]
 func (o MaterialLib) Create(c *gin.Context) {
-	req := requests.UploadMaterialReq{}
+	req := dto.UploadMaterialReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -79,7 +80,7 @@ func (o MaterialLib) Delete(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.Delete(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.IDs,consoleStaff.ExtCorpID)
+	total, err := o.srv.Delete(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.IDs, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
@@ -95,13 +96,13 @@ func (o MaterialLib) Delete(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "素材库ID"
-// @Param params body requests.UpdateMaterialReq true "更新素材库请求"
+// @Param params body dto.UpdateMaterialReq true "更新素材库请求"
 // @Success 200 {object} app.JSONResult{data=models.Material} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/material/lib/{id} [put]
 func (o MaterialLib) Update(c *gin.Context) {
-	req := requests.UpdateMaterialReq{}
+	req := dto.UpdateMaterialReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -136,13 +137,13 @@ func (o MaterialLib) Update(c *gin.Context) {
 // @Summary 查询素材库列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryMaterialReq true "查询素材库列表请求"
+// @Param params body dto.QueryMaterialReq true "查询素材库列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Material}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/material/lib [get]
 func (o MaterialLib) Query(c *gin.Context) {
-	req := requests.QueryMaterialReq{}
+	req := dto.QueryMaterialReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -156,7 +157,7 @@ func (o MaterialLib) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -200,13 +201,13 @@ func (o MaterialLib) GetSidebarStatus(c *gin.Context) {
 // @Summary 更新素材库-侧边栏开关状态
 // @Produce  json
 // @Accept json
-// @Param params body requests.UpdateGetSidebarStatusReq true "更新素材库-侧边栏开关状态请求"
+// @Param params body dto.UpdateGetSidebarStatusReq true "更新素材库-侧边栏开关状态请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/material/lib/sidebar-status [put]
 func (o MaterialLib) UpdateSidebarStatus(c *gin.Context) {
-	req := requests.UpdateGetSidebarStatusReq{}
+	req := dto.UpdateGetSidebarStatusReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

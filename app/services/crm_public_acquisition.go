@@ -78,7 +78,7 @@ func (s CrmSmartCardService) SubmitLead(shareCode, name, mobile, remark string) 
 			return err
 		}
 		var existing models.CrmLead
-		err := tx.Where("tenant_id = ? AND owner_user_id = ? AND source = ? AND mobile = ? AND status IN ?", card.TenantID, card.UserID, "smart_card", mobile, []string{"new", "contacted"}).First(&existing).Error
+		err := tx.Where("tenant_id = ? AND owner_user_id = ? AND source = ? AND mobile = ? AND status IN ?", card.TenantID, card.UserID, "smart_card", mobile, []string{models.LeadStatusNew, models.LeadStatusContacted}).First(&existing).Error
 		if err == nil {
 			return nil
 		}

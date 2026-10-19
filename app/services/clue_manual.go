@@ -2,8 +2,8 @@ package services
 
 import (
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/id_generator"
 	"core/common/log"
 )
@@ -18,7 +18,7 @@ func NewClueManual() *ClueManual {
 
 // Create
 // Description: 创建跟进事件
-func (m ClueManual) Create(req requests.CreateClueManualReq, extCorpID string, extStaffID string) (models.CustomerEvent, error) {
+func (m ClueManual) Create(req dto.CreateClueManualReq, extCorpID string, extStaffID string) (models.CustomerEvent, error) {
 	customerEvent := models.CustomerEvent{
 		ExtCorpModel:  models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID, ExtCreatorID: extStaffID},
 		Content:       req.Content,
@@ -42,7 +42,7 @@ func (m ClueManual) Delete(ids []string, extCorpID string) (int64, error) {
 
 // Update
 // Description: 更新跟进事件
-func (m ClueManual) Update(id string, req requests.UpdateClueManualReq, extCorpID string) (models.CustomerEvent, error) {
+func (m ClueManual) Update(id string, req dto.UpdateClueManualReq, extCorpID string) (models.CustomerEvent, error) {
 	customerEvent := models.CustomerEvent{
 		ExtCorpModel: models.ExtCorpModel{ID: id, ExtCorpID: extCorpID},
 		Content:      req.Content,

@@ -95,7 +95,7 @@ func pickPrimary(cs []models.CrmCustomer) string {
 	}
 	// 第一优先：有 owner 且非公海
 	for _, c := range cs {
-		if c.OwnerUserID != "" && c.PoolStatus == 0 {
+		if c.OwnerUserID != "" && !c.InPool() {
 			return c.ID
 		}
 	}

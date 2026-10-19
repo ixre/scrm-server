@@ -1,16 +1,11 @@
 package services
 
 import (
-	"context"
 	"bytes"
-	errors2 "errors"
-	"fmt"
-	"github.com/gogf/gf/crypto/gmd5"
-	"net/url"
+	"context"
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/ecode"
@@ -18,8 +13,12 @@ import (
 	"core/common/log"
 	"core/common/util"
 	"core/common/we_work"
- "core/conf"
-		workwx "core/pkg/easywework"
+	"core/conf"
+	workwx "core/pkg/easywework"
+	errors2 "errors"
+	"fmt"
+	"github.com/gogf/gf/crypto/gmd5"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -72,7 +71,7 @@ func NewCustomer() *CustomerService {
 // Param: extCorpID 外部企业ID
 // return: err
 func (o CustomerService) Sync(ctx context.Context, extCorpID string) error {
- ctx = SyncTenantCtx(ctx, extCorpID)
+	ctx = SyncTenantCtx(ctx, extCorpID)
 	client, err := GetCorpWxClient(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
@@ -328,8 +327,8 @@ func thumbAvatar(avatar string) (newAvatar string, err error) {
 
 // Query
 // Description: 查询客户条件
-func (o CustomerService) Query(ctx context.Context, 
-	req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) (customers []*models.Customer, total int64, err error) {
+func (o CustomerService) Query(ctx context.Context,
+	req dto.QueryCustomerReq, extCorpID string, pager *app.Pager) (customers []*models.Customer, total int64, err error) {
 
 	customers = make([]*models.Customer, 0)
 	customers, total, err = o.customerRepo.Query(req, extCorpID, pager)
@@ -441,7 +440,7 @@ func (o CustomerService) isNoCustomerErr(ctx context.Context, err error) bool {
 
 // UpdateDeleteEventNotify
 // Description: 设置流失客户是否通知员工
-func (o CustomerService) UpdateDeleteEventNotify(ctx context.Context, req entities.UpdateCustomerDeleteStaffNotifierReq, extCorpID string) error {
+func (o CustomerService) UpdateDeleteEventNotify(ctx context.Context, req dto.UpdateCustomerDeleteStaffNotifierReq, extCorpID string) error {
 	notify := models.EventNotify{
 		ID:            id_generator.StringID(),
 		ExtCorpID:     extCorpID,
@@ -454,20 +453,20 @@ func (o CustomerService) UpdateDeleteEventNotify(ctx context.Context, req entiti
 // Description: 获取流失客户是否通知员工选项
 // Param: extCorpID 外部企业ID
 // return: 流失提醒开关状态
-func (o CustomerService) GetNotifyStaffRule(ctx context.Context, extCorpID string) (*entities.UpdateCustomerDeleteStaffNotifierResp, error) {
+func (o CustomerService) GetNotifyStaffRule(ctx context.Context, extCorpID string) (*dto.UpdateCustomerDeleteStaffNotifierResp, error) {
 	eventNotify, err := o.eventNotifyRepo.Get(extCorpID)
 	if err != nil {
 		err = errors.WithStack(err)
 		return nil, err
 	}
-	return &entities.UpdateCustomerDeleteStaffNotifierResp{IsNotifyStaff: eventNotify.IsNotifyStaff}, err
+	return &dto.UpdateCustomerDeleteStaffNotifierResp{IsNotifyStaff: eventNotify.IsNotifyStaff}, err
 }
 
 // GetCustomerLosses
 // Description: 客户流失记录
 // Detail: 关系流水表查流失记录
-func (o CustomerService) GetCustomerLosses(ctx context.Context, 
-	req requests.QueryCustomerLossesReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) ([]models.CustomerLossInfo, int64, error) {
+func (o CustomerService) GetCustomerLosses(ctx context.Context,
+	req dto.QueryCustomerLossesReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) ([]models.CustomerLossInfo, int64, error) {
 	log.Sugar.Debugw("req", "req", req)
 	deletedStaffs, total, err := o.relationHistory.QueryCustomerDeleteStaff(req, extCorpID, sorter, pager)
 	if err != nil {
@@ -482,7 +481,7 @@ func (o CustomerService) GetCustomerLosses(ctx context.Context,
 // Description: 流失提醒列表下载
 // Detail: 查询客户流失记录,写xlsx
 // Param: 查询流失记录请求 req
-func (o CustomerService) ExportDeleteStaffWarningList(ctx context.Context, req requests.QueryCustomerLossesReq, extCorpID string) (*bytes.Buffer, string, error) {
+func (o CustomerService) ExportDeleteStaffWarningList(ctx context.Context, req dto.QueryCustomerLossesReq, extCorpID string) (*bytes.Buffer, string, error) {
 
 	log.Sugar.Debugw("ExportDeleteStaffWarningList", "req", req)
 
@@ -558,7 +557,7 @@ func (o CustomerService) ExportDeleteStaffWarningList(ctx context.Context, req r
 
 // Export
 // Description: 导出客户列表
-func (o CustomerService) Export(ctx context.Context, req requests.QueryCustomerReq, extCorpID string, pager *app.Pager) (buf *bytes.Buffer, filename string, err error) {
+func (o CustomerService) Export(ctx context.Context, req dto.QueryCustomerReq, extCorpID string, pager *app.Pager) (buf *bytes.Buffer, filename string, err error) {
 
 	log.Sugar.Infow("Export", "req", req)
 
@@ -735,8 +734,8 @@ func (o CustomerService) GetFullCustomerInfo(ctx context.Context, extCustomerID,
 //
 // Param:
 // return: 返回起止时间范围中的员工数量number
-func (o CustomerService) CustomerStatistic(ctx context.Context, 
-	req requests.QueryCustomerStatisticReq, extCorpID string) (resp []models.CustomerTrend, err error) {
+func (o CustomerService) CustomerStatistic(ctx context.Context,
+	req dto.QueryCustomerStatisticReq, extCorpID string) (resp []models.CustomerTrend, err error) {
 
 	res, err := o.csRepo.Query(req, extCorpID)
 

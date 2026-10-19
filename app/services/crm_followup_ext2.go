@@ -25,8 +25,11 @@ type PageReq struct {
 	Keyword  string `json:"keyword"`
 }
 
-func (r PageReq) pager() *app.Pager {
-	p := &app.Pager{Page: r.Page, PageSize: r.PageSize}
+func (r PageReq) pager() *app.Pager { return pagerOf(r.Page, r.PageSize) }
+
+// pagerOf 由 Page/PageSize 构造带默认值的分页器。
+func pagerOf(page, pageSize int) *app.Pager {
+	p := &app.Pager{Page: page, PageSize: pageSize}
 	p.SetDefault()
 	return p
 }

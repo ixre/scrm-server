@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 
 	"github.com/pkg/errors"
@@ -76,7 +76,7 @@ func (q QuickReply) Get(id string) (QuickReply, error) {
 }
 
 func (q QuickReply) Query(
-	req requests.QueryQuickReplyReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []QuickReplyWithAvatar, total int64, err error) {
+	req dto.QueryQuickReplyReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []QuickReplyWithAvatar, total int64, err error) {
 
 	db := DB.Table("quick_reply").
 		Joins(" left join quick_reply_group  on quick_reply.group_id = quick_reply_group.id ").

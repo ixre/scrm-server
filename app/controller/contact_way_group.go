@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -23,13 +24,13 @@ func NewContactWayGroup() *ContactWayGroup {
 // @Summary 查询渠道码分组列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryContactWayGroupReq true "查询渠道码分组列表请求"
+// @Param params body dto.QueryContactWayGroupReq true "查询渠道码分组列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.ContactWayGroup}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_way_groups [get]
 func (o *ContactWayGroup) Query(c *gin.Context) {
-	req := requests.QueryContactWayGroupReq{}
+	req := dto.QueryContactWayGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -91,13 +92,13 @@ func (o *ContactWayGroup) Get(c *gin.Context) {
 // @Summary 创建渠道码分组
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateContactWayGroupReq true "创建渠道码分组请求"
+// @Param params body dto.CreateContactWayGroupReq true "创建渠道码分组请求"
 // @Success 200 {object} app.JSONResult{data=models.ContactWayGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_way_group [post]
 func (o *ContactWayGroup) Create(c *gin.Context) {
-	req := requests.CreateContactWayGroupReq{}
+	req := dto.CreateContactWayGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -126,13 +127,13 @@ func (o *ContactWayGroup) Create(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "渠道码分组ID"
-// @Param params body requests.UpdateContactWayGroupReq true "更新渠道码分组请求"
+// @Param params body dto.UpdateContactWayGroupReq true "更新渠道码分组请求"
 // @Success 200 {object} app.JSONResult{data=models.ContactWayGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_way_group/{id} [put]
 func (o *ContactWayGroup) Update(c *gin.Context) {
-	req := requests.UpdateContactWayGroupReq{}
+	req := dto.UpdateContactWayGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

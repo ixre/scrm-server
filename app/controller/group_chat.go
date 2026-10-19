@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type GroupChat struct {
@@ -24,13 +24,13 @@ func NewGroupChat() *GroupChat {
 // @Summary 客户群列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryGroupChatReq true "查询客户群列表请求"
+// @Param params body dto.QueryGroupChatReq true "查询客户群列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChat}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group [get]
 func (o GroupChat) Query(c *gin.Context) {
-	req := requests.QueryGroupChatReq{}
+	req := dto.QueryGroupChatReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -59,13 +59,13 @@ func (o GroupChat) Query(c *gin.Context) {
 // @Summary 客户群打标签
 // @Produce  json
 // @Accept json
-// @Param params body requests.UpdateCustomerGroupReq true "客户群打标签请求"
+// @Param params body dto.UpdateCustomerGroupReq true "客户群打标签请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/action/update-tags [post]
 func (o GroupChat) UpdateTags(c *gin.Context) {
-	req := requests.UpdateCustomerGroupReq{}
+	req := dto.UpdateCustomerGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -87,13 +87,13 @@ func (o GroupChat) UpdateTags(c *gin.Context) {
 // @Summary 查询客户群列表导出
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryGroupChatReq true "查询客户群列表请求"
+// @Param params body dto.QueryGroupChatReq true "查询客户群列表请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-groups/action/export [get]
 func (o GroupChat) Export(c *gin.Context) {
-	req := requests.QueryGroupChatReq{}
+	req := dto.QueryGroupChatReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -107,7 +107,7 @@ func (o GroupChat) Export(c *gin.Context) {
 		return
 	}
 
-	buf, filename, err := o.srv.Export(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	buf, filename, err := o.srv.Export(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -156,7 +156,7 @@ func (o GroupChat) GetAllOwners(c *gin.Context) {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/action/get-all [post]
 func (o GroupChat) GetAll(c *gin.Context) {
-	req := requests.QueryGroupChatReq{}
+	req := dto.QueryGroupChatReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -170,7 +170,7 @@ func (o GroupChat) GetAll(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.GetAll(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	items, total, err := o.srv.GetAll(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")

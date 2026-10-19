@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type HomePageHandler struct {
@@ -28,7 +29,7 @@ func NewHomePageHandler() *HomePageHandler {
 // @Summary 客户统计
 // @Produce json
 // @Accept json
-// @Param params body requests.CreateClueManualReq true "客户统计请求"
+// @Param params body dto.CreateClueManualReq true "客户统计请求"
 // @Success 200 {object} app.JSONResult{data=models.CustomerSummary} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
@@ -40,7 +41,7 @@ func (o HomePageHandler) GetCustomerSummary(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	customer, errs := o.staffSrv.GetCustomerSummary(services.SyncTenantCtx(context.Background(), admin.ExtCorpID), admin.ExtID,admin.ExtCorpID)
+	customer, errs := o.staffSrv.GetCustomerSummary(services.SyncTenantCtx(context.Background(), admin.ExtCorpID), admin.ExtID, admin.ExtCorpID)
 
 	if errs != nil {
 		errs := errors.Wrap(errs, "get customer_event by id failed")
@@ -54,13 +55,13 @@ func (o HomePageHandler) GetCustomerSummary(c *gin.Context) {
 // @tags 首页
 // @Summary 客户数曲线图统计
 // @Produce  json
-// @Param params body requests.QueryCustomerStatisticReq true "客户数曲线图统计请求"
+// @Param params body dto.QueryCustomerStatisticReq true "客户数曲线图统计请求"
 // @Success 200 {object} app.JSONResult{data=[]models.CustomerTrend} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/action/get-trend [get]
 func (o HomePageHandler) GetCustomersTrend(c *gin.Context) {
-	req := requests.QueryCustomerStatisticReq{}
+	req := dto.QueryCustomerStatisticReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -75,7 +76,7 @@ func (o HomePageHandler) GetCustomersTrend(c *gin.Context) {
 		return
 	}
 
-	items, err := o.customerSrv.CustomerStatistic(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	items, err := o.customerSrv.CustomerStatistic(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")

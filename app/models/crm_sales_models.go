@@ -34,6 +34,36 @@ type CrmLead struct {
 	NextAction        string     `gorm:"type:varchar(512);comment:线索下一步行动" json:"next_action"`
 }
 
+// CrmLead 生命周期状态。
+const (
+	LeadStatusNew       = "new"       // 新线索
+	LeadStatusContacted = "contacted" // 已联系
+	LeadStatusQualified = "qualified" // 已转客户（终态）
+	LeadStatusLost      = "lost"      // 已流失（可恢复）
+)
+
+// CrmLead 线索池状态。
+const (
+	LeadPoolNone = 0 // 非池（在归属销售名下）
+	LeadPoolIn   = 1 // 池中待领
+)
+
+// IsConverted 线索已转化为客户（终态）：已产生客户关联或状态为 qualified。
+func (l CrmLead) IsConverted() bool {
+	return l.ConvertCustomerID != "" || l.Status == LeadStatusQualified
+}
+
+// IsLost 线索已流失（终态，可通过恢复跟进回到跟进中）。
+func (l CrmLead) IsLost() bool { return l.Status == LeadStatusLost }
+
+// InPool 线索在线索池中待领取。
+func (l CrmLead) InPool() bool { return l.PoolStatus == LeadPoolIn }
+
+// Followable 线索处于可跟进/可领取状态：新建、已联系或尚未填写状态。
+func (l CrmLead) Followable() bool {
+	return l.Status == "" || l.Status == LeadStatusNew || l.Status == LeadStatusContacted
+}
+
 // CrmPipelineStage 销售阶段定义。
 type CrmPipelineStage struct {
 	Model

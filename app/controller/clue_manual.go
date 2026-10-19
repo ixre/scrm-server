@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -19,13 +20,13 @@ type ClueManual struct {
 // @Summary 新建跟进
 // @Produce json
 // @Accept json
-// @Param params body requests.CreateClueManualReq true "删除跟进请求"
+// @Param params body dto.CreateClueManualReq true "删除跟进请求"
 // @Success 200 {object} app.JSONResult{data=models.CustomerEvent} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/clue-manual [post]
 func (o ClueManual) Create(c *gin.Context) {
-	req := requests.CreateClueManualReq{}
+	req := dto.CreateClueManualReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -88,13 +89,13 @@ func (o ClueManual) Delete(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "事件ID"
-// @Param params body requests.UpdateClueManualReq true "更新跟进请求"
+// @Param params body dto.UpdateClueManualReq true "更新跟进请求"
 // @Success 200 {object} app.JSONResult{data=models.CustomerEvent} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/clue-manual/{id} [put]
 func (o ClueManual) Update(c *gin.Context) {
-	req := requests.UpdateClueManualReq{}
+	req := dto.UpdateClueManualReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

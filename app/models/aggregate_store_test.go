@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/id_generator"
 	"core/migrations"
 	"gorm.io/driver/postgres"
@@ -125,11 +125,11 @@ func TestAggregateContactWayReplaceAndRollback(t *testing.T) {
 	if err != nil || len(got.Staffs) != 1 || got.Staffs[0].ID != "301" {
 		t.Fatal("failed replacement changed original staff")
 	}
-	items, total, err := (ContactWay{}).Query(requests.QueryContactWayReq{ExtStaffIDs: []string{"sales"}}, "corp-a")
+	items, total, err := (ContactWay{}).Query(dto.QueryContactWayReq{ExtStaffIDs: []string{"sales"}}, "corp-a")
 	if err != nil || total != 1 || len(items) != 1 || items[0].ID != "300" {
 		t.Fatalf("staff EXISTS filter failed: %+v %d %v", items, total, err)
 	}
-	_, total, err = (ContactWay{}).Query(requests.QueryContactWayReq{ExtStaffIDs: []string{"foreign", "backup"}}, "corp-a")
+	_, total, err = (ContactWay{}).Query(dto.QueryContactWayReq{ExtStaffIDs: []string{"foreign", "backup"}}, "corp-a")
 	if err != nil || total != 0 {
 		t.Fatalf("staff filter matched foreign or deleted rows: %d %v", total, err)
 	}

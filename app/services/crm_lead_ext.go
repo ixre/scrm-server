@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"core/common/app"
 	"core/common/identity"
 	"strconv"
 
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"core/app/models"
-	"core/common/app"
 	"core/common/id_generator"
 
 	"github.com/xuri/excelize/v2"
@@ -25,11 +25,7 @@ type LeadPoolQueryReq struct {
 	Keyword  string
 }
 
-func (r LeadPoolQueryReq) pager() *app.Pager {
-	p := &app.Pager{Page: r.Page, PageSize: r.PageSize}
-	p.SetDefault()
-	return p
-}
+func (r LeadPoolQueryReq) pager() *app.Pager { return pagerOf(r.Page, r.PageSize) }
 
 type CrmLeadExtService struct{}
 
@@ -41,7 +37,7 @@ func (s CrmLeadExtService) MoveToPool(ctx context.Context, ids []string) error {
 		if err := mutableLead(*lead); err != nil {
 			return err
 		}
-		return tx.Model(lead).Updates(map[string]any{"pool_status": 1, "pool_at": time.Now(), "owner_user_id": nil, "next_followup_at": nil, "next_action": ""}).Error
+		return tx.Model(lead).Updates(map[string]any{"pool_status": models.LeadPoolIn, "pool_at": time.Now(), "owner_user_id": nil, "next_followup_at": nil, "next_action": ""}).Error
 	})
 	return err
 }
@@ -59,10 +55,10 @@ func (s CrmLeadExtService) ReceiveFromPool(ctx context.Context, userID, id strin
 		if err = mutableLead(lead); err != nil {
 			return err
 		}
-		if lead.PoolStatus != 1 {
+		if !lead.InPool() {
 			return errors.New("线索已被领取，请刷新列表")
 		}
-		return tx.Model(&lead).Updates(map[string]any{"pool_status": 0, "pool_at": nil, "owner_user_id": userID}).Error
+		return tx.Model(&lead).Updates(map[string]any{"pool_status": models.LeadPoolNone, "pool_at": nil, "owner_user_id": userID}).Error
 	})
 }
 
@@ -74,7 +70,7 @@ func (s CrmLeadExtService) ListPool(ctx context.Context, req LeadPoolQueryReq) (
 	if err != nil {
 		return nil, 0, err
 	}
-	db = db.Where("pool_status = ? AND status IN ? AND convert_customer_id IS NULL", 1, []string{"new", "contacted", ""})
+	db = db.Where("pool_status = ? AND status IN ? AND convert_customer_id IS NULL", models.LeadPoolIn, []string{models.LeadStatusNew, models.LeadStatusContacted, ""})
 	if kw := strings.TrimSpace(req.Keyword); kw != "" {
 		like := "%" + kw + "%"
 		db = db.Where("title LIKE ? OR name LIKE ? OR mobile LIKE ? OR company LIKE ?", like, like, like, like)
@@ -115,7 +111,7 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 			}
 			return db.Where("id = ?", lead.ConvertCustomerID).First(&customer).Error
 		}
-		if lead.Status != "new" && lead.Status != "contacted" && lead.Status != "" {
+		if !lead.Followable() {
 			return errors.New("仅待跟进或已联系线索可转客户，流失线索请先恢复")
 		}
 		owner := ownerUserID
@@ -189,8 +185,8 @@ func (s CrmLeadExtService) ConvertToCustomer(ctx context.Context, userID, id, ow
 			customer.NextFollowupAt = lead.NextFollowupAt
 		}
 
-		claimed = lead.PoolStatus == 1
-		if err = tx.Model(&lead).Updates(map[string]any{"customer_id": customer.ID, "convert_customer_id": customer.ID, "convert_at": now, "status": "qualified", "convert_remark": remark, "pool_status": 0, "pool_at": nil, "owner_user_id": owner, "next_followup_at": nil, "next_action": ""}).Error; err != nil {
+		claimed = lead.InPool()
+		if err = tx.Model(&lead).Updates(map[string]any{"customer_id": customer.ID, "convert_customer_id": customer.ID, "convert_at": now, "status": models.LeadStatusQualified, "convert_remark": remark, "pool_status": models.LeadPoolNone, "pool_at": nil, "owner_user_id": owner, "next_followup_at": nil, "next_action": ""}).Error; err != nil {
 			return err
 		}
 		if lead.NextFollowupAt != nil || lead.NextAction != "" {
@@ -296,6 +292,6 @@ func (s CrmLeadExtService) BatchTransfer(ctx context.Context, ids []string, toUs
 		if err := validateCustomerOwner(ctx, tx, toUserID); err != nil {
 			return err
 		}
-		return tx.Model(lead).Updates(map[string]any{"owner_user_id": toUserID, "pool_status": 0, "pool_at": nil}).Error
+		return tx.Model(lead).Updates(map[string]any{"owner_user_id": toUserID, "pool_status": models.LeadPoolNone, "pool_at": nil}).Error
 	})
 }

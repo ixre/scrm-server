@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"core/app/models"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/id_generator"
 )
 
@@ -13,7 +13,7 @@ type GroupChatWelcomeMsg struct {
 }
 
 func (m GroupChatWelcomeMsg) Create(
-	req requests.CreateGroupChatWelcomeMsgReq, staff models.Staff) (msg models.GroupChatWelcomeMsg, err error) {
+	req dto.CreateGroupChatWelcomeMsgReq, staff models.Staff) (msg models.GroupChatWelcomeMsg, err error) {
 
 	msg = models.GroupChatWelcomeMsg{
 		ExtCorpModel: models.ExtCorpModel{
@@ -32,7 +32,7 @@ func (m GroupChatWelcomeMsg) Create(
 }
 
 func (m GroupChatWelcomeMsg) Update(
-	req requests.UpdateGroupChatWelcomeMsgReq, id string, staff models.Staff) (msg models.GroupChatWelcomeMsg, err error) {
+	req dto.UpdateGroupChatWelcomeMsgReq, id string, staff models.Staff) (msg models.GroupChatWelcomeMsg, err error) {
 
 	msg = models.GroupChatWelcomeMsg{
 		ExtCorpModel: models.ExtCorpModel{ID: id},
@@ -47,7 +47,7 @@ func (m GroupChatWelcomeMsg) Delete(ids []string) (int64, error) {
 }
 
 func (m GroupChatWelcomeMsg) Query(
-	req requests.QueryGroupChatWelcomeMsgReq, staff models.Staff) (msgs []models.GroupChatWelcomeMsg, total int64, err error) {
+	req dto.QueryGroupChatWelcomeMsgReq, staff models.Staff) (msgs []models.GroupChatWelcomeMsg, total int64, err error) {
 
 	msg := models.GroupChatWelcomeMsg{
 		ExtCorpModel: models.ExtCorpModel{ExtCorpID: staff.ExtCorpID},

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/id_generator"
@@ -148,7 +148,7 @@ func (o StaffService) SyncStaffByCorp(ctx context.Context, extCorpID string) (er
 }
 
 func (o StaffService) Query(ctx context.Context,
-	req requests.QueryStaffReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]*models.Staff, int64, error) {
+	req dto.QueryStaffReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]*models.Staff, int64, error) {
 	staff := models.Staff{
 		ExtCorpID:     extCorpID,
 		RoleID:        req.RoleID,
@@ -167,7 +167,7 @@ func (o StaffService) Get(ctx context.Context, extStaffID string, extCorpID stri
 	return o.staffRepo.Get(extStaffID, extCorpID, true)
 }
 
-func (o StaffService) Enable(ctx context.Context, req requests.EnableStaffs, extCorpID string) error {
+func (o StaffService) Enable(ctx context.Context, req dto.EnableStaffs, extCorpID string) error {
 	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func (o StaffService) StaffInfoStatistics(ctx context.Context, userID string, ex
 }
 
 func (o StaffService) UpdateCustomerInternalTag(ctx context.Context,
-	req requests.UpdateCustomerInternalTagsReq, extCorpID string) error {
+	req dto.UpdateCustomerInternalTagsReq, extCorpID string) error {
 	customerStaff := models.CustomerStaff{
 		ExtCorpModel:  models.ExtCorpModel{ExtCorpID: extCorpID},
 		ExtStaffID:    req.ExtStaffID,
@@ -255,7 +255,7 @@ func (o StaffService) UpdateCustomerInternalTag(ctx context.Context,
 
 // UpdateCustomerTag
 // Description: 员工更新客户标签
-func (o StaffService) UpdateCustomerTag(ctx context.Context, req requests.UpdateCustomerTagsReq, extStaffID, extCorpID string) error {
+func (o StaffService) UpdateCustomerTag(ctx context.Context, req dto.UpdateCustomerTagsReq, extStaffID, extCorpID string) error {
 	o.tagRepo.ExtCorpID = extCorpID
 	defer util.FuncTracer("req", req)()
 	for _, extCustomerID := range req.ExtCustomerIDs {
@@ -531,7 +531,7 @@ func (o StaffService) SendDefaultWelcomeMsg(ctx context.Context,
 // QueryMainInfo
 // Description: 查询员工的简要信息,有缓存
 func (o StaffService) QueryMainInfo(ctx context.Context,
-	req requests.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (models.StaffsMainInfoCache, error) {
+	req dto.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (models.StaffsMainInfoCache, error) {
 	pager.SetDefault()
 	return o.staffRepo.CachedQueryMainInfo(req, extCorpID, pager)
 }
@@ -539,7 +539,7 @@ func (o StaffService) QueryMainInfo(ctx context.Context,
 // ExportDeleteCustomerList
 // Description: 导出删人提醒记录
 func (o StaffService) ExportDeleteCustomerList(ctx context.Context,
-	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string) (*bytes.Buffer, string, error) {
+	req dto.QueryStaffDeleteCustomerHistoryReq, extCorpID string) (*bytes.Buffer, string, error) {
 
 	log.Sugar.Debugw("ExportDeleteCustomerList", "req", req)
 

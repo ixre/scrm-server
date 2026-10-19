@@ -3,7 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 )
@@ -22,13 +22,13 @@ func NewPermission() *Permission {
 // @Summary 查询权限列表
 // @Produce  json
 // @Accept json
-// @Param params body entities.QueryPermissionReq true "查询权限列表请求"
+// @Param params body dto.QueryPermissionReq true "查询权限列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Permission}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/corp-admin/permissions [get]
 func (o *Permission) Query(c *gin.Context) {
-	req := entities.QueryPermissionReq{}
+	req := dto.QueryPermissionReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

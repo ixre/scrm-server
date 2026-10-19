@@ -8,3 +8,8 @@ type QueryQuickReplyGroupReq struct {
 	app.Pager
 	app.Sorter
 }
+
+type DeleteQuickReplyGroupReq struct {
+	// 话术组ID
+	IDs []string `json:"ids" validate:"gt=0,dive,int64"`
+}

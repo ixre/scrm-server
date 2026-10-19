@@ -1,8 +1,8 @@
 package services
 
 import (
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/id_generator"
 	"time"
@@ -23,12 +23,12 @@ func NewCorpRiskMgrService() *CorpRiskMgrService {
 }
 
 func (s CorpRiskMgrService) Query(
-	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]models.StaffDeleteCustomer, int64, error) {
+	req dto.QueryStaffDeleteCustomerHistoryReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) ([]models.StaffDeleteCustomer, int64, error) {
 
 	return s.relationHistory.QueryStaffDeleteCustomer(req, extCorpID, pager, sorter)
 }
 
-func (s CorpRiskMgrService) Upsert(req requests.UpdateStaffDeleteCustomerNotifierReq, extCorpID string) error {
+func (s CorpRiskMgrService) Upsert(req dto.UpdateStaffDeleteCustomerNotifierReq, extCorpID string) error {
 
 	notify := models.EventNotify{
 		ID:             id_generator.StringID(),

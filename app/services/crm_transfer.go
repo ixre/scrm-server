@@ -46,10 +46,10 @@ func (s CrmTransferService) Transfer(ctx context.Context, operatorUserID string,
 			return ErrCustomerAccess
 		}
 		for _, c := range customers {
-			if c.PoolStatus == 1 {
+			if c.InPool() {
 				return errors.New("公海客户请使用分配操作")
 			}
-			if c.ReassignStatus != 0 {
+			if c.IsReassigning() {
 				return errors.New("客户尚在等待接收，请先完成上一次转交")
 			}
 			if c.OwnerUserID == toUserID {
@@ -59,7 +59,7 @@ func (s CrmTransferService) Transfer(ctx context.Context, operatorUserID string,
 			if err = createCRM(tx, &entry); err != nil {
 				return err
 			}
-			updates := map[string]any{"owner_user_id": toUserID, "claimed_at": time.Now(), "reassign_status": 1, "reassign_from": nil}
+			updates := map[string]any{"owner_user_id": toUserID, "claimed_at": time.Now(), "reassign_status": models.CustomerReassignPending, "reassign_from": nil}
 			if c.OwnerUserID != "" {
 				updates["reassign_from"] = c.OwnerUserID
 			}

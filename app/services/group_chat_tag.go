@@ -1,8 +1,8 @@
 package services
 
 import (
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/dbutil"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -16,7 +16,7 @@ func NewCustomerGroupTag() *GroupChatTag {
 	return &GroupChatTag{model: models.GroupChatTag{}}
 }
 
-func (o GroupChatTag) Create(req requests.CreateGroupChatTagsReq, extCorpID string, extStaffID string) ([]models.GroupChatTag, error) {
+func (o GroupChatTag) Create(req dto.CreateGroupChatTagsReq, extCorpID string, extStaffID string) ([]models.GroupChatTag, error) {
 	tags := make([]models.GroupChatTag, 0)
 	for _, name := range req.Names {
 		tag := models.GroupChatTag{
@@ -38,7 +38,7 @@ func (o GroupChatTag) Delete(ids []string) (int64, error) {
 	return o.model.Delete(ids)
 }
 
-func (o GroupChatTag) Update(req requests.UpdateGroupChatTagReq, extCorpID string) (models.GroupChatTag, error) {
+func (o GroupChatTag) Update(req dto.UpdateGroupChatTagReq, extCorpID string) (models.GroupChatTag, error) {
 	tag := models.GroupChatTag{ExtCorpModel: models.ExtCorpModel{ID: req.ID, ExtCorpID: extCorpID}, Name: req.Name}
 	err := o.model.Updates(tag)
 	return tag, err

@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/delay_queue"
@@ -40,7 +40,7 @@ func NewDefaultMassMsgService() *MassMsgService {
 
 // Create
 // 定时和立即发送都统一异步发送
-func (o MassMsgService) Create(ctx context.Context, req requests.SendMassMsgReq, creator, extCorpID string) (msg models.MassMsg, err error) {
+func (o MassMsgService) Create(ctx context.Context, req dto.SendMassMsgReq, creator, extCorpID string) (msg models.MassMsg, err error) {
 	// 发送时间校验
 	if req.SendType == constants.Timed {
 		if req.SendAt.ToInt64() < time.Now().Unix() {
@@ -123,7 +123,7 @@ func (o MassMsgService) Create(ctx context.Context, req requests.SendMassMsgReq,
 // UpdateMassMsg
 // 不支持删除立即发送消息
 func (o MassMsgService) UpdateMassMsg(ctx context.Context,
-	req requests.UpdateMassMsgReq, id string, name string, extCorpID string) (msg models.MassMsg, err error) {
+	req dto.UpdateMassMsgReq, id string, name string, extCorpID string) (msg models.MassMsg, err error) {
 
 	massMsg, err := o.massMsgRepo.Get(id)
 	if err != nil {
@@ -248,10 +248,10 @@ func (o MassMsgService) Get(ctx context.Context, msgID, extCorpID string) (res r
 // GetSendMassMsgResult
 // Description:  查询群发结果
 // Detail:
-func (o MassMsgService) GetSendMassMsgResult(ctx context.Context, missionID string) (*requests.SendMassMsgResp, error) {
+func (o MassMsgService) GetSendMassMsgResult(ctx context.Context, missionID string) (*dto.SendMassMsgResp, error) {
 	customer := models.Customer{}
 	msg, err := customer.GetMassMsg(missionID)
-	resp := &requests.SendMassMsgResp{MissionID: missionID, MissionStatus: constants.Sending}
+	resp := &dto.SendMassMsgResp{MissionID: missionID, MissionStatus: constants.Sending}
 	if err != nil {
 		if gorm.ErrRecordNotFound == err {
 			return resp, nil
@@ -275,7 +275,7 @@ func (o MassMsgService) GetSendMassMsgResult(ctx context.Context, missionID stri
 //	 同一个企业每个自然月内仅可针对一个客户/客户群发送4条消息，超过接收上限的客户将无法再收到群发消息。
 func (o MassMsgService) SendMassMsgToWx(ctx context.Context, body string, msgID string) (extMsgID string, err error) {
 	log.Sugar.Debug(body)
-	req := requests.SendMassMsgReq{}
+	req := dto.SendMassMsgReq{}
 	err = json.Unmarshal([]byte(body), &req)
 	if err != nil {
 		log.Sugar.Error("unmarshal group msg failed", err)

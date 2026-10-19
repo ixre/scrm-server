@@ -156,7 +156,7 @@ func (s CrmLandingPageService) SubmitForm(slug string, formData map[string]strin
 		if len(matches) == 1 {
 			customer = matches[0]
 		} else {
-			customer = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: page.TenantID, Name: name, Mobile: mobile, Company: company, Source: constants.SourceWebForm, PoolStatus: 1, PoolAt: &now, Level: 1}
+			customer = models.CrmCustomer{Model: models.Model{ID: id_generator.StringID()}, TenantID: page.TenantID, Name: name, Mobile: mobile, Company: company, Source: constants.SourceWebForm, PoolStatus: models.CustomerPoolIn, PoolAt: &now, Level: 1}
 			if err := createCRM(tx, &customer); err != nil {
 				return err
 			}
@@ -185,7 +185,7 @@ func (s CrmLandingPageService) SubmitForm(slug string, formData map[string]strin
 		}
 		if count == 0 {
 			lead := models.CrmLead{Model: models.Model{ID: id_generator.StringID()}, TenantID: page.TenantID, CustomerID: customer.ID, OwnerUserID: customer.OwnerUserID, Title: title, Name: name, Mobile: mobile, Company: company, Source: constants.SourceWebForm, Status: "new"}
-			if lead.OwnerUserID == "" || customer.PoolStatus == 1 {
+			if lead.OwnerUserID == "" || customer.InPool() {
 				lead.OwnerUserID = ""
 				lead.PoolStatus = 1
 				lead.PoolAt = &now

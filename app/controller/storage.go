@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/requests"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/storage"
@@ -25,13 +25,13 @@ func NewStorage() *Storage {
 // @Summary 获取本地存储文件
 // @Produce  json
 // @Accept json
-// @Param params body entities.LocalStorageFileReq true "获取本地存储文件请求"
+// @Param params body requests.LocalStorageFileReq true "获取本地存储文件请求"
 // @Success 200 {file} file "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /storage/public [get]
 func (o *Storage) GetLocalFile(c *gin.Context) {
-	req := entities.LocalStorageFileReq{}
+	req := requests.LocalStorageFileReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -85,13 +85,13 @@ func (o *Storage) GetLocalFile(c *gin.Context) {
 // @Summary 上传本地存储文件
 // @Produce  json
 // @Accept json
-// @Param params body entities.LocalStorageFileReq true "上传本地存储文件请求"
+// @Param params body requests.LocalStorageFileReq true "上传本地存储文件请求"
 // @Success 200 {file} file "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /storage/public [put]
 func (o *Storage) PutLocalFile(c *gin.Context) {
-	req := entities.LocalStorageFileReq{}
+	req := requests.LocalStorageFileReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -131,13 +131,13 @@ func (o *Storage) PutLocalFile(c *gin.Context) {
 // @Summary 调试接口-获取预签名URL
 // @Produce  json
 // @Accept json
-// @Param params body entities.GetSignedURLReq true "获取预签名URL请求"
+// @Param params body requests.GetSignedURLReq true "获取预签名URL请求"
 // @Success 200 {file} file "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /storage/action/get_signed_url [post]
 func (o *Storage) GetSignedURL(c *gin.Context) {
-	req := entities.GetSignedURLReq{}
+	req := requests.GetSignedURLReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

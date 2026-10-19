@@ -1539,7 +1539,7 @@ func (s CrmCustomerService) Create(ctx context.Context, userID string, req model
 	if req.ExtCustomerID != "" || req.ExtCorpID != "" {
 		return req, errors.New("外部渠道身份只能由渠道同步建立")
 	}
-	if req.PoolStatus == 1 {
+	if req.PoolStatus == models.CustomerPoolIn {
 		req.OwnerUserID = ""
 	} else if req.OwnerUserID == "" {
 		req.OwnerUserID = userID
@@ -1551,7 +1551,7 @@ func (s CrmCustomerService) Create(ctx context.Context, userID string, req model
 	}
 	// 无归属销售（导入/表单等无 userID 场景）→ 进公海池待认领。
 	if req.OwnerUserID == "" {
-		req.PoolStatus = 1
+		req.PoolStatus = models.CustomerPoolIn
 		now := time.Now()
 		req.PoolAt = &now
 	}
@@ -1608,10 +1608,10 @@ func (s CrmCustomerService) updateCustomer(ctx context.Context, tx *gorm.DB, id 
 		return req, errors.New("外部渠道身份不能通过客户编辑修改")
 	}
 	if existing.OwnerUserID != req.OwnerUserID {
-		if existing.IsLocked || existing.ReassignStatus != 0 {
+		if existing.IsLocked || existing.IsReassigning() {
 			return req, errors.New("客户已锁定或正在转交，不能直接修改归属")
 		}
-		if existing.PoolStatus == 1 && req.OwnerUserID != "" {
+		if existing.InPool() && req.OwnerUserID != "" {
 			return req, errors.New("公海客户请使用认领或分配操作")
 		}
 	}
@@ -1935,7 +1935,7 @@ func (s CrmCustomerService) BatchImport(ctx context.Context, userID string, rows
 			Mobile:     r["手机"],
 			Company:    r["公司"],
 			Source:     constants.SourceImport,
-			PoolStatus: 1,
+			PoolStatus: models.CustomerPoolIn,
 		}
 		now := time.Now()
 		c.PoolAt = &now
@@ -1974,19 +1974,19 @@ func (s CrmLeadService) Create(ctx context.Context, userID string, req models.Cr
 		return req, ErrCustomerAccess
 	}
 	if req.Status == "" {
-		req.Status = "new"
+		req.Status = models.LeadStatusNew
 	}
-	if req.Status != "new" && req.Status != "contacted" {
+	if req.Status != models.LeadStatusNew && req.Status != models.LeadStatusContacted {
 		return req, errors.New("新线索必须为待跟进或已联系状态")
 	}
 	req.ConvertCustomerID, req.ConvertAt, req.ConvertRemark = "", nil, ""
-	if req.PoolStatus == 1 {
+	if req.PoolStatus == models.LeadPoolIn {
 		req.OwnerUserID = ""
 		req.NextFollowupAt, req.NextAction = nil, ""
 		now := time.Now()
 		req.PoolAt = &now
 	} else {
-		req.PoolStatus, req.PoolAt = 0, nil
+		req.PoolStatus, req.PoolAt = models.LeadPoolNone, nil
 		if req.OwnerUserID == "" {
 			req.OwnerUserID = userID
 		}
@@ -2011,7 +2011,7 @@ func (s CrmLeadService) Update(ctx context.Context, id string, req models.CrmLea
 		if err = mutableLead(lead); err != nil {
 			return err
 		}
-		if lead.PoolStatus == 1 {
+		if lead.InPool() {
 			return errors.New("请先领取线索再编辑")
 		}
 		if req.Status != "" && req.Status != lead.Status {
@@ -2035,7 +2035,7 @@ func (s CrmLeadService) Update(ctx context.Context, id string, req models.CrmLea
 
 func (s CrmLeadService) Delete(ctx context.Context, ids []string) (int64, error) {
 	return mutateLeads(ctx, ids, func(tx *gorm.DB, lead *models.CrmLead) error {
-		if lead.ConvertCustomerID != "" || lead.Status == "qualified" {
+		if lead.IsConverted() {
 			return errors.New("已转化线索需要保留来源记录")
 		}
 		for _, model := range []any{&models.CrmFollowup{}, &models.CrmOpportunity{}} {
@@ -2490,7 +2490,7 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 			if err = mutableLead(l); err != nil {
 				return err
 			}
-			if l.PoolStatus == 1 {
+			if l.InPool() {
 				return errors.New("请先领取线索再跟进")
 			}
 			if req.CustomerID != "" && req.CustomerID != l.CustomerID {
@@ -2501,8 +2501,8 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 				return err
 			}
 			changes := map[string]any{"next_followup_at": req.NextFollowupAt, "next_action": strings.TrimSpace(req.NextAction)}
-			if l.Status == "new" || l.Status == "" {
-				changes["status"] = "contacted"
+			if l.Status == models.LeadStatusNew || l.Status == "" {
+				changes["status"] = models.LeadStatusContacted
 			}
 			if err = tx.Model(&l).Updates(changes).Error; err != nil {
 				return err
@@ -2523,10 +2523,10 @@ func (s CrmFollowupService) Create(ctx context.Context, userID string, req model
 			if err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", req.CustomerID).First(&customer).Error; err != nil {
 				return ErrCustomerAccess
 			}
-			if customer.ReassignStatus == 1 {
+			if customer.IsReassigning() {
 				return errors.New("请先接收转交客户再跟进")
 			}
-			if customer.PoolStatus == 1 {
+			if customer.InPool() {
 				return errors.New("请先领取公海客户再跟进")
 			}
 			if req.ContactID != "" {
@@ -2624,7 +2624,7 @@ func (s CrmFollowupService) Delete(ctx context.Context, ids []string) (int64, er
 			return errors.New("跟进记录已变化，请刷新后重试")
 		}
 		for _, lead := range leads {
-			if lead.PoolStatus == 1 || mutableLead(lead) != nil {
+			if lead.InPool() || mutableLead(lead) != nil {
 				continue
 			}
 			var latest models.CrmFollowup

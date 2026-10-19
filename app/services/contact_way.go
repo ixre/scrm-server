@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/responses"
 	"core/common/id_generator"
 	"core/common/log"
@@ -25,7 +25,7 @@ func NewContactWay() *ContactWay {
 	return &ContactWay{model: models.ContactWay{}}
 }
 
-func (o *ContactWay) Query(ctx context.Context, req requests.QueryContactWayReq, extCorpID string) (items []responses.ContactWay, total int64, err error) {
+func (o *ContactWay) Query(ctx context.Context, req dto.QueryContactWayReq, extCorpID string) (items []responses.ContactWay, total int64, err error) {
 	param := models.ContactWay{}
 	err = copier.Copy(&param, req)
 	if err != nil {
@@ -219,7 +219,7 @@ func (o *ContactWay) Preprocess(ctx context.Context, mode preprocessMode, item *
 	return
 }
 
-func (o *ContactWay) Create(ctx context.Context, req requests.CreateContactWayReq, extCorpID string, extCreatorID string) (item models.ContactWay, err error) {
+func (o *ContactWay) Create(ctx context.Context, req dto.CreateContactWayReq, extCorpID string, extCreatorID string) (item models.ContactWay, err error) {
 	err = copier.Copy(&item, req)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -237,7 +237,7 @@ func (o *ContactWay) Create(ctx context.Context, req requests.CreateContactWayRe
 	return o.model.Create(item, extCorpID)
 }
 
-func (o *ContactWay) Update(ctx context.Context, id string, req requests.UpdateContactWayReq, extCorpID string) (item models.ContactWay, err error) {
+func (o *ContactWay) Update(ctx context.Context, id string, req dto.UpdateContactWayReq, extCorpID string) (item models.ContactWay, err error) {
 	err = copier.Copy(&item, req)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -259,7 +259,7 @@ func (o *ContactWay) Delete(ctx context.Context, ids []string, extCorpID string)
 	return o.model.Delete(ids, extCorpID)
 }
 
-func (o *ContactWay) BatchUpdate(ctx context.Context, req requests.BatchUpdateContactWayReq, extCorpID string) (total int64, err error) {
+func (o *ContactWay) BatchUpdate(ctx context.Context, req dto.BatchUpdateContactWayReq, extCorpID string) (total int64, err error) {
 	param := models.ContactWay{}
 	err = copier.Copy(&param, req)
 	if err != nil {

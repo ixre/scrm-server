@@ -2,9 +2,8 @@ package services
 
 import (
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -30,7 +29,7 @@ func NewQuickReply() *QuickReply {
 	}
 }
 
-func (r QuickReply) Create(req entities.CreateQuickReplyReq, staff models.Staff) (*models.QuickReply, error) {
+func (r QuickReply) Create(req dto.CreateQuickReplyReq, staff models.Staff) (*models.QuickReply, error) {
 	quickReply := &models.QuickReply{
 		ExtCorpModel:   models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: staff.ExtCorpID, ExtCreatorID: staff.ExtID},
 		Name:           req.Name,
@@ -72,7 +71,7 @@ func (r QuickReply) Create(req entities.CreateQuickReplyReq, staff models.Staff)
 }
 
 func (r QuickReply) QueryQuickReply(
-	req requests.QueryQuickReplyReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []models.QuickReplyWithAvatar, total int64, err error) {
+	req dto.QueryQuickReplyReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []models.QuickReplyWithAvatar, total int64, err error) {
 
 	items = make([]models.QuickReplyWithAvatar, 0)
 	items, total, err = r.QuickReply.Query(req, extCorpID, sorter, pager)
@@ -88,7 +87,7 @@ func (r QuickReply) Delete(ids []string, extCorpID string) (int64, error) {
 	return r.QuickReply.Delete(ids, extCorpID)
 }
 
-func (r QuickReply) Update(req entities.UpdateQuickReplyReq, staff models.Staff) (*models.QuickReply, error) {
+func (r QuickReply) Update(req dto.UpdateQuickReplyReq, staff models.Staff) (*models.QuickReply, error) {
 	reply := models.QuickReply{
 		ExtCorpModel: models.ExtCorpModel{ID: req.ID, ExtCorpID: staff.ExtCorpID, ExtCreatorID: staff.ExtID},
 		Name:         req.Name, GroupID: req.GroupID,

@@ -1,16 +1,9 @@
 package services
 
 import (
-	"github.com/jinzhu/copier"
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"io"
-	"io/ioutil"
-	"net/http"
-	url2 "net/url"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -18,6 +11,13 @@ import (
 	"core/common/storage"
 	"core/common/we_work"
 	work_wx "core/pkg/easywework"
+	"github.com/jinzhu/copier"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+	"io"
+	"io/ioutil"
+	"net/http"
+	url2 "net/url"
 	"strings"
 )
 
@@ -70,16 +70,18 @@ func GetObjFromSignedURL(url string) (obj string, err error) {
 // Create
 // Description 创建员工添加客户时自动发送给客户的欢迎语
 // Detail
+//
 //	支持文字、图片、链接和小程序
-// 	支持设置分时段欢迎语
-// 	欢迎语可用员工如与可用部门重复，以员工为准
-// 	部门和员工表都有 welcome_msg_id，使用时先找员工的welcome_msg_id，若未找到，则找所属部门的welcome_msg_id，按部门级别从下往上找
-// 	企微不支持ossURL，需将文件上传到指定位置再使用
-// Param req requests.CreateWelcomeMsgReq 创建欢迎语请求
+//	支持设置分时段欢迎语
+//	欢迎语可用员工如与可用部门重复，以员工为准
+//	部门和员工表都有 welcome_msg_id，使用时先找员工的welcome_msg_id，若未找到，则找所属部门的welcome_msg_id，按部门级别从下往上找
+//	企微不支持ossURL，需将文件上传到指定位置再使用
+//
+// Param req dto.CreateWelcomeMsgReq 创建欢迎语请求
 // Param extCorpID string 企业外部ID
 // Param creator string 创建者的外部ID
 // return msg models.WelcomeMsg 欢迎语model
-func (o WelcomeMsgService) Create(req requests.CreateWelcomeMsgReq, extCorpID string, extCreatorID string) (msg models.WelcomeMsg, err error) {
+func (o WelcomeMsgService) Create(req dto.CreateWelcomeMsgReq, extCorpID string, extCreatorID string) (msg models.WelcomeMsg, err error) {
 	// 欢迎语主要内容
 	mainMsgID := id_generator.StringID()
 	mainMsg := models.WelcomeMsg{
@@ -154,7 +156,7 @@ func (o WelcomeMsgService) Create(req requests.CreateWelcomeMsgReq, extCorpID st
 	return mainMsg, err
 }
 
-func (o WelcomeMsgService) Update(ID string, req requests.UpdateWelcomeMsgReq, extCorpID string) (models.WelcomeMsg, error) {
+func (o WelcomeMsgService) Update(ID string, req dto.UpdateWelcomeMsgReq, extCorpID string) (models.WelcomeMsg, error) {
 	mainMsg := models.WelcomeMsg{
 		ExtCorpModel:        models.ExtCorpModel{ID: ID, ExtCorpID: extCorpID},
 		WelcomeMsg:          req.WelcomeMsg,
@@ -219,13 +221,14 @@ func (o WelcomeMsgService) Update(ID string, req requests.UpdateWelcomeMsgReq, e
 // Delete
 // Description: 删除欢迎语
 // Detail:
+//
 //	附件已经上传至微信，不用删除
-// 	员工表中有欢迎语ID, 没有将其置空，取用时查不到已删除的欢迎语即可。
+//	员工表中有欢迎语ID, 没有将其置空，取用时查不到已删除的欢迎语即可。
 func (o WelcomeMsgService) Delete(ids []string, extCorpID string) error {
 	return o.msgRepo.Delete(ids, extCorpID)
 }
 
-func (o WelcomeMsgService) Query(req requests.QueryWelcomeMsgReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (welcomeMsgWithStaffAndDept []models.WelcomeMsgWithDeptAndStaff, total int64, err error) {
+func (o WelcomeMsgService) Query(req dto.QueryWelcomeMsgReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (welcomeMsgWithStaffAndDept []models.WelcomeMsgWithDeptAndStaff, total int64, err error) {
 	welcomeMsgWithStaffAndDept = make([]models.WelcomeMsgWithDeptAndStaff, 0)
 	msgs, total, err := o.msgRepo.Query(req, extCorpID, sorter, pager)
 	if err != nil {
@@ -311,7 +314,7 @@ func (o WelcomeMsgService) UploadImg(body io.ReadCloser, filename, extCorpID str
 	return
 }
 
-func (o WelcomeMsgService) createImageWxURL(req *requests.CreateWelcomeMsgReq, extCorpID string) (err error) {
+func (o WelcomeMsgService) createImageWxURL(req *dto.CreateWelcomeMsgReq, extCorpID string) (err error) {
 	for i, _ := range req.WelcomeMsg.Attachments {
 		if req.WelcomeMsg.Attachments[i].MsgType == string(constants.ImageMsgType) {
 			uploadURL := req.WelcomeMsg.Attachments[i].Image.PicURL
@@ -364,10 +367,10 @@ func (o WelcomeMsgService) createImageWxURL(req *requests.CreateWelcomeMsgReq, e
 // checkAttachments
 // Description: 检查attachments参数是否符合wx要求。
 // Detail: wx 限制链接的描述不大于512，链接的标题不大于128字节
-// Param: req *requests.CreateWelcomeMsgReq 创建欢迎语请求
+// Param: req *dto.CreateWelcomeMsgReq 创建欢迎语请求
 // Param: extCorpID string 外部企业ID
 // return
-func (o WelcomeMsgService) checkAttachments(req *requests.CreateWelcomeMsgReq, extCorpID string) (err error) {
+func (o WelcomeMsgService) checkAttachments(req *dto.CreateWelcomeMsgReq, extCorpID string) (err error) {
 	if req == nil {
 		return
 	}

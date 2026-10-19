@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"time"
 
@@ -54,7 +54,7 @@ func (tg TagGroup) ExchangeOrder(ID string, ID2 string) error {
 // Query
 // Description: Query 标签组
 // Detail: 按关键词和可用部门搜索
-func (tg TagGroup) Query(param requests.TagListReq, extCorpID string) (groups []*TagGroup, total int64, err error) {
+func (tg TagGroup) Query(param dto.TagListReq, extCorpID string) (groups []*TagGroup, total int64, err error) {
 	// 查找指定部门
 	matchedTagGroupIDs := make([]string, 0)
 	shouldMatch := false

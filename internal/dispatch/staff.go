@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"core/app/entities"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 )
 
@@ -65,7 +64,7 @@ func init() {
 }
 
 func staffEnable(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.EnableStaffs
+	var req dto.EnableStaffs
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -96,7 +95,7 @@ func staffStaffInfoStatistics(ctx context.Context, corpID, _ string, params json
 }
 
 func staffUpdateCustomerTag(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateCustomerTagsReq
+	var req dto.UpdateCustomerTagsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -105,7 +104,7 @@ func staffUpdateCustomerTag(ctx context.Context, corpID, _ string, params json.R
 }
 
 func staffQueryMainInfo(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.QueryMainStaffInfoReq
+	var req dto.QueryMainStaffInfoReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -125,7 +124,7 @@ func staffGetCustomerSummary(ctx context.Context, corpID, _ string, params json.
 }
 
 func staffUpdateCustomerInternalTag(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateCustomerInternalTagsReq
+	var req dto.UpdateCustomerInternalTagsReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -134,7 +133,7 @@ func staffUpdateCustomerInternalTag(ctx context.Context, corpID, _ string, param
 }
 
 func permissionQuery(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[entities.QueryPermissionReq]
+	var p QueryParams[dto.QueryPermissionReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -217,7 +216,7 @@ func jsApiGetJSAgentConfig(ctx context.Context, corpID, _ string, params json.Ra
 }
 
 func utilParseLink(ctx context.Context, _, _ string, params json.RawMessage) (any, error) {
-	var req requests.ParseLinkReq
+	var req dto.ParseLinkReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -235,7 +234,7 @@ func utilGetSignedURL(ctx context.Context, _, _ string, params json.RawMessage) 
 }
 
 func msgArchQueryMsgs(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.QueryChatMsgReq
+	var req dto.QueryChatMsgReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -243,7 +242,7 @@ func msgArchQueryMsgs(ctx context.Context, corpID, _ string, params json.RawMess
 }
 
 func msgArchQuerySessions(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.QuerySessionReq
+	var req dto.QuerySessionReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -251,7 +250,7 @@ func msgArchQuerySessions(ctx context.Context, corpID, _ string, params json.Raw
 }
 
 func msgArchSearchMsgs(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.SearchMsgReq
+	var req dto.SearchMsgReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}

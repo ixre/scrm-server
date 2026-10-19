@@ -63,7 +63,7 @@ func (s CrmKnowledgeService) Update(ctx context.Context, id string, k *models.Cr
 		"status":            k.Status,
 	}
 	updatesCRM(m, "knowledge_type_id", "author_id")
-	return models.MustFor(ctx).Where("id = ?", id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmKnowledge{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除知识库文章。
@@ -161,7 +161,7 @@ func (s CrmNoticeService) Update(ctx context.Context, id string, n *models.CrmNo
 		now := time.Now()
 		m["publish_at"] = &now
 	}
-	return models.MustFor(ctx).Where("id = ?", id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmNotice{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除公告。
@@ -249,7 +249,7 @@ func (s CrmWorkReportService) Update(ctx context.Context, id string, r *models.C
 		"plan":        r.Plan,
 	}
 	updatesCRM(m, "user_id", "reviewer_id")
-	return models.MustFor(ctx).Where("id = ?", id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmWorkReport{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除工作报告。

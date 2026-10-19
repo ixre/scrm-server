@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strconv"
 	"strings"
@@ -30,7 +30,6 @@ type AutoTagRuleCreateReq struct {
 func (s CrmAutoTagService) CreateRule(ctx context.Context, req models.CrmAutoTagRule) (models.CrmAutoTagRule, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	req.ID = id_generator.StringID()
 	req.TenantID = tenantID
 	if req.Status == "" {
@@ -48,7 +47,6 @@ func (s CrmAutoTagService) CreateRule(ctx context.Context, req models.CrmAutoTag
 
 // QueryRules 列出自动打标签规则。
 func (s CrmAutoTagService) QueryRules(ctx context.Context, status string, pager *app.Pager) ([]models.CrmAutoTagRule, int64, error) {
-
 
 	if pager == nil {
 		pager = &app.Pager{}
@@ -70,14 +68,12 @@ func (s CrmAutoTagService) QueryRules(ctx context.Context, status string, pager 
 // DeleteRules 删除规则。
 func (s CrmAutoTagService) DeleteRules(ctx context.Context, ids []string) (int64, error) {
 
-
 	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmAutoTagRule{})
 	return res.RowsAffected, res.Error
 }
 
 // ApplyToCustomer 对单个客户应用所有匹配的自动打标签规则。
 func (s CrmAutoTagService) ApplyToCustomer(ctx context.Context, customerID string) error {
-
 
 	var rules []models.CrmAutoTagRule
 	models.MustFor(ctx).Where("status = ?", "active").Find(&rules)
@@ -132,7 +128,9 @@ func (s CrmAutoTagService) matchRule(rule models.CrmAutoTagRule, cust models.Crm
 		if threshold <= 0 {
 			return false
 		}
-		var amt struct{ Total float64 `gorm:"column:total"` }
+		var amt struct {
+			Total float64 `gorm:"column:total"`
+		}
 		models.DB.Model(&models.CrmOrder{}).Scopes(models.TenantScope(cust.TenantID)).Where("customer_id = ? AND status IN ?", cust.ID, []string{"signed", "completed"}).
 			Select("COALESCE(SUM(amount),0) AS total").Scan(&amt)
 		return amt.Total >= float64(threshold)
@@ -157,7 +155,6 @@ func parseThreshold(cond string) int {
 
 // ApplyAll 对所有客户应用自动打标签（定时调用）。
 func (s CrmAutoTagService) ApplyAll(ctx context.Context) {
-
 
 	var customers []models.CrmCustomer
 	models.MustFor(ctx).Find(&customers)

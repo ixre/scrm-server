@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/util"
 	"core/conf"
 	"encoding/json"
@@ -70,13 +70,13 @@ func (a *MsgArch) archiveCall(method, endpoint, corpID string, input interface{}
 	return result.Data, nil
 }
 
-func (a *MsgArch) QuerySessions(req requests.QuerySessionReq, corpID string) (interface{}, error) {
+func (a *MsgArch) QuerySessions(req dto.QuerySessionReq, corpID string) (interface{}, error) {
 	return a.archiveCall(http.MethodGet, constants.MsgArchSrvPathSessions, corpID, req)
 }
-func (a *MsgArch) QueryMsgs(req requests.QueryChatMsgReq, corpID string) (interface{}, error) {
+func (a *MsgArch) QueryMsgs(req dto.QueryChatMsgReq, corpID string) (interface{}, error) {
 	return a.archiveCall(http.MethodGet, constants.MsgArchSrvPathMsgs, corpID, req)
 }
-func (a *MsgArch) SearchMsgs(req requests.SearchMsgReq, corpID string) (interface{}, error) {
+func (a *MsgArch) SearchMsgs(req dto.SearchMsgReq, corpID string) (interface{}, error) {
 	return a.archiveCall(http.MethodGet, constants.MsgArchSrvSearchMsgs, corpID, req)
 }
 func (a *MsgArch) Sync(corpID string) error {

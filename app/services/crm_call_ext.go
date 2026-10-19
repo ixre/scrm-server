@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 	"time"
@@ -31,7 +31,6 @@ func NewCrmCallList() *CrmCallListService { return &CrmCallListService{} }
 func (s CrmCallListService) Create(ctx context.Context, c *models.CrmCallList) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if c == nil {
 		return errors.New("记录不能为空")
 	}
@@ -50,7 +49,6 @@ func (s CrmCallListService) Create(ctx context.Context, c *models.CrmCallList) e
 // Update 更新待拨电话记录。
 func (s CrmCallListService) Update(ctx context.Context, id string, c *models.CrmCallList) error {
 
-
 	if c == nil {
 		return errors.New("记录不能为空")
 	}
@@ -63,7 +61,7 @@ func (s CrmCallListService) Update(ctx context.Context, id string, c *models.Crm
 		"remark":       c.Remark,
 	}
 	updatesCRM(m, "user_id", "customer_id")
-	if err := models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmCallList{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -72,17 +70,15 @@ func (s CrmCallListService) Update(ctx context.Context, id string, c *models.Crm
 // Delete 删除待拨电话记录。
 func (s CrmCallListService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmCallList{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmCallList{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询待拨电话列表（按 user_id/status）。
 func (s CrmCallListService) Query(ctx context.Context, req CallListQueryReq) ([]models.CrmCallList, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -110,7 +106,6 @@ func (s CrmCallListService) Query(ctx context.Context, req CallListQueryReq) ([]
 func (s CrmCallListService) BatchCreate(ctx context.Context, items []models.CrmCallList) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if len(items) == 0 {
 		return errors.New("记录不能为空")
 	}
@@ -136,14 +131,13 @@ func (s CrmCallListService) BatchCreate(ctx context.Context, items []models.CrmC
 func (s CrmCallListService) BatchAssign(ctx context.Context, userID string, ids []string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if len(ids) == 0 {
 		return errors.New("ids 不能为空")
 	}
 	if userID == "" {
 		return errors.New("user_id 不能为空")
 	}
-	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?",  ids).
+	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id IN ?", ids).
 		Update("user_id", userID).Error
 }
 
@@ -151,9 +145,8 @@ func (s CrmCallListService) BatchAssign(ctx context.Context, userID string, ids 
 func (s CrmCallListService) MarkDialed(ctx context.Context, id string) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	now := time.Now()
-	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Updates(map[string]any{"status": "dialed", "dialed_at": &now}).Error
 }
 
@@ -161,7 +154,6 @@ func (s CrmCallListService) MarkDialed(ctx context.Context, id string) error {
 func (s CrmCallListService) MarkSkipped(ctx context.Context, id string) error {
 	tenantID := identity.TenantID(ctx)
 
-
-	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id = ?",  id).
+	return models.DB.Model(&models.CrmCallList{}).Scopes(models.TenantScope(tenantID)).Where("id = ?", id).
 		Update("status", "skipped").Error
 }

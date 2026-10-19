@@ -5,7 +5,7 @@ import (
 	"github.com/gogf/gf/crypto/gsha1"
 	"github.com/gogf/gf/util/grand"
 	"github.com/pkg/errors"
-	"core/app/responses"
+	"core/app/dto"
 	log2 "core/common/log"
 	"core/common/we_work"
 	"strings"
@@ -20,8 +20,8 @@ func NewJsApiService() *JsApiService {
 }
 
 // GetJSConfig 获取企业级别的JS SDK config参数
-func (o JsApiService) GetJSConfig(url string, extCorpID string) (res responses.GetJSConfigResult, err error) {
-	res = responses.GetJSConfigResult{
+func (o JsApiService) GetJSConfig(url string, extCorpID string) (res dto.GetJSConfigResult, err error) {
+	res = dto.GetJSConfigResult{
 		Timestamp: time.Now().Unix(),
 		NonceStr:  grand.Letters(20),
 		AppID:     extCorpID,
@@ -48,8 +48,8 @@ func (o JsApiService) GetJSConfig(url string, extCorpID string) (res responses.G
 }
 
 // GetJSAgentConfig 获取应用级别的JS SDK agentConfig参数
-func (o JsApiService) GetJSAgentConfig(url string, extCorpID string) (res responses.GetJSAgentConfigResult, err error) {
-	res = responses.GetJSAgentConfigResult{
+func (o JsApiService) GetJSAgentConfig(url string, extCorpID string) (res dto.GetJSAgentConfigResult, err error) {
+	res = dto.GetJSAgentConfigResult{
 		CorpID:    extCorpID,
 		
 		Timestamp: time.Now().Unix(),

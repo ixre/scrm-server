@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -23,13 +24,13 @@ func NewGroupChatAutoJoin() *GroupChatAutoJoin {
 // @Summary 查询自动拉群码列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryGroupChatAutoJoinReq true "查询自动拉群码列表请求"
+// @Param params body dto.QueryGroupChatAutoJoinReq true "查询自动拉群码列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChatAutoJoinCode}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/auto-join-code [get]
 func (o *GroupChatAutoJoin) Query(c *gin.Context) {
-	req := requests.QueryGroupChatAutoJoinReq{}
+	req := dto.QueryGroupChatAutoJoinReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -57,13 +58,13 @@ func (o *GroupChatAutoJoin) Query(c *gin.Context) {
 // @summary 创建自动拉群码
 // @produce  json
 // @accept json
-// @param params body requests.CreateGroupChatAutoJoinCodeReq true "创建自动拉群码请求"
+// @param params body dto.CreateGroupChatAutoJoinCodeReq true "创建自动拉群码请求"
 // @success 200 {object} app.JSONResult{data=models.GroupChatAutoJoinCode} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
 // @router /api/v1/console/customer-group/auto-join-code [post]
 func (o *GroupChatAutoJoin) Create(c *gin.Context) {
-	req := requests.CreateGroupChatAutoJoinCodeReq{}
+	req := dto.CreateGroupChatAutoJoinCodeReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -92,13 +93,13 @@ func (o *GroupChatAutoJoin) Create(c *gin.Context) {
 // @produce  json
 // @accept json
 // @param id path string true "自动拉群码id"
-// @param params body requests.UpdateGroupChatAutoJoinQrCodeReq true "更新自动拉群码请求"
+// @param params body dto.UpdateGroupChatAutoJoinQrCodeReq true "更新自动拉群码请求"
 // @success 200 {object} app.JSONResult{data=models.GroupChatAutoJoinCode} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
 // @router /api/v1/console/customer-group/auto-join-code/{id} [put]
 func (o *GroupChatAutoJoin) Update(c *gin.Context) {
-	req := requests.UpdateGroupChatAutoJoinQrCodeReq{}
+	req := dto.UpdateGroupChatAutoJoinQrCodeReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -167,13 +168,13 @@ func (o *GroupChatAutoJoin) Delete(c *gin.Context) {
 // @summary 批量分组
 // @produce  json
 // @accept json
-// @param params body requests.BatchRegroupReq true "批量分组"
+// @param params body dto.BatchRegroupReq true "批量分组"
 // @success 200 {object} app.JSONResult{} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
 // @router /api/v1/console/customer-group/auto-join-code/action/batch-regroup [post]
 func (o *GroupChatAutoJoin) BatchRegroup(c *gin.Context) {
-	req := requests.BatchRegroupReq{}
+	req := dto.BatchRegroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

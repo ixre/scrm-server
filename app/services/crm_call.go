@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"strings"
 	"time"
@@ -32,7 +32,6 @@ func NewCrmCallRecord() *CrmCallRecordService { return &CrmCallRecordService{} }
 func (s CrmCallRecordService) Create(ctx context.Context, r *models.CrmCallRecord) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if r == nil {
 		return errors.New("通话记录不能为空")
 	}
@@ -48,7 +47,6 @@ func (s CrmCallRecordService) Create(ctx context.Context, r *models.CrmCallRecor
 // Update 更新通话记录。
 func (s CrmCallRecordService) Update(ctx context.Context, id string, r *models.CrmCallRecord) error {
 
-
 	if r == nil {
 		return errors.New("通话记录不能为空")
 	}
@@ -61,23 +59,21 @@ func (s CrmCallRecordService) Update(ctx context.Context, id string, r *models.C
 		"remark":        r.Remark,
 	}
 	updatesCRM(m, "user_id", "customer_id", "contact_id")
-	return models.MustFor(ctx).Where("id = ?",  id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmCallRecord{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除通话记录。
 func (s CrmCallRecordService) Delete(ctx context.Context, ids []string) (int64, error) {
 
-
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空")
 	}
-	res := models.MustFor(ctx).Where("id IN ?",  ids).Delete(&models.CrmCallRecord{})
+	res := models.MustFor(ctx).Where("id IN ?", ids).Delete(&models.CrmCallRecord{})
 	return res.RowsAffected, res.Error
 }
 
 // Query 分页查询通话记录。
 func (s CrmCallRecordService) Query(ctx context.Context, req CallRecordQueryReq) ([]models.CrmCallRecord, int64, error) {
-
 
 	if req.Page <= 0 {
 		req.Page = 1
@@ -111,13 +107,12 @@ func (s CrmCallRecordService) Query(ctx context.Context, req CallRecordQueryReq)
 func (s CrmCallRecordService) Stats(ctx context.Context) (map[string]any, error) {
 	tenantID := identity.TenantID(ctx)
 
-
 	var totalCount int64
 	if err := models.DB.Model(&models.CrmCallRecord{}).Scopes(models.TenantScope(tenantID)).Count(&totalCount).Error; err != nil {
 		return nil, err
 	}
 	var connectedCount int64
-	if err := models.DB.Model(&models.CrmCallRecord{}).Scopes(models.TenantScope(tenantID)).Where("status = ?",  "connected").Count(&connectedCount).Error; err != nil {
+	if err := models.DB.Model(&models.CrmCallRecord{}).Scopes(models.TenantScope(tenantID)).Where("status = ?", "connected").Count(&connectedCount).Error; err != nil {
 		return nil, err
 	}
 	type sumRow struct {

@@ -1,13 +1,13 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type QuickReplyGroupFrontend struct {
@@ -65,7 +65,7 @@ func (rg *QuickReplyGroupFrontend) Query(c *gin.Context) {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/quick-reply-group/action/search [post]
 func (rg *QuickReplyGroupFrontend) Search(c *gin.Context) {
-	req := requests.QueryQuickReplyReq{}
+	req := dto.QueryQuickReplyReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -95,13 +95,13 @@ func (rg *QuickReplyGroupFrontend) Search(c *gin.Context) {
 // @Summary H5创建企业话术库组
 // @Produce json
 // @Accept json
-// @Param params body entities.CreateQuickReplyGroupReq true "H5创建企业话术库组请求"
+// @Param params body dto.CreateQuickReplyGroupReq true "H5创建企业话术库组请求"
 // @Success 200 {object} app.JSONResult{data=models.QuickReplyGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/quick-reply-group [post]
 func (rg *QuickReplyGroupFrontend) Create(c *gin.Context) {
-	req := entities.CreateQuickReplyGroupReq{}
+	req := dto.CreateQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -128,13 +128,13 @@ func (rg *QuickReplyGroupFrontend) Create(c *gin.Context) {
 // @tags 话术库组
 // @Summary H5更新话术分组
 // @Accept json
-// @Param params body entities.CreateQuickReplyGroupReq true "H5更新话术分组请求"
+// @Param params body dto.CreateQuickReplyGroupReq true "H5更新话术分组请求"
 // @Success 200 {object} app.JSONResult{data=models.QuickReplyGroup} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/quick-reply-group [put]
 func (rg *QuickReplyGroupFrontend) Update(c *gin.Context) {
-	req := entities.UpdateQuickReplyGroupReq{}
+	req := dto.UpdateQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -161,13 +161,13 @@ func (rg *QuickReplyGroupFrontend) Update(c *gin.Context) {
 // @tags 话术库组
 // @Summary H5删除话术库分组
 // @Produce  json
-// @Param params body entities.DeleteQuickReplyGroupReq true "H5删除话术库组请求"
+// @Param params body requests.DeleteQuickReplyGroupReq true "H5删除话术库组请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/quick-reply-group/action/delete [post]
 func (rg *QuickReplyGroupFrontend) Delete(c *gin.Context) {
-	req := entities.DeleteQuickReplyGroupReq{}
+	req := requests.DeleteQuickReplyGroupReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

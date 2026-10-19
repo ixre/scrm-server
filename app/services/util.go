@@ -3,8 +3,7 @@ package services
 import (
 	"bytes"
 	"core/app/constants"
-	"core/app/requests"
-	"core/app/responses"
+	"core/app/dto"
 	"core/common/ecode"
 	"core/common/log"
 	"core/common/redis"
@@ -38,7 +37,7 @@ func (o *Util) GetSignedURL(fileName string) (string, error) {
 }
 
 // CachedUploadMedia  上传临时素材(带缓存)
-func (o *Util) CachedUploadMedia(req requests.UploadMediaReq, extCorpID string) (result responses.UploadMediaResult, err error) {
+func (o *Util) CachedUploadMedia(req dto.UploadMediaReq, extCorpID string) (result dto.UploadMediaResult, err error) {
 	key := gsha1.Encrypt(req.URL)
 	err = redis.GetOrSetFunc(key, func() (interface{}, error) {
 		return o.UploadMedia(req, extCorpID)
@@ -52,7 +51,7 @@ func (o *Util) CachedUploadMedia(req requests.UploadMediaReq, extCorpID string) 
 }
 
 // UploadMedia  上传临时素材
-func (o *Util) UploadMedia(req requests.UploadMediaReq, extCorpID string) (result responses.UploadMediaResult, err error) {
+func (o *Util) UploadMedia(req dto.UploadMediaReq, extCorpID string) (result dto.UploadMediaResult, err error) {
 	c := resty.New()
 
 	urlInfo, err := url.Parse(req.URL)
@@ -123,7 +122,7 @@ func (o *Util) UploadMedia(req requests.UploadMediaReq, extCorpID string) (resul
 }
 
 // ParseLink  解析指定URL页面
-func (o *Util) ParseLink(req requests.ParseLinkReq) (result responses.ParseLinkResp, err error) {
+func (o *Util) ParseLink(req dto.ParseLinkReq) (result dto.ParseLinkResp, err error) {
 	client := resty.New().
 		SetRetryCount(0).
 		SetTimeout(time.Second * 15).

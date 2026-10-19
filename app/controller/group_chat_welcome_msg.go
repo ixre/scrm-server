@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -23,13 +24,13 @@ func NewGroupChatWelcomeMsg() *GroupChatWelcomeMsg {
 // @Summary 查询入群欢迎语
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryGroupChatWelcomeMsgReq true "查询入群欢迎语请求"
+// @Param params body dto.QueryGroupChatWelcomeMsgReq true "查询入群欢迎语请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.GroupChatWelcomeMsg}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer-group/welcome-msgs [get]
 func (o *GroupChatWelcomeMsg) Query(c *gin.Context) {
-	req := requests.QueryGroupChatWelcomeMsgReq{}
+	req := dto.QueryGroupChatWelcomeMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -57,13 +58,13 @@ func (o *GroupChatWelcomeMsg) Query(c *gin.Context) {
 // @Summary 创建入群欢迎语
 // @produce  json
 // @accept json
-// @param params body requests.CreateGroupChatWelcomeMsgReq true "创建入群欢迎语请求"
+// @param params body dto.CreateGroupChatWelcomeMsgReq true "创建入群欢迎语请求"
 // @success 200 {object} app.JSONResult{data=models.GroupChatWelcomeMsg} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
 // @router /api/v1/console/customer-group/welcome-msg [post]
 func (o *GroupChatWelcomeMsg) Create(c *gin.Context) {
-	req := requests.CreateGroupChatWelcomeMsgReq{}
+	req := dto.CreateGroupChatWelcomeMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -92,13 +93,13 @@ func (o *GroupChatWelcomeMsg) Create(c *gin.Context) {
 // @produce  json
 // @accept json
 // @param id path string true "更新入群欢迎语id"
-// @param params body requests.UpdateGroupChatWelcomeMsgReq true "更新入群欢迎语请求"
+// @param params body dto.UpdateGroupChatWelcomeMsgReq true "更新入群欢迎语请求"
 // @success 200 {object} app.JSONResult{data=models.GroupChatWelcomeMsg} "成功"
 // @failure 400 {object} app.JSONResult{} "非法请求"
 // @failure 500 {object} app.JSONResult{} "内部错误"
 // @router /api/v1/console/customer-group/welcome-msg/{id} [put]
 func (o *GroupChatWelcomeMsg) Update(c *gin.Context) {
-	req := requests.UpdateGroupChatWelcomeMsgReq{}
+	req := dto.UpdateGroupChatWelcomeMsgReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

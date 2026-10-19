@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"core/app/models"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/id_generator"
@@ -18,7 +18,7 @@ func NewContactWayGroup() *ContactWayGroup {
 	return &ContactWayGroup{model: models.ContactWayGroup{}}
 }
 
-func (o *ContactWayGroup) Query(req requests.QueryContactWayGroupReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []responses.ContactWayGroup, total int64, err error) {
+func (o *ContactWayGroup) Query(req dto.QueryContactWayGroupReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []responses.ContactWayGroup, total int64, err error) {
 	param := models.ContactWayGroup{}
 	err = copier.Copy(&param, req)
 	if err != nil {
@@ -64,7 +64,7 @@ func (o *ContactWayGroup) Get(id string, extCorpID string) (item models.ContactW
 	return o.model.Get(id, extCorpID)
 }
 
-func (o *ContactWayGroup) Create(param requests.CreateContactWayGroupReq, extCorpID string, extCreatorID string) (item models.ContactWayGroup, err error) {
+func (o *ContactWayGroup) Create(param dto.CreateContactWayGroupReq, extCorpID string, extCreatorID string) (item models.ContactWayGroup, err error) {
 	err = copier.Copy(&item, param)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -76,7 +76,7 @@ func (o *ContactWayGroup) Create(param requests.CreateContactWayGroupReq, extCor
 	return o.model.Create(item, extCorpID)
 }
 
-func (o *ContactWayGroup) Update(id string, param requests.UpdateContactWayGroupReq, extCorpID string) (item models.ContactWayGroup, err error) {
+func (o *ContactWayGroup) Update(id string, param dto.UpdateContactWayGroupReq, extCorpID string) (item models.ContactWayGroup, err error) {
 	err = copier.Copy(&item, param)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")

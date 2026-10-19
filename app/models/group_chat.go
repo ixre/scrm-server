@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -72,7 +72,7 @@ func (g GroupChat) Upsert(chat GroupChat) error {
 	})
 }
 
-func (g GroupChat) Query(req requests.QueryGroupChatReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) (gc []GroupChat, total int64, err error) {
+func (g GroupChat) Query(req dto.QueryGroupChatReq, extCorpID string, pager *app.Pager, sorter *app.Sorter) (gc []GroupChat, total int64, err error) {
 	gc = make([]GroupChat, 0)
 
 	db := DB.Table("group_chat").
@@ -121,7 +121,7 @@ func (g GroupChat) Query(req requests.QueryGroupChatReq, extCorpID string, pager
 	return
 }
 
-func (g GroupChat) GetAll(req requests.QueryGroupChatReq, extCorpID string) (gc []GroupChat, err error) {
+func (g GroupChat) GetAll(req dto.QueryGroupChatReq, extCorpID string) (gc []GroupChat, err error) {
 	db := DB.Model(&GroupChat{}).Where("ext_corp_id = ?", extCorpID)
 	if len(req.Owners) != 0 {
 		db = db.Where("owner in (?)", len(req.Owners))

@@ -29,10 +29,10 @@ func validateOrder(ctx context.Context, tx *gorm.DB, order *models.CrmOrder) err
 	if err = db.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", order.CustomerID).First(&customer).Error; err != nil {
 		return ErrCustomerAccess
 	}
-	if customer.ReassignStatus == 1 {
+	if customer.IsReassigning() {
 		return errors.New("请先接收转交客户再创建合同")
 	}
-	if customer.PoolStatus == 1 {
+	if customer.InPool() {
 		return errors.New("请先领取客户再创建合同")
 	}
 	if err = validateCustomerOwner(ctx, tx, order.UserID); err != nil {

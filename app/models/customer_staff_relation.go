@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"time"
 
@@ -63,7 +63,7 @@ type CustomerStaff struct {
 	Timestamp
 }
 
-func (o CustomerStaff) GetAllCustomerDeleteStaff(req requests.QueryCustomerLossesReq, extCorpID string, sorter *app.Sorter) ([]CustomerLossInfo, int64, error) {
+func (o CustomerStaff) GetAllCustomerDeleteStaff(req dto.QueryCustomerLossesReq, extCorpID string, sorter *app.Sorter) ([]CustomerLossInfo, int64, error) {
 
 	db := DB.Table("customer_staff").
 		Joins("join customer on customer.ext_id = customer_staff.ext_customer_id AND customer.ext_corp_id = customer_staff.ext_corp_id").
@@ -256,7 +256,7 @@ func (o CustomerStaff) Update(staff *CustomerStaff, extStaffID string, extCustom
 }
 
 func (o CustomerStaff) GetAllStaffDeleteCustomer(
-	req requests.QueryStaffDeleteCustomerHistoryReq, extCorpID string, sorter *app.Sorter) ([]StaffDeleteCustomer, int64, error) {
+	req dto.QueryStaffDeleteCustomerHistoryReq, extCorpID string, sorter *app.Sorter) ([]StaffDeleteCustomer, int64, error) {
 
 	db := DB.Table("customer").
 		Joins("join customer_staff cs on customer.ext_id = cs.ext_customer_id AND customer.ext_corp_id = cs.ext_corp_id").

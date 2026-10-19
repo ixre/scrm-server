@@ -3,8 +3,8 @@ package dispatch
 import (
 	"context"
 	"core/api/pb"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"encoding/json"
@@ -26,7 +26,7 @@ func init() {
 		return wecomCustomerPB(item), nil
 	})
 	Reg.Register("wecom_customer", "Query", func(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-		var req QueryParams[requests.QueryCustomerReq]
+		var req QueryParams[dto.QueryCustomerReq]
 		if err := Bind(params, &req); err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func init() {
 		return wecomStaffPB(item), nil
 	})
 	Reg.Register("wecom_staff", "Query", func(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-		var req QueryParams[requests.QueryStaffReq]
+		var req QueryParams[dto.QueryStaffReq]
 		if err := Bind(params, &req); err != nil {
 			return nil, err
 		}

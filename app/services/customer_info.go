@@ -3,7 +3,7 @@ package services
 import (
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
 	"core/common/id_generator"
 )
@@ -12,7 +12,7 @@ type CustomerInfo struct {
 	customerInfoRepo models.CustomerInfo
 }
 
-func (ci CustomerInfo) Get(req entities.GetCustomerInfoReq, extCorpID string) (res models.CustomerInfo, err error) {
+func (ci CustomerInfo) Get(req dto.GetCustomerInfoReq, extCorpID string) (res models.CustomerInfo, err error) {
 	info := models.CustomerInfo{
 		ExtCorpModel:  models.ExtCorpModel{ExtCorpID: extCorpID},
 		ExtCustomerID: req.ExtCustomerID,
@@ -26,7 +26,7 @@ func (ci CustomerInfo) Get(req entities.GetCustomerInfoReq, extCorpID string) (r
 	return
 }
 
-func (ci CustomerInfo) Update(req *entities.UpdateCustomerInfoReq, extCorpID string) error {
+func (ci CustomerInfo) Update(req *dto.UpdateCustomerInfoReq, extCorpID string) error {
 	info := models.CustomerInfo{ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID(), ExtCorpID: extCorpID}}
 	err := copier.CopyWithOption(&info, req, copier.Option{IgnoreEmpty: true, DeepCopy: true})
 	if err != nil {

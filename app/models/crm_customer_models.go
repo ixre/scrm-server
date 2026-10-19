@@ -61,6 +61,29 @@ type CrmCustomer struct {
 	ReassignFrom    string                     `gorm:"type:bigint;comment:转出人用户ID(再分配时)" json:"reassign_from"`
 }
 
+// CrmCustomer 公海状态。
+const (
+	CustomerPoolNone = 0 // 非公海（在归属销售名下）
+	CustomerPoolIn   = 1 // 公海待认领
+)
+
+// CrmCustomer 再分配状态。
+const (
+	CustomerReassignNone    = 0 // 正常
+	CustomerReassignPending = 1 // 待确认接收
+)
+
+// InPool 客户在公海中待认领。
+func (c CrmCustomer) InPool() bool { return c.PoolStatus == CustomerPoolIn }
+
+// IsReassigning 客户正在再分配中（等待接收方确认）。
+func (c CrmCustomer) IsReassigning() bool { return c.ReassignStatus == CustomerReassignPending }
+
+// Recyclable 客户可被回收进公海：非公海、未锁定、无进行中转交。
+func (c CrmCustomer) Recyclable() bool {
+	return !c.InPool() && !c.IsLocked && !c.IsReassigning()
+}
+
 // ==================== P1: CRM 核心补全 ====================
 
 // CrmContact 客户联系人（客户下多联系人：决策人/经办人）。

@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/models"
 	"core/common/ecode"
 	"core/common/log"
@@ -35,7 +35,7 @@ func NewLogin(staff models.Staff) *Login {
 	}
 }
 
-func (o *Login) ConsoleLogin(extCorpID string, state string, sourceURL string) (item entities.ConsoleLoginResp, err error) {
+func (o *Login) ConsoleLogin(extCorpID string, state string, sourceURL string) (item dto.ConsoleLoginResp, err error) {
 
 	cfg, err := ResolveWecomConfig(context.Background(), extCorpID)
 	if err != nil {
@@ -55,7 +55,7 @@ func (o *Login) ConsoleLogin(extCorpID string, state string, sourceURL string) (
 		return
 	}
 
-	item = entities.ConsoleLoginResp{
+	item = dto.ConsoleLoginResp{
 		AppID:   extCorpID,
 		AgentID: cfg.MainAgentID,
 		RedirectURI: fmt.Sprintf(
@@ -142,7 +142,7 @@ func (o *Login) ForceConsoleLogin(extCorpID string, extStaffID string) (item *mo
 	return item, nil
 }
 
-func (o *Login) StaffLogin(extCorpID string, state string, sourceURL string) (item entities.StaffLoginResp, err error) {
+func (o *Login) StaffLogin(extCorpID string, state string, sourceURL string) (item dto.StaffLoginResp, err error) {
 	cfg, err := ResolveWecomConfig(context.Background(), extCorpID)
 	if err != nil {
 		return item, err
@@ -160,7 +160,7 @@ func (o *Login) StaffLogin(extCorpID string, state string, sourceURL string) (it
 		return
 	}
 
-	item = entities.StaffLoginResp{
+	item = dto.StaffLoginResp{
 		AppID: extCorpID,
 		RedirectURI: fmt.Sprintf(
 			"%s://%s/api/v1/staff-frontend/action/login-callback?appid=%s&source_url=%s",
@@ -201,7 +201,7 @@ func (o *Login) StaffLoginCallback(extCorpID string, code string) (item *models.
 	return
 }
 
-//func (o *Login) CustomerLogin(extCorpID string, state string, sourceURL string) (item entities.CustomerLoginResp, err error) {
+//func (o *Login) CustomerLogin(extCorpID string, state string, sourceURL string) (item dto.CustomerLoginResp, err error) {
 //
 //	sourceURL, err = gurl.Decode(sourceURL)
 //	if err != nil {
@@ -210,7 +210,7 @@ func (o *Login) StaffLoginCallback(extCorpID string, code string) (item *models.
 //	}
 //	sourceURL = gurl.Encode(sourceURL)
 //
-//	item = entities.CustomerLoginResp{
+//	item = dto.CustomerLoginResp{
 //		AppID:       extCorpID,
 //		RedirectURI: fmt.Sprintf("%s/api/v1/customer-frontend/action/login-callback?appid=%s&source_url=%s", conf.Settings.App.URL, extCorpID, sourceURL),
 //		SourceURL:   sourceURL,

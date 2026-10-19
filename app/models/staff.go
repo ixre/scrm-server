@@ -2,7 +2,7 @@ package models
 
 import (
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/app"
 	"core/common/log"
 	"core/common/redis"
@@ -280,7 +280,7 @@ func (s *Staff) GetWelcomeMsgByExtStaffID(extStaffID string, extCorpID string) (
 	return
 }
 
-func (s *Staff) CachedQueryMainInfo(req requests.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (StaffsMainInfoCache, error) {
+func (s *Staff) CachedQueryMainInfo(req dto.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (StaffsMainInfoCache, error) {
 	var staffsCached StaffsMainInfoCache
 	err := redis.GetOrSetFunc(
 		fmt.Sprintf(constants.CacheMainStaffInfoKey, extCorpID, req.ExtDepartmentID, pager.GetOffset(), pager.GetLimit()),
@@ -293,7 +293,7 @@ func (s *Staff) CachedQueryMainInfo(req requests.QueryMainStaffInfoReq, extCorpI
 	return staffsCached, err
 }
 
-func (s *Staff) QueryMainInfo(req requests.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (res StaffsMainInfoCache, err error) {
+func (s *Staff) QueryMainInfo(req dto.QueryMainStaffInfoReq, extCorpID string, pager *app.Pager) (res StaffsMainInfoCache, err error) {
 
 	db := DB.Table("staff").
 		Joins("left join staff_department sd on sd.staff_id = staff.id").

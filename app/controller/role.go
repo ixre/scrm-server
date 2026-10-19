@@ -2,6 +2,7 @@ package controller
 
 import (
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -25,13 +26,13 @@ func NewRole() *Role {
 // @Summary 查询角色列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryRoleReq true "查询角色列表请求"
+// @Param params body dto.QueryRoleReq true "查询角色列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]responses.Role}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/corp_admin/roles [get]
 func (o *Role) Query(c *gin.Context) {
-	req := requests.QueryRoleReq{}
+	req := dto.QueryRoleReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -92,13 +93,13 @@ func (o *Role) Get(c *gin.Context) {
 // @Summary 创建角色
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateRoleReq true "创建角色请求"
+// @Param params body dto.CreateRoleReq true "创建角色请求"
 // @Success 200 {object} app.JSONResult{data=models.Role} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/corp_admin/role [post]
 func (o *Role) Create(c *gin.Context) {
-	req := requests.CreateRoleReq{}
+	req := dto.CreateRoleReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -133,13 +134,13 @@ func (o *Role) Create(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "角色ID"
-// @Param params body requests.UpdateRoleReq true "更新角色请求"
+// @Param params body dto.UpdateRoleReq true "更新角色请求"
 // @Success 200 {object} app.JSONResult{data=models.Role} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/corp_admin/role/{id} [put]
 func (o *Role) Update(c *gin.Context) {
-	req := requests.UpdateRoleReq{}
+	req := dto.UpdateRoleReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -221,13 +222,13 @@ func (o *Role) AssignToStaffs(c *gin.Context) {
 // @Summary 查询授权员工列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryRoleStaffsReq true "查询授权员工列表请求参数"
+// @Param params body dto.QueryRoleStaffsReq true "查询授权员工列表请求参数"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Staff}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/corp-admin/role/action/query-staffs [get]
 func (o *Role) QueryStaffs(c *gin.Context) {
-	req := requests.QueryRoleStaffsReq{}
+	req := dto.QueryRoleStaffsReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

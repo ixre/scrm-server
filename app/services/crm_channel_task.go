@@ -24,7 +24,7 @@ func NewCrmChannelTask() *CrmChannelTaskService { return &CrmChannelTaskService{
 
 func activeChannelTask(status string) bool { return status == "pending" || status == "timeout" }
 func channelTaskCustomerAccess(c models.CrmCustomer, uid string) bool {
-	if c.DeletedAt.Valid || c.PoolStatus != 0 || c.IsBlacklist || c.ReassignStatus != 0 {
+	if c.DeletedAt.Valid || c.InPool() || c.IsBlacklist || c.IsReassigning() {
 		return false
 	}
 	if c.OwnerUserID == uid {
@@ -204,7 +204,7 @@ func (s CrmChannelTaskService) Resolve(ctx context.Context, id, status, note str
 		if !manager && t.AssignUserID != actor.ID {
 			return errors.New("请先领取任务")
 		}
-		if c.PoolStatus != 0 || c.IsBlacklist || c.ReassignStatus != 0 {
+		if c.InPool() || c.IsBlacklist || c.IsReassigning() {
 			return errors.New("请先完成客户领取或交接，并确认客户不在黑名单")
 		}
 		if t.Status == status && t.HandledBy == actor.ID && t.Resolution == note {
@@ -282,7 +282,7 @@ func (s CrmChannelTaskService) Reopen(ctx context.Context, id, note string, vers
 		if t.Status != "done" && t.Status != "skipped" {
 			return errors.New("仅已结束任务可重新打开")
 		}
-		if c.PoolStatus != 0 || c.IsBlacklist || c.ReassignStatus != 0 {
+		if c.InPool() || c.IsBlacklist || c.IsReassigning() {
 			return errors.New("客户当前不可跟进")
 		}
 		old := t.Status
@@ -365,7 +365,7 @@ func (s CrmChannelTaskService) Assignees(ctx context.Context, id, keyword string
 	if err = models.DB.WithContext(ctx).Where("tenant_id = ? AND id = ?", actor.TenantID, task.CustomerID).First(&c).Error; err != nil {
 		return nil, err
 	}
-	if c.PoolStatus != 0 || c.IsBlacklist || c.ReassignStatus != 0 {
+	if c.InPool() || c.IsBlacklist || c.IsReassigning() {
 		return nil, errors.New("请先完成客户领取或交接")
 	}
 	ids := append([]string{}, c.SharedStaffIDs...)

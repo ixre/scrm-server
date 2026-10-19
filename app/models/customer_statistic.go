@@ -1,14 +1,14 @@
 package models
 
 import (
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"core/app/constants"
-	"core/app/requests"
+	"core/app/dto"
 	"core/common/ecode"
 	"core/common/id_generator"
 	log2 "core/common/log"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"time"
 )
 
@@ -34,7 +34,7 @@ type CustomerTrend struct {
 	Date   string `json:"date"`
 }
 
-func (s CustomerStatistic) Query(req requests.QueryCustomerStatisticReq, extCorpID string) (res []CustomerTrend, err error) {
+func (s CustomerStatistic) Query(req dto.QueryCustomerStatisticReq, extCorpID string) (res []CustomerTrend, err error) {
 
 	db := DB.Model(&CustomerStatistic{}).
 		Where("ext_corp_id= ?", extCorpID).Where("date between ? and ?", req.StartTime, req.EndTime)
@@ -156,7 +156,9 @@ func (s CustomerStatistic) UpsertByStatistic(extStaffID string, num int64) (err 
 // UpsertByCount 用count员工-客户关系表的方式
 func (s CustomerStatistic) UpsertByCount(extStaffID string, num int64) (err error) {
 	extCorpID := s.ExtCorpID
- if extCorpID == "" { return errors.New("missing enterprise for customer statistics") }
+	if extCorpID == "" {
+		return errors.New("missing enterprise for customer statistics")
+	}
 	date := constants.DateField(time.Now().Format(constants.DateLayout))
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var total int64

@@ -6,6 +6,7 @@ import (
 	"github.com/thoas/go-funk"
 	"net/http"
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -30,13 +31,13 @@ func NewUtil() *Util {
 // @Summary 解析链接
 // @Produce  json
 // @Accept json
-// @Param params body requests.ParseLinkReq true "删除渠道码分组请求"
-// @Success 200 {object} app.JSONResult{data=responses.ParseLinkResp} "成功"
+// @Param params body dto.ParseLinkReq true "删除渠道码分组请求"
+// @Success 200 {object} app.JSONResult{data=dto.ParseLinkResp} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/common/action/parse-link [post]
 func (o *Util) ParseLink(c *gin.Context) {
-	req := requests.ParseLinkReq{}
+	req := dto.ParseLinkReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -115,13 +116,13 @@ func (o *Util) GetUploadURL(c *gin.Context) {
 // @Summary 上传临时素材
 // @Produce  json
 // @Accept json
-// @Param params body requests.UploadMediaReq true "上传临时素材请求"
+// @Param params body dto.UploadMediaReq true "上传临时素材请求"
 // @Success 200 {file} file "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/action/upload-media [post]
 func (o *Util) UploadMedia(c *gin.Context) {
-	req := requests.UploadMediaReq{}
+	req := dto.UploadMediaReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"core/app/entities"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 )
 
@@ -21,7 +20,7 @@ func init() {
 }
 
 func contactWayQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryContactWayReq]
+	var p QueryParams[dto.QueryContactWayReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -46,7 +45,7 @@ func contactWayGet(ctx context.Context, corpID, _ string, params json.RawMessage
 }
 
 func contactWayCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.CreateContactWayReq
+	var req dto.CreateContactWayReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -56,8 +55,8 @@ func contactWayCreate(ctx context.Context, corpID, staffID string, params json.R
 
 func contactWayUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                       `json:"id"`
-		Req requests.UpdateContactWayReq `json:"req"`
+		ID  string                  `json:"id"`
+		Req dto.UpdateContactWayReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -78,7 +77,7 @@ func contactWayDelete(ctx context.Context, corpID, _ string, params json.RawMess
 }
 
 func contactWayBatchUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.BatchUpdateContactWayReq
+	var req dto.BatchUpdateContactWayReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -97,7 +96,7 @@ func init() {
 }
 
 func contactWayGroupQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryContactWayGroupReq]
+	var p QueryParams[dto.QueryContactWayGroupReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -119,7 +118,7 @@ func contactWayGroupGet(ctx context.Context, corpID, _ string, params json.RawMe
 }
 
 func contactWayGroupCreate(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.CreateContactWayGroupReq
+	var req dto.CreateContactWayGroupReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -128,8 +127,8 @@ func contactWayGroupCreate(ctx context.Context, corpID, staffID string, params j
 
 func contactWayGroupUpdate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
 	var req struct {
-		ID  string                            `json:"id"`
-		Req requests.UpdateContactWayGroupReq `json:"req"`
+		ID  string                       `json:"id"`
+		Req dto.UpdateContactWayGroupReq `json:"req"`
 	}
 	if err := Bind(params, &req); err != nil {
 		return nil, err
@@ -155,7 +154,7 @@ func init() {
 }
 
 func departmentQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[entities.GetSubDepartmentReq]
+	var p QueryParams[dto.GetSubDepartmentReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -187,7 +186,7 @@ func init() {
 }
 
 func corpRiskMgrQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryStaffDeleteCustomerHistoryReq]
+	var p QueryParams[dto.QueryStaffDeleteCustomerHistoryReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -203,7 +202,7 @@ func corpRiskMgrGet(ctx context.Context, corpID, _ string, _ json.RawMessage) (a
 }
 
 func corpRiskMgrUpsert(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.UpdateStaffDeleteCustomerNotifierReq
+	var req dto.UpdateStaffDeleteCustomerNotifierReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -219,7 +218,7 @@ func init() {
 }
 
 func internalTagQuery(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var p QueryParams[requests.QueryInternalTagReq]
+	var p QueryParams[dto.QueryInternalTagReq]
 	if err := Bind(params, &p); err != nil {
 		return nil, err
 	}
@@ -231,7 +230,7 @@ func internalTagQuery(ctx context.Context, corpID, _ string, params json.RawMess
 }
 
 func internalTagCreate(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.CreateInternalTagReq
+	var req dto.CreateInternalTagReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}

@@ -2,14 +2,13 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"core/app/entities"
-	"core/app/requests"
+	"core/app/dto"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
 	"core/common/we_work"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type CustomerHandler struct {
@@ -88,13 +87,13 @@ func (o CustomerHandler) Get(c *gin.Context) {
 // @tags 客户管理
 // @Summary 客户列表
 // @Produce  json
-// @Param params body requests.QueryCustomerReq true "客户列表请求"
+// @Param params body dto.QueryCustomerReq true "客户列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]models.Customer}} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customers [get]
 func (o CustomerHandler) Query(c *gin.Context) {
-	request := requests.QueryCustomerReq{}
+	request := dto.QueryCustomerReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&request)
 	if !ok {
@@ -125,13 +124,13 @@ func (o CustomerHandler) Query(c *gin.Context) {
 // @tags 客户管理
 // @Summary 设置流失客户是否通知员工
 // @Produce  json
-// @Param params body entities.UpdateCustomerDeleteStaffNotifierReq true "设置流失客户是否通知员工请求"
+// @Param params body dto.UpdateCustomerDeleteStaffNotifierReq true "设置流失客户是否通知员工请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/action/update-loss-notify-rule [put]
 func (o CustomerHandler) UpdateNotifyStaffRule(c *gin.Context) {
-	req := entities.UpdateCustomerDeleteStaffNotifierReq{}
+	req := dto.UpdateCustomerDeleteStaffNotifierReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -182,14 +181,14 @@ func (o CustomerHandler) GetNotifyStaffRule(c *gin.Context) {
 // @tags 客户管理
 // @Summary 获取流失客户列表
 // @Produce  json
-// @Param params body requests.QueryCustomerLossesReq true "查询客户流失请求"
+// @Param params body dto.QueryCustomerLossesReq true "查询客户流失请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/losses [get]
 func (o CustomerHandler) GetLossCustomers(c *gin.Context) {
 	handler := app.NewHandler(c)
-	req := requests.QueryCustomerLossesReq{}
+	req := dto.QueryCustomerLossesReq{}
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
 		handler.ResponseBadRequestError(errors.WithStack(err))
@@ -213,13 +212,13 @@ func (o CustomerHandler) GetLossCustomers(c *gin.Context) {
 // @tags 客户管理
 // @Summary 流失提醒列表下载
 // @Produce  json
-// @Param params body requests.QueryCustomerLossesReq true "流失提醒列表下载请求"
+// @Param params body dto.QueryCustomerLossesReq true "流失提醒列表下载请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/action/customers-losses-data-export [get]
 func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
-	req := requests.QueryCustomerLossesReq{}
+	req := dto.QueryCustomerLossesReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -232,7 +231,7 @@ func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 		log.TracedError("GetConsoleInfo failed", err)
 		return
 	}
-	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	buf, fileName, err := o.srv.ExportDeleteStaffWarningList(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -248,13 +247,13 @@ func (o CustomerHandler) ExportCustomerLosses(c *gin.Context) {
 // @tags 客户管理
 // @Summary 客户列表下载
 // @Produce  json
-// @Param params body requests.QueryCustomerReq true "客户列表下载请求"
+// @Param params body dto.QueryCustomerReq true "客户列表下载请求"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customers/action/export [get]
 func (o CustomerHandler) Export(c *gin.Context) {
-	req := requests.QueryCustomerReq{}
+	req := dto.QueryCustomerReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -282,13 +281,13 @@ func (o CustomerHandler) Export(c *gin.Context) {
 // @tags 客户管理
 // @Summary 客户统计
 // @Produce  json
-// @Param params body requests.QueryCustomerStatisticReq true "客户统计请求"
+// @Param params body dto.QueryCustomerStatisticReq true "客户统计请求"
 // @Success 200 {object} app.JSONResult{data=[]models.CustomerSummary} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customers/statistic [get]
 func (o CustomerHandler) Statistic(c *gin.Context) {
-	req := requests.QueryCustomerStatisticReq{}
+	req := dto.QueryCustomerStatisticReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -303,7 +302,7 @@ func (o CustomerHandler) Statistic(c *gin.Context) {
 		return
 	}
 
-	items, err := o.srv.CustomerStatistic(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	items, err := o.srv.CustomerStatistic(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "get customers failed")

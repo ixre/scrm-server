@@ -1,20 +1,20 @@
 package services
 
 import (
+	"core/app/constants"
+	"core/app/dto"
+	"core/app/models"
+	"core/common/app"
+	"core/common/delay_queue"
+	"core/common/id_generator"
+	"core/common/log"
+	"core/conf"
 	"encoding/json"
 	"fmt"
 	"github.com/gogf/gf/os/gfile"
 	"github.com/jinzhu/copier"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
-	"core/app/constants"
-	"core/app/models"
-	"core/app/requests"
-	"core/common/app"
-	"core/common/delay_queue"
-	"core/common/id_generator"
-	"core/common/log"
-	"core/conf"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -40,7 +40,7 @@ func NewDataExport() *DataExport {
 	}
 }
 
-func (o DataExport) ExportGroupChatList(req requests.QueryGroupChatReq, ExtCorpID string) (string, error) {
+func (o DataExport) ExportGroupChatList(req dto.QueryGroupChatReq, ExtCorpID string) (string, error) {
 	groupChats, err := o.groupChatRepo.GetAll(req, ExtCorpID)
 	if err != nil {
 		log.Sugar.Errorw("groupChatRepo.GetAll", "err", err)
@@ -105,7 +105,7 @@ func (o DataExport) ExportGroupChatList(req requests.QueryGroupChatReq, ExtCorpI
 	return fullPath, nil
 }
 
-func (o DataExport) ExportDeleteStaffWarningList(req requests.DataExportReq, extCorpID string) (string, error) {
+func (o DataExport) ExportDeleteStaffWarningList(req dto.DataExportReq, extCorpID string) (string, error) {
 	log.Sugar.Infow("ExportDeleteStaffWarningList", "req", req)
 	customerLossInfos, _, err := o.relationHistory.QueryCustomerDeleteStaff(req.DataFilter.QueryCustomerLossesReq, "", &app.Sorter{}, &app.Pager{})
 	if err != nil {
@@ -165,68 +165,13 @@ func (o DataExport) ExportDeleteStaffWarningList(req requests.DataExportReq, ext
 }
 
 func (o DataExport) PrettifySheet(sheetName string, file *excelize.File, exportTime string, titles []string) error {
-	colCnt := string(rune(int('A') + len(titles)))
-	err := file.SetColWidth(sheetName, "A", "H", 18)
-	if err != nil {
-		log.Sugar.Error("set excel col width failed", err)
-		return err
-	}
-
-	err = file.SetColWidth(sheetName, "I", "I", 38)
-	if err != nil {
-		log.Sugar.Errorw("et excel col width failed", "err", err)
-		return err
-	}
-
-	titleName := []string{fmt.Sprintf("%s(导出时间: %s)", sheetName, exportTime)}
-	err = file.SetSheetRow(sheetName, fmt.Sprint("A", 1), &titleName)
-	if err != nil {
-		log.Sugar.Errorw("set row  failed", "err", err)
-		return err
-	}
-
-	styleCenter, err := file.NewStyle(&excelize.Style{
-		Alignment: &excelize.Alignment{
-			Horizontal: "center",
-			Vertical:   "center",
-		},
-		Font: &excelize.Font{
-			Bold: true,
-		},
-	})
-	if err != nil {
-		log.Sugar.Errorw("create new style  failed", "err", err)
-		return err
-	}
-
-	err = file.SetCellStyle(sheetName, "A1", colCnt+"1", styleCenter)
-	if err != nil {
-		log.Sugar.Errorw("create new sheet style failed", "err", err)
-		return err
-	}
-	err = file.SetRowHeight(sheetName, 1, 30)
-	if err != nil {
-		log.Sugar.Errorw("set new sheet height failed", "err", err)
-		return err
-	}
-	err = file.MergeCell(sheetName, "A1", colCnt+"1")
-	if err != nil {
-		log.Sugar.Errorw("merge excel cell failed", "err", err)
-		return err
-	}
-
-	err = file.SetSheetRow(sheetName, fmt.Sprint("A", 2), &titles)
-	if err != nil {
-		log.Sugar.Error("set sheet row in excel failed", "err", err)
-		return err
-	}
-	return nil
+	return PrettifySheet(sheetName, file, exportTime, titles)
 }
 
 // ---------------- backup for async task ------------------
 
-func (o DataExport) GenDataExportTask(req requests.DataExportReq, consoleStaff models.Staff) (string, error) {
-	exportJob := requests.DataExportJob{
+func (o DataExport) GenDataExportTask(req dto.DataExportReq, consoleStaff models.Staff) (string, error) {
+	exportJob := dto.DataExportJob{
 		DataExportReq: req,
 		ExtCorpID:     consoleStaff.ExtCorpID,
 	}
@@ -249,8 +194,8 @@ func (o DataExport) GenDataExportTask(req requests.DataExportReq, consoleStaff m
 	return job.ID, err
 }
 
-func (o DataExport) Get(id string, staff models.Staff) (requests.DataExportTaskExeResult, error) {
-	var res requests.DataExportTaskExeResult
+func (o DataExport) Get(id string, staff models.Staff) (dto.DataExportTaskExeResult, error) {
+	var res dto.DataExportTaskExeResult
 	data, err := o.repo.Get(id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {

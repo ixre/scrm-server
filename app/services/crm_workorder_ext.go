@@ -55,7 +55,7 @@ func (s CrmWorkorderTypeService) Update(ctx context.Context, id string, t *model
 		"status": t.Status,
 		"remark": t.Remark,
 	}
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmWorkorderType{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil

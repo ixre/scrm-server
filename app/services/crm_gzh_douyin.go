@@ -2,9 +2,9 @@ package services
 
 import (
 	"core/common/identity"
-	
+
 	"context"
-	
+
 	"errors"
 	"time"
 
@@ -48,14 +48,13 @@ type GzhInteractionEvent struct {
 func (s CrmCustomerService) SyncFromGzh(ctx context.Context, appID string, ev GzhLeadEvent) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if ev.OpenID == "" {
 		return errors.New("openid 不能为空")
 	}
 
 	// 1. upsert CrmCustomer
 	var c models.CrmCustomer
-	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelGzh,  appID,  ev.OpenID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?", constants.ChannelGzh, appID, ev.OpenID).First(&c).Error
 	switch {
 	case err == nil:
 		updates := map[string]any{}
@@ -78,7 +77,7 @@ func (s CrmCustomerService) SyncFromGzh(ctx context.Context, appID string, ev Gz
 			ExtCorpID:     appID,
 			ExtCustomerID: ev.OpenID,
 			AccountType:   "微信公众号",
-			PoolStatus:    1,
+			PoolStatus:    models.CustomerPoolIn,
 		}
 		now := time.Now()
 		c.PoolAt = &now
@@ -105,13 +104,12 @@ func (s CrmCustomerService) SyncFromGzh(ctx context.Context, appID string, ev Gz
 func (s CrmCustomerService) SyncInteractionFromGzh(ctx context.Context, appID string, ev GzhInteractionEvent) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if ev.OpenID == "" {
 		return errors.New("openid 不能为空")
 	}
 
 	var c models.CrmCustomer
-	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelGzh,  appID,  ev.OpenID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?", constants.ChannelGzh, appID, ev.OpenID).First(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c = models.CrmCustomer{
 			Model:         models.Model{ID: id_generator.StringID()},
@@ -121,7 +119,7 @@ func (s CrmCustomerService) SyncInteractionFromGzh(ctx context.Context, appID st
 			ExtCorpID:     appID,
 			ExtCustomerID: ev.OpenID,
 			AccountType:   "微信公众号",
-			PoolStatus:    1,
+			PoolStatus:    models.CustomerPoolIn,
 		}
 		now := time.Now()
 		c.PoolAt = &now
@@ -140,7 +138,6 @@ func (s CrmCustomerService) SyncInteractionFromGzh(ctx context.Context, appID st
 // recordGzhInteraction 写一条公众号渠道互动记录。
 func (s CrmCustomerService) recordGzhInteraction(ctx context.Context, customerID, actionType, content, extRef string, happenedAt int64) {
 	tenantID := identity.TenantID(ctx)
-
 
 	var t *time.Time
 	if happenedAt > 0 {
@@ -203,13 +200,12 @@ type DouyinInteractionEvent struct {
 func (s CrmCustomerService) SyncFromDouyin(ctx context.Context, appID string, ev DouyinLeadEvent) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if ev.ExtUserID == "" {
 		return errors.New("ext_user_id 不能为空")
 	}
 
 	var c models.CrmCustomer
-	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelDouyin,  appID,  ev.ExtUserID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?", constants.ChannelDouyin, appID, ev.ExtUserID).First(&c).Error
 	switch {
 	case err == nil:
 		updates := map[string]any{}
@@ -232,7 +228,7 @@ func (s CrmCustomerService) SyncFromDouyin(ctx context.Context, appID string, ev
 			ExtCorpID:     appID,
 			ExtCustomerID: ev.ExtUserID,
 			AccountType:   "抖音",
-			PoolStatus:    1,
+			PoolStatus:    models.CustomerPoolIn,
 		}
 		now := time.Now()
 		c.PoolAt = &now
@@ -257,13 +253,12 @@ func (s CrmCustomerService) SyncFromDouyin(ctx context.Context, appID string, ev
 func (s CrmCustomerService) SyncInteractionFromDouyin(ctx context.Context, appID string, ev DouyinInteractionEvent) error {
 	tenantID := identity.TenantID(ctx)
 
-
 	if ev.ExtUserID == "" {
 		return errors.New("ext_user_id 不能为空")
 	}
 
 	var c models.CrmCustomer
-	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?",  constants.ChannelDouyin,  appID,  ev.ExtUserID).First(&c).Error
+	err := models.MustFor(ctx).Where("source = ? AND ext_corp_id = ? AND ext_customer_id = ?", constants.ChannelDouyin, appID, ev.ExtUserID).First(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c = models.CrmCustomer{
 			Model:         models.Model{ID: id_generator.StringID()},
@@ -273,7 +268,7 @@ func (s CrmCustomerService) SyncInteractionFromDouyin(ctx context.Context, appID
 			ExtCorpID:     appID,
 			ExtCustomerID: ev.ExtUserID,
 			AccountType:   "抖音",
-			PoolStatus:    1,
+			PoolStatus:    models.CustomerPoolIn,
 		}
 		now := time.Now()
 		c.PoolAt = &now
@@ -292,7 +287,6 @@ func (s CrmCustomerService) SyncInteractionFromDouyin(ctx context.Context, appID
 // recordDouyinInteraction 写一条抖音渠道互动记录。
 func (s CrmCustomerService) recordDouyinInteraction(ctx context.Context, customerID, actionType, content, extRef string, happenedAt int64) {
 	tenantID := identity.TenantID(ctx)
-
 
 	var t *time.Time
 	if happenedAt > 0 {

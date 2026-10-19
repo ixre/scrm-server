@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -18,13 +19,13 @@ type CustomerRemarkHandler struct {
 // @tags 客户管理
 // @Summary 添加自定义客户信息
 // @Produce  json
-// @Param params body requests.AddCustomerRemarkReq true "添加自定义客户信息请求"
+// @Param params body dto.AddCustomerRemarkReq true "添加自定义客户信息请求"
 // @Success 200 {object} app.JSONResult{data=models.CustomerRemark} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remark  [post]
 func (ch CustomerRemarkHandler) Create(c *gin.Context) {
-	req := requests.AddCustomerRemarkReq{}
+	req := dto.AddCustomerRemarkReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -106,14 +107,14 @@ func (ch CustomerRemarkHandler) Delete(c *gin.Context) {
 // Update
 // @tags 客户管理
 // @Summary 修改自定义客户信息
-// @Param params body  requests.UpdateRemarkReq true "修改自定义客户信息"
+// @Param params body  dto.UpdateRemarkReq true "修改自定义客户信息"
 // @Produce json
 // @Success 200 {object} app.JSONResult{data=models.CustomerRemark} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remark [put]
 func (ch CustomerRemarkHandler) Update(c *gin.Context) {
-	req := requests.UpdateRemarkReq{}
+	req := dto.UpdateRemarkReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -134,14 +135,14 @@ func (ch CustomerRemarkHandler) Update(c *gin.Context) {
 // ExchangeOrder
 // @tags 客户管理
 // @Summary 自定义客户信息-调整排序
-// @Param params body  requests.ExchangeOrderReq true "调整排序请求"
+// @Param params body  dto.ExchangeOrderReq true "调整排序请求"
 // @Produce json
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remark/action/exchange-order [put]
 func (ch CustomerRemarkHandler) ExchangeOrder(c *gin.Context) {
-	req := requests.ExchangeOrderReq{}
+	req := dto.ExchangeOrderReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -162,14 +163,14 @@ func (ch CustomerRemarkHandler) ExchangeOrder(c *gin.Context) {
 // AddRemarkOption
 // @tags 客户管理
 // @Summary 增加自定义客户类型-多选类型的选项
-// @Param params body requests.AddRemarkOptionReq true "新增选项请求"
+// @Param params body dto.AddRemarkOptionReq true "新增选项请求"
 // @Produce json
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remark/option [post]
 func (ch CustomerRemarkHandler) AddRemarkOption(c *gin.Context) {
-	req := requests.AddRemarkOptionReq{}
+	req := dto.AddRemarkOptionReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -190,14 +191,14 @@ func (ch CustomerRemarkHandler) AddRemarkOption(c *gin.Context) {
 // UpdateRemarkOption
 // @tags 客户管理
 // @Summary 更新自定义客户类型-多选类型的选项
-// @Param params body  requests.UpdateRemarkOptionReq true "选项名称"
+// @Param params body  dto.UpdateRemarkOptionReq true "选项名称"
 // @Produce json
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "请求错误"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/customer/remark/option [put]
 func (ch CustomerRemarkHandler) UpdateRemarkOption(c *gin.Context) {
-	req := requests.UpdateRemarkOptionReq{}
+	req := dto.UpdateRemarkOptionReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {

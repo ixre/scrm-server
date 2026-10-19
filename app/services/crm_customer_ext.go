@@ -1,6 +1,7 @@
 package services
 
 import (
+	"core/common/app"
 	"core/common/identity"
 
 	"context"
@@ -10,7 +11,6 @@ import (
 
 	"core/app/constants"
 	"core/app/models"
-	"core/common/app"
 	"core/common/log"
 
 	"gorm.io/gorm"
@@ -24,11 +24,7 @@ type CustomerPoolQueryReq struct {
 	Keyword  string
 }
 
-func (r CustomerPoolQueryReq) pager() *app.Pager {
-	p := &app.Pager{Page: r.Page, PageSize: r.PageSize}
-	p.SetDefault()
-	return p
-}
+func (r CustomerPoolQueryReq) pager() *app.Pager { return pagerOf(r.Page, r.PageSize) }
 
 type CrmCustomerExtService struct{}
 
@@ -239,7 +235,7 @@ func respondToReassign(ctx context.Context, ids []string, accept bool) (int64, e
 			return ErrCustomerAccess
 		}
 		for _, customer := range customers {
-			changes := map[string]any{"reassign_status": 0, "reassign_from": nil}
+			changes := map[string]any{"reassign_status": models.CustomerReassignNone, "reassign_from": nil}
 			if !accept {
 				var previous models.User
 				err := tx.Where("tenant_id = ? AND id = ? AND status = ?", user.TenantID, zeroID(customer.ReassignFrom), 1).First(&previous).Error
@@ -276,7 +272,7 @@ func (s CrmCustomerExtService) ReassignByTransfer(ctx context.Context, fromUserI
 		return 0, nil
 	}
 	res := models.DB.Model(&models.CrmCustomer{}).Scopes(models.TenantScope(tenantID)).Where("id IN ? AND owner_user_id <> ?", customerIDs, toUserID).
-		Updates(map[string]any{"owner_user_id": toUserID, "reassign_status": 1, "reassign_from": fromUserID})
+		Updates(map[string]any{"owner_user_id": toUserID, "reassign_status": models.CustomerReassignPending, "reassign_from": fromUserID})
 	if res.Error != nil {
 		log.Sugar.Errorw("crm customer reassign failed", "err", res.Error)
 	}

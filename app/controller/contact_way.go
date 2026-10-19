@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
 	"core/common/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type ContactWay struct {
@@ -24,13 +25,13 @@ func NewContactWay() *ContactWay {
 // @Summary 查询渠道码列表
 // @Produce  json
 // @Accept json
-// @Param params body requests.QueryContactWayReq true "查询渠道码列表请求"
+// @Param params body dto.QueryContactWayReq true "查询渠道码列表请求"
 // @Success 200 {object} app.JSONResult{data=app.ItemsData{items=[]responses.ContactWay}} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_ways [get]
 func (o *ContactWay) Query(c *gin.Context) {
-	req := requests.QueryContactWayReq{}
+	req := dto.QueryContactWayReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -44,7 +45,7 @@ func (o *ContactWay) Query(c *gin.Context) {
 		return
 	}
 
-	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	items, total, err := o.srv.Query(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Query failed")
@@ -79,7 +80,7 @@ func (o *ContactWay) Get(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id,consoleStaff.ExtCorpID)
+	item, err := o.srv.Get(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Get failed")
@@ -94,13 +95,13 @@ func (o *ContactWay) Get(c *gin.Context) {
 // @Summary 创建渠道码
 // @Produce  json
 // @Accept json
-// @Param params body requests.CreateContactWayReq true "创建渠道码请求"
+// @Param params body dto.CreateContactWayReq true "创建渠道码请求"
 // @Success 200 {object} app.JSONResult{data=models.ContactWay} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_way [post]
 func (o *ContactWay) Create(c *gin.Context) {
-	req := requests.CreateContactWayReq{}
+	req := dto.CreateContactWayReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -129,13 +130,13 @@ func (o *ContactWay) Create(c *gin.Context) {
 // @Produce  json
 // @Accept json
 // @Param id path string true "渠道码ID"
-// @Param params body requests.UpdateContactWayReq true "更新渠道码请求"
+// @Param params body dto.UpdateContactWayReq true "更新渠道码请求"
 // @Success 200 {object} app.JSONResult{data=models.ContactWay} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_way/{id} [put]
 func (o *ContactWay) Update(c *gin.Context) {
-	req := requests.UpdateContactWayReq{}
+	req := dto.UpdateContactWayReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -156,7 +157,7 @@ func (o *ContactWay) Update(c *gin.Context) {
 		return
 	}
 
-	item, err := o.srv.Update(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id, req,consoleStaff.ExtCorpID)
+	item, err := o.srv.Update(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), id, req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Update failed")
@@ -191,7 +192,7 @@ func (o *ContactWay) Delete(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.Delete(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.IDs,consoleStaff.ExtCorpID)
+	total, err := o.srv.Delete(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req.IDs, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "Delete failed")
@@ -206,13 +207,13 @@ func (o *ContactWay) Delete(c *gin.Context) {
 // @Summary 批量更新渠道码
 // @Produce  json
 // @Accept json
-// @Param params body requests.BatchUpdateContactWayReq true "批量更新渠道码请求"
+// @Param params body dto.BatchUpdateContactWayReq true "批量更新渠道码请求"
 // @Success 200 {object} app.JSONResult{data=integer} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff_admin/contact_way/action/batch-update [post]
 func (o *ContactWay) BatchUpdate(c *gin.Context) {
-	req := requests.BatchUpdateContactWayReq{}
+	req := dto.BatchUpdateContactWayReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -226,7 +227,7 @@ func (o *ContactWay) BatchUpdate(c *gin.Context) {
 		return
 	}
 
-	total, err := o.srv.BatchUpdate(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req,consoleStaff.ExtCorpID)
+	total, err := o.srv.BatchUpdate(services.SyncTenantCtx(context.Background(), consoleStaff.ExtCorpID), req, consoleStaff.ExtCorpID)
 
 	if err != nil {
 		err = errors.Wrap(err, "BatchUpdate failed")

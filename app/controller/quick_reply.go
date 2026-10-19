@@ -1,12 +1,8 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"net/http"
 	"core/app/constants"
-	"core/app/entities"
+	"core/app/dto"
 	"core/app/requests"
 	"core/app/services"
 	"core/common/app"
@@ -14,6 +10,10 @@ import (
 	"core/common/log"
 	"core/common/storage"
 	"core/conf"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"net/http"
 	"path"
 )
 
@@ -32,13 +32,13 @@ func NewQuickReply() *QuickReply {
 // @Summary 创建企业话术
 // @Produce  json
 // @Accept json
-// @Param params body entities.CreateQuickReplyReq true "创建企业话术"
+// @Param params body dto.CreateQuickReplyReq true "创建企业话术"
 // @Success 200 {object} app.JSONResult{} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply [post]
 func (r *QuickReply) Create(c *gin.Context) {
-	req := entities.CreateQuickReplyReq{}
+	req := dto.CreateQuickReplyReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -72,7 +72,7 @@ func (r *QuickReply) Create(c *gin.Context) {
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/staff-frontend/quick-replies [get]
 func (r *QuickReply) Query(c *gin.Context) {
-	req := requests.QueryQuickReplyReq{}
+	req := dto.QueryQuickReplyReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -101,13 +101,13 @@ func (r *QuickReply) Query(c *gin.Context) {
 // @Summary 删除企业话术库
 // @Produce  json
 // @Accept json
-// @Param params body entities.DeleteQuickReplyReq true "删除话术库请求"
+// @Param params body requests.DeleteQuickReplyReq true "删除话术库请求"
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply/action/delete [post]
 func (r *QuickReply) Delete(c *gin.Context) {
-	req := entities.DeleteQuickReplyReq{}
+	req := requests.DeleteQuickReplyReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -136,13 +136,13 @@ func (r *QuickReply) Delete(c *gin.Context) {
 // @Summary 更新企业话术库
 // @Produce  json
 // @Accept json
-// @Param params body entities.UpdateQuickReplyReq true "更新企业话术库"
+// @Param params body dto.UpdateQuickReplyReq true "更新企业话术库"
 // @Success 200 {object} app.JSONResult{data=bool} "成功"
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply [put]
 func (r *QuickReply) Update(c *gin.Context) {
-	req := entities.UpdateQuickReplyReq{}
+	req := dto.UpdateQuickReplyReq{}
 	handler := app.NewHandler(c)
 	ok, err := handler.BindAndValidateReq(&req)
 	if !ok {
@@ -175,8 +175,8 @@ func (r *QuickReply) Update(c *gin.Context) {
 // @Failure 400 {object} app.JSONResult{} "非法请求"
 // @Failure 500 {object} app.JSONResult{} "内部错误"
 // @Router /api/v1/console/quick-reply/action/get-upload-url [get]
-//上传图片得到图片URL，该URL永久有效
-//返回的图片URL，仅能用于图文消息正文中的图片展示，或者给客户发送欢迎语等
+// 上传图片得到图片URL，该URL永久有效
+// 返回的图片URL，仅能用于图文消息正文中的图片展示，或者给客户发送欢迎语等
 func (r *QuickReply) GetUploadURL(c *gin.Context) {
 	req := requests.GetUploadURLReq{}
 	handler := app.NewHandler(c)

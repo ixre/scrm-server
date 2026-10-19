@@ -1,8 +1,8 @@
 package services
 
 import (
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/app"
 	"core/common/dbutil"
 	"core/common/ecode"
@@ -23,7 +23,7 @@ func NewGroupChatTagGroup() *GroupChatTagGroup {
 	}
 }
 
-func (o GroupChatTagGroup) Create(req *requests.CreateGroupChatTagGroupReq, extCorpID string, extStaffID string) (models.GroupChatTagGroup, error) {
+func (o GroupChatTagGroup) Create(req *dto.CreateGroupChatTagGroupReq, extCorpID string, extStaffID string) (models.GroupChatTagGroup, error) {
 	tg := models.GroupChatTagGroup{
 		ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID(), ExtCreatorID: extStaffID, ExtCorpID: extCorpID},
 		Name:         req.Name,
@@ -49,7 +49,7 @@ func (o GroupChatTagGroup) Delete(ids []string) (int64, error) {
 	return o.model.Delete(ids)
 }
 
-func (o GroupChatTagGroup) Update(req *requests.UpdateGroupChatTagGroupReq, extCorpID string) (models.GroupChatTagGroup, error) {
+func (o GroupChatTagGroup) Update(req *dto.UpdateGroupChatTagGroupReq, extCorpID string) (models.GroupChatTagGroup, error) {
 	group := models.GroupChatTagGroup{
 		ExtCorpModel: models.ExtCorpModel{ID: req.ID, ExtCorpID: extCorpID},
 		Name:         req.Name,

@@ -72,7 +72,7 @@ func (s CrmSeasTypeService) Update(ctx context.Context, id string, st *models.Cr
 		"staff_ids": st.StaffIDs,
 		"remark":    st.Remark,
 	}
-	if err := models.MustFor(ctx).Where("id = ?", id).Updates(m).Error; err != nil {
+	if err := models.MustFor(ctx).Model(&models.CrmSeasType{}).Where("id = ?", id).Updates(m).Error; err != nil {
 		return err
 	}
 	return nil
@@ -236,7 +236,7 @@ func (s CrmLeadSourceService) Update(ctx context.Context, id string, src *models
 		"sort":    src.Sort,
 		"enabled": src.Enabled,
 	}
-	return models.MustFor(ctx).Where("id = ?", id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmLeadSource{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除线索来源。
@@ -457,7 +457,7 @@ func (s CrmReasonDictService) Update(ctx context.Context, id string, item *model
 		"sort":    item.Sort,
 		"enabled": item.Enabled,
 	}
-	return models.MustFor(ctx).Where("id = ?", id).Updates(m).Error
+	return models.MustFor(ctx).Model(&models.CrmReasonDict{}).Where("id = ?", id).Updates(m).Error
 }
 
 // Delete 删除原因。

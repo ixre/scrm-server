@@ -1,8 +1,8 @@
 package services
 
 import (
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/common/dbutil"
 	"core/common/ecode"
 	"core/common/id_generator"
@@ -46,7 +46,7 @@ func (cs CustomerRemarkService) Get(extCorpID string) (InfoRemark, error) {
 	return InfoRemark{DisplayRules: infoDisplayRules, Remark: remarks}, nil
 }
 
-func (cs CustomerRemarkService) Create(req *requests.AddCustomerRemarkReq, extCorpID string) (remark models.CustomerRemark, err error) {
+func (cs CustomerRemarkService) Create(req *dto.AddCustomerRemarkReq, extCorpID string) (remark models.CustomerRemark, err error) {
 	remark = models.CustomerRemark{
 		ExtCorpModel: models.ExtCorpModel{ID: id_generator.StringID()},
 		FieldType:    req.FieldType,
@@ -72,7 +72,7 @@ func (cs CustomerRemarkService) Delete(ids []string, ExtCorpID string) error {
 	return cs.remarkRepo.Delete(ids, ExtCorpID)
 }
 
-func (cs CustomerRemarkService) Update(req *requests.UpdateRemarkReq) (remark models.CustomerRemark, err error) {
+func (cs CustomerRemarkService) Update(req *dto.UpdateRemarkReq) (remark models.CustomerRemark, err error) {
 	remark = models.CustomerRemark{ExtCorpModel: models.ExtCorpModel{ID: req.ID}, Name: req.Name}
 	err = cs.remarkRepo.Update(remark)
 	if err != nil {
@@ -84,7 +84,7 @@ func (cs CustomerRemarkService) Update(req *requests.UpdateRemarkReq) (remark mo
 
 // --------------------------------------
 
-func (cs CustomerRemarkService) AddRemarkOption(req *requests.AddRemarkOptionReq) error {
+func (cs CustomerRemarkService) AddRemarkOption(req *dto.AddRemarkOptionReq) error {
 	return cs.optionRepo.Create(models.RemarkOption{
 		Model:    models.Model{ID: id_generator.StringID()},
 		RemarkID: req.RemarkID,
@@ -92,7 +92,7 @@ func (cs CustomerRemarkService) AddRemarkOption(req *requests.AddRemarkOptionReq
 	})
 }
 
-func (cs CustomerRemarkService) UpdateRemarkOption(req *requests.UpdateRemarkOptionReq) error {
+func (cs CustomerRemarkService) UpdateRemarkOption(req *dto.UpdateRemarkOptionReq) error {
 	textOption := &models.RemarkOption{
 		Model: models.Model{ID: req.RemarkOptionID},
 		Name:  req.Name,
@@ -111,6 +111,6 @@ func (cs CustomerRemarkService) DeleteRemarkOption(ids []string) error {
 	return cs.optionRepo.Delete(ids)
 }
 
-func (cs CustomerRemarkService) ExchangeOrder(req *requests.ExchangeOrderReq) error {
+func (cs CustomerRemarkService) ExchangeOrder(req *dto.ExchangeOrderReq) error {
 	return cs.remarkRepo.ExchangeOrder(req.ID, req.ExchangeOrderID)
 }

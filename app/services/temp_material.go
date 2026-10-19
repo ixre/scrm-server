@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"net/http"
 	url2 "net/url"
-	"core/app/entities"
+	"core/app/dto"
 	"core/common/ecode"
 	"core/common/storage"
 	"core/common/we_work"
@@ -23,7 +23,7 @@ func NewTempMaterial() *TempMaterial {
 	return &TempMaterial{}
 }
 
-func (o TempMaterial) UploadMedia(req entities.UploadMaterialReq, extCorpID string) (*workwx.MediaUploadResult, error) {
+func (o TempMaterial) UploadMedia(req dto.UploadTempMaterialReq, extCorpID string) (*workwx.MediaUploadResult, error) {
 	client, err := we_work.Clients.Get(extCorpID)
 	if err != nil {
 		return nil, err

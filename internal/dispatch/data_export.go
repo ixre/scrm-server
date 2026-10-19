@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/services"
 	"core/common/storage"
 	"core/conf"
@@ -31,7 +31,7 @@ func fullPathToSignedURL(fullPath string) (string, error) {
 }
 
 func dataExportGroupChatList(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.QueryGroupChatReq
+	var req dto.QueryGroupChatReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func dataExportGroupChatList(ctx context.Context, corpID, _ string, params json.
 }
 
 func dataExportDeleteStaffWarningList(ctx context.Context, corpID, _ string, params json.RawMessage) (any, error) {
-	var req requests.DataExportReq
+	var req dto.DataExportReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func dataExportDeleteStaffWarningList(ctx context.Context, corpID, _ string, par
 }
 
 func dataExportGenTask(ctx context.Context, corpID, staffID string, params json.RawMessage) (any, error) {
-	var req requests.DataExportReq
+	var req dto.DataExportReq
 	if err := Bind(params, &req); err != nil {
 		return nil, err
 	}

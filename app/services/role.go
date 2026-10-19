@@ -2,8 +2,8 @@ package services
 
 import (
 	"core/app/constants"
+	"core/app/dto"
 	"core/app/models"
-	"core/app/requests"
 	"core/app/responses"
 	"core/common/app"
 	"core/common/id_generator"
@@ -20,7 +20,7 @@ func NewRole() *Role {
 	return &Role{model: models.Role{}}
 }
 
-func (o *Role) Query(req requests.QueryRoleReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []responses.Role, total int64, err error) {
+func (o *Role) Query(req dto.QueryRoleReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []responses.Role, total int64, err error) {
 	param := models.Role{}
 	err = copier.Copy(&param, req)
 	if err != nil {
@@ -82,7 +82,7 @@ func (o *Role) Get(id string, extCorpID string) (item responses.Role, err error)
 	return
 }
 
-func (o *Role) Create(param requests.CreateRoleReq, extCorpID string) (item models.Role, err error) {
+func (o *Role) Create(param dto.CreateRoleReq, extCorpID string) (item models.Role, err error) {
 	err = copier.Copy(&item, param)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -93,7 +93,7 @@ func (o *Role) Create(param requests.CreateRoleReq, extCorpID string) (item mode
 	return o.model.Create(item, extCorpID)
 }
 
-func (o *Role) Update(id string, param requests.UpdateRoleReq, extCorpID string) (item models.Role, err error) {
+func (o *Role) Update(id string, param dto.UpdateRoleReq, extCorpID string) (item models.Role, err error) {
 	err = copier.Copy(&item, param)
 	if err != nil {
 		err = errors.Wrap(err, "copier.Copy failed")
@@ -107,7 +107,7 @@ func (o *Role) AssignToStaffs(extStaffIDs []string, roleID string, extCorpID str
 	return o.model.AssignToStaffs(extStaffIDs, roleID, extCorpID)
 }
 
-func (o *Role) QueryStaffs(req requests.QueryRoleStaffsReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []models.Staff, total int64, err error) {
+func (o *Role) QueryStaffs(req dto.QueryRoleStaffsReq, extCorpID string, sorter *app.Sorter, pager *app.Pager) (items []models.Staff, total int64, err error) {
 	param := models.Staff{}
 	err = copier.Copy(&param, req)
 	if err != nil {
